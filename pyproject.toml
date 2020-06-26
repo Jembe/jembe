@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "jembe"
+version = "0.3.0"
+description = "Jembe core package new concept"
+authors = ["Predrag Peranovic <predrag.peranovic@blokkod.me>"]
+license = "AGPL-3.0-only"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+black = "^19.10b0"
+mypy = "^0.780"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

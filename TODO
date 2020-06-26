@@ -1,0 +1,20 @@
+Define API for components:
+    ✔ Page @done(20-06-13 17:30)
+    ✔ Simple counter @done(20-06-13 18:14)
+    ☐ InterComponent Comunication
+        ☐ Global navigation
+        ☐ Global navigation links
+        ☐ Breadcrumb
+        ☐ Call action from another component
+        ☐ Render another component
+        ☐ link to action in another component
+        ☐ LInk to another component
+    ☐ Date picker
+    ☐ Lookup field
+    ☐ Simple static form
+    ☐ Form with lookup and datepicker
+    ☐ form validation
+    ☐ Complex form with depended fields
+    ☐ Searchable table/grid
+    ☐ Notifications
+    ☐ File uploads
