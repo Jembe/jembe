@@ -146,8 +146,9 @@ class ViewBlogPost(Component):
             """
         Ver 1:
         <nav><a jmb:click="emit_up('close')">Display all blogs</a></nav>
-        Ver 2, finds component on page via javascript and call action of that component:
-        <nav><a jmb:click="component('..', key=None).call('display')">Display all blogs</a></nav>
+        Ver 2, finds component on page via javascript and call action of that component if component cant be found 
+        submits request to compoent with empty existing model data:
+        <nav><a jmb:click="$component('..', key=None).call('display')">Display all blogs</a></nav>
         <h2>{{blog_post.title}}</h2>
         <div>{{blog_post.content}}</div>
 
@@ -441,7 +442,7 @@ class GlobalNavigation(Component):
             {% for link in links %}
                 <li>
                     <a 
-                        jmb:click="component(
+                        jmb:click="$component(
                             {{link.action.component_full_name}}
                         ).call(
                             {{link.action.name|default:'display'}}
