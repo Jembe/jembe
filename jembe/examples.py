@@ -1,6 +1,6 @@
 from typing import Optional, Union
 from uuid import UUID
-from .jembe import Component, App, page, config, Event, action, listener
+from .jembe import Component, App, page, config, Event, action, listener, singleton
 from flask import session
 
 
@@ -146,7 +146,8 @@ class ViewBlogPost(Component):
             """
         Ver 1:
         <nav><a jmb:click="emit_up('close')">Display all blogs</a></nav>
-        Ver 2, finds component on page via javascript and call action of that component if component cant be found 
+        Ver 2, finds component on page via javascript and call action of that component 
+        if component cant be found 
         submits request to compoent with empty existing model data:
         <nav><a jmb:click="$component('..', key=None).call('display')">Display all blogs</a></nav>
         <h2>{{blog_post.title}}</h2>
@@ -195,23 +196,23 @@ class Blog(Component):
         self.page -= 1
         return self.display()
 
-    @action
-    def display_blog(self, uuid: "UUID"):
-        return self._render_template_string(
-            """
-                {{component("blog", uuid)}}
-            """,
-            uuid=uuid,
-        )
+    # @listener
+    # def _on_close(self, event: "Event"):
+    #     if event.name == "close" and event.source.releative_path(self) == "blog":
+    #         return self.display()
 
-    @listener
-    def _on_close(self, event: "Event"):
-        if event.name == "close" and event.source.releative_path(self) == "blog":
-            return self.display()
-
-    # @listener("close", ".blog")
+    # @listener("close", "blog")
     # def _on_close(self, event: "Event"):
     #     return self.display()
+    @listener("display", "blog")
+    def _on_display_blog(self, event: "Event"):
+        return self._render_template_string(
+            """
+            {{component(blog_component)}}
+            """,
+            blog_component=event.source,
+        )
+        # return self.display_blog(event.source.uuid)
 
     def _url(self) -> str:
         """
@@ -225,20 +226,33 @@ class Blog(Component):
             p=self.init_params.page,
         )
 
+    # @action
+    # def display_blog(self, uuid: "UUID"):
+    #     return self._render_template_string(
+    #         """
+    #             {{component("blog", uuid)}}
+    #         """,
+    #         uuid=uuid,
+    #     )
+
     @action
     def display(self):
         self.blogs = query(Blog).order_by(self.order_by)[
             self.page * self.page_size : (self.page + 1) * self.page_size
         ]
+
         return self._render_template_string(
             """
-        <a href="#" jmb:click="next_page()">Prev</a> 
-        <a href="#" jmb:click="prev_page()">Next</a> 
-        <ul>
-        {%for blog in blogs%}
-            <li><a href="#" jmb:click="display_blog(blog.uuid)">{{blog.title}}</li>
-        {%%}
-        </ul>
+            <a href="#" jmb:click="next_page()">Prev</a> 
+            <a href="#" jmb:click="prev_page()">Next</a> 
+            <ul>
+            # {% for blog in blogs %}
+            #     <li><a href="#" jmb:click="display_blog(blog.uuid)">{{blog.title}}</li>
+            # {% endfor %}
+            {% for blog in blogs %}
+                <li><a href="#" jmb:click="$component("blog", uuid=blog.uuid)">{{blog.title}}</li>
+            {% endfor %}
+            </ul>
         """
         )
 
@@ -413,6 +427,7 @@ class EditRecord(Component):
 class NavLink:
     def __init__(
         self,
+        name: str,
         component_full_name: Optional[str] = None,
         action_name: str = "display",
         url: Optional[str] = None,
@@ -435,6 +450,9 @@ class GlobalNavigationService:
 
 
 class GlobalNavigation(Component):
+    def __init__(self):
+        self.links = GlobalNavigationService().links
+
     def display(self):
         return self._render_template_string(
             """
@@ -457,4 +475,139 @@ class GlobalNavigation(Component):
             </ul> 
             """
         )
+
+
+# $component
+# $ -- means that is javascript magic request
+# $component().call(action_name) will always send
+# name of the source compoent that invoked request and all existing component on the page
+# allowing processor to determine if whole page should be rendered
+# or just specific requested component
+
+
 # TODO create pages that uses and displays global navigation
+########
+# Create two page with components to simulate usage of global navigation
+########
+class UsersComponentGN(Component):
+    pass
+
+
+class GroupsComponentGN(Component):
+    pass
+
+
+class InvoicesComponentGN(Component):
+    pass
+
+
+class CustomersComponentGN(Component):
+    pass
+
+
+@page(
+    "settings2_gn",
+    Component.Config(
+        components={
+            "global_navigation": GlobalNavigation,
+            "users": UsersComponentGN,
+            "groups": GroupsComponentGN,
+        }
+    ),
+)
+class Settings2PageGN(Component):
+    @listener("display")
+    def _on_display_child(self, event: "Event"):
+        if (
+            event.source._config.relative_name(self) in ("users", "groups")
+            and event.source._is_requested_directly()
+        ):
+            return self._render_template_string(
+                """
+                ...
+                {{component("global_navigation")}}
+                {{componet(child_component)}}
+                ...
+                """,
+                child_component=event.source,
+            )
+
+    def display(self):
+        return self._render_template_string(
+            """
+            ...
+            {{component("global_navigation")}}
+            ver 1:
+            <div>Dashboard of some sort</div>
+            ver 2:
+            Display default users
+            {{component("users")}}
+            ...
+            """
+        )
+
+
+@page(
+    "main2_gn",
+    Component.Config(
+        components={
+            "global_navigation": GlobalNavigation,
+            "invoices": InvoicesComponentGN,
+            "customers": CustomersComponentGN,
+        }
+    ),
+)
+class Main2PageGN(Component):
+    @listener("display", source_name=("invoices", "customers"), requested_directly=True)
+    def _on_display_child(self, event: "Event"):
+        return self._render_template_string(
+            """
+            ...
+            {{component("global_navigation")}}
+            {{componet(child_component)}}
+            ...
+            """,
+            child_component=event.source,
+        )
+
+    def display(self):
+        return self._render_template_string(
+            """
+            ...
+            {{component("global_navigation")}}
+            ver 1:
+            <div>Dashboard of some sort</div>
+            ver 2:
+            Display default users
+            {{component("invoices")}}
+            ...
+            """
+        )
+
+
+GlobalNavigationService().add_links(
+    NavLink("users", "/setting2_gn/users"),
+    NavLink("groups", "/setting2_gn/groups"),
+    NavLink("invoices", "/main2_gn/invoices"),
+    NavLink("customers", "/main2_gn/customers"),
+)
+# No module name in full name
+# It is simpler to just use convencition that prefix page names with
+# "module" name like "jembeui_users", "jembeui_main", "finance_main", "finance_settings" etc.
+
+
+# Breadcrumb ??
+# every componet has its breadcrumb name acuired from init params
+# every component can have title that is used for breadcrumb
+GlobalBreadcrumbService().add_components(
+    Breadcrumb(
+        "/main", lambda component: _("Main page"), lambda component: ActionLink("/main")
+    ),
+    Breadcrumb("/main/users", _("Users"), ActionLink("/main/users")),
+    Breadcrumb(
+        "/main/users/view",
+        lambda component: "View {}".format(component.user),
+        lambda component: component._action_link,
+    ),
+    Breadcrumb("/main/users/edit", lambda component: component._config.title),
+)

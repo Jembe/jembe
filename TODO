@@ -2,8 +2,8 @@ Define API for components:
     ✔ Page @done(20-06-13 17:30)
     ✔ Simple counter @done(20-06-13 18:14)
     ☐ InterComponent Comunication
-        ☐ Global navigation
-        ☐ Global navigation links
+        ✔ Global navigation @done(20-06-29 09:39)
+        ✔ Global navigation links @done(20-06-29 09:39)
         ☐ Breadcrumb
         ☐ Call action from another component
         ☐ Render another component
