@@ -9,8 +9,18 @@ __all__ = (
     "action",
     "listener",
     "singleton",
+    "execute_last"
 )
 
+def execute_last(action):
+    """
+    Decorator signaling jembe processor to execute this action after
+    all other actions on its level are executed.
+
+    Usefull if we need to create breadcrumb or other summary report 
+    based from already executed actions
+    """
+    raise NotImplementedError()
 
 def page(name: str, component_config: Optional["ComponentConfig"] = None):
     """Decorator that adds page to App"""
@@ -154,13 +164,14 @@ class ComponentConfig:
 class Component:
     """
 
-    1. All instance variables that are defined by user and dont start with underscore are aviable in
-       template context
-    2. All methods defined by user that don't start with underscore are actions that can be called via ajax 
-       request
+    1. All instance variables that are defined by user and dont start with 
+        underscore are aviable in template context
+    2. All methods defined by user that don't start with underscore are 
+        actions that can be called via ajax request
 
-    3. All paramters of __init__ method are forwarded tu client and are send back wia ajax together with call to
-      any action in order to reinitialise state of the component
+    3. All paramters of __init__ method are forwarded tu client and are 
+        send back wia ajax together with call to any action in order to 
+        reinitialise state of the component
     4. If component is unaccessible mount should raise Error ??
 
 
@@ -206,8 +217,8 @@ class Component:
         """returns http query param named param_name if exist with as string
         developr should converti it to proper type
 
-        if query param not exist or http request is not directed primary to this compononet
-        return default_values[0] or raise error"""
+        if query param not exist or http request is not directed primary to 
+        this compononet return default_values[0] or raise error"""
         return ""
 
     def _set_key(self, key: str) -> "Component":
