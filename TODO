@@ -9,6 +9,8 @@ Define API for components:
         ☐ Render another component
         ☐ link to action in another component
         ☐ LInk to another component
+    ☐ Map
+    ☐ Other componont with heavy use of javascript
     ☐ Date picker
     ☐ Lookup field
     ☐ Simple static form

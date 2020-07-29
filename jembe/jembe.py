@@ -3,14 +3,16 @@ from typing import List, Optional, Type, Tuple, Dict, Union
 __all__ = (
     "App",
     "Component",
+    "Processor",
     "page",
     "config",
     "Event",
     "action",
     "listener",
     "singleton",
-    "execute_last"
+    "execute_last",
 )
+
 
 def execute_last(action):
     """
@@ -21,6 +23,7 @@ def execute_last(action):
     based from already executed actions
     """
     raise NotImplementedError()
+
 
 def page(name: str, component_config: Optional["ComponentConfig"] = None):
     """Decorator that adds page to App"""
@@ -97,6 +100,9 @@ class App:
 
 class ComponentConfig:
     """
+    Compononent config defines behavior of all instances of component that
+    are known at build time, like: url_path, subcomponents, name etc.
+
     Component config must have metaclass which will "decorate" __init__
     to save raw __init__ params in ._raw_init_params to enable
     @page decorator, components config params and @config decorator to work
@@ -107,7 +113,9 @@ class ComponentConfig:
         name: Optional[str] = None,
         url_path: Optional[str] = None,
         template: Optional[str] = None,
-        components: Optional[Dict[str, Tuple["Component", "ComponentConfig"]]] = None,
+        components: Optional[
+            Dict[str, Union[Tuple["Component", "ComponentConfig"], "Component"]]
+        ] = None,
         public_actions: Optional[Tuple[str, ...]] = None,
         public_model: Optional[Tuple[str, ...]] = None,
         default_action: str = "display",
@@ -156,25 +164,26 @@ class ComponentConfig:
         # TODO check name if its valid and can be used as url_path
         self.url_path = self.url_path if self.url_path is not None else self.name
         # self.uuid
-        
+
         # set initialised child components configs
-        self.components_configs:Dict[str, ComponentConfig] = {} 
+        self.components_configs: Dict[str, ComponentConfig] = {}
 
 
 class Component:
     """
+    Represents UI self suficient component with its HTML representations and
+    behaviors.
 
     1. All instance variables that are defined by user and dont start with 
         underscore are aviable in template context
-    2. All methods defined by user that don't start with underscore are 
-        actions that can be called via ajax request
+    2. All methods decorated with @action or defined in Component.Config(public_actions) 
+        are actions that can be called via ajax request
 
-    3. All paramters of __init__ method are forwarded tu client and are 
-        send back wia ajax together with call to any action in order to 
-        reinitialise state of the component
-    4. If component is unaccessible mount should raise Error ??
-
-
+    3. All paramters of __init__ method that don't begin with underscore
+        or whose name is listed Component.Config(public_model)
+        are forwarded tu client and are send back wia ajax together 
+        with call to any action in order to reinitialise state of the component
+    4. If component is unaccessible __init__ should raise Error ??
     """
 
     class Config(ComponentConfig):
@@ -183,13 +192,32 @@ class Component:
     # def __init__(self, key: Optional[Union[str, int]] = None):
     #     self.key = key
     def __init__(self):
+        """
+        __init__ parameters if exist should be runtime parameters like:
+        currnet record id, current user etc.
 
-        # Sets and updated by processor 
+        Paramters whose name doesn't begin with underscore are send back and
+        forth via ajax request in order to reinitialise current state of the component.
+
+        Parameters whose name doesn't begin with underscore and thay DO NOT have
+        default value (*args) are used to build url_path if url_path is not provided.
+
+        Parameters whose name begins with underscore "_" are so called
+        performance parameters and should be obtainable from state parameters
+        of __init__. Thay are used to avoid doing same calculations multiple times
+        by different components. 
+
+        For example if record is already obtained from database calling edit component
+        with EditRecordComponent.__init__(record_id=record.id, _record=record)
+        should avoid aditionally quering database.
+        """
+
+        # Sets and updated by processor
         # Child component created by processor when parsing url
-        self.child_component:Optional["Component"] = None 
+        self.child_component: Optional["Component"] = None
         # Child components created when rendering this component including
         # child component created by processor when parsing url if exist
-        self.child_components:List["Component"] = []
+        self.child_components: List["Component"] = []
 
     # def mount(self):
     #     pass
@@ -213,13 +241,16 @@ class Component:
         """
         pass
 
-    def _get_query_param(self, param_name: str, *default_values) -> str:
-        """returns http query param named param_name if exist with as string
+    def get_query_param(self, param_name: str, *default_values) -> str:
+        """
+        returns http query param named param_name if exist with as string
         developr should converti it to proper type
 
         if query param not exist or http request is not directed primary to 
-        this compononet return default_values[0] or raise error"""
-        return ""
+        this compononet return default_values[0] or raise error
+        """
+        raise NotImplementedError()
+        # return ""
 
     def _set_key(self, key: str) -> "Component":
         self._key = key
@@ -229,6 +260,25 @@ class Component:
         """Returns true if this component is directly called via http request"""
         raise NotImplementedError()
 
+    def url(self) -> str:
+        """
+        Returns url of this component build using url_path of parent
+        components and url_path of this component
+        """
+        raise NotImplementedError()
+
 
 class Event:
     pass
+
+
+class Processor:
+    """
+    1. Will use deapest component.url from all components on the page as window.location
+    2. When any component action or listener returns template string default 
+        action (display) will not be called instead returned template string
+        will be used to render compononet 
+    """
+
+    pass
+

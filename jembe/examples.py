@@ -12,6 +12,7 @@ from .jembe import (
     singleton,
     execute_last,
 )
+from .utils import build_url
 from flask import session
 
 
@@ -60,7 +61,8 @@ App.add_page("mtpage", PageMultipleTemplates)
 
 
 class BlogPostPage(Component):
-    """Simple dynamic page that displays different BlogPost
+    """
+    Simple dynamic page that displays different BlogPost
     depending of url it is used
     """
 
@@ -70,13 +72,13 @@ class BlogPostPage(Component):
 
     def __init__(self, blog_name: str):
         """
-        self.state_params["blog_name"] = blog_name will be set by jembe processor
+        self.init_params["blog_name"] = blog_name will be set by jembe processor
         Jembe processor will also check if the type and value are valid
         """
         self.blog_post = query(Blog).filter(name=blog_name).first()
 
     # def mount(self):
-    #     self.blog_post = query(Blog).filter(name=self.url_params.blog_name).first()
+    #     self.blog_post = query(Blog).filter(name=self.init_params.blog_name).first()
 
     # blogpostpage.jinja2:
     # <div>{{blog_post.name}}</div><div>{{blog_post.content}}</div>
@@ -100,7 +102,7 @@ class NewsPage(Component):
         self.news = query(News).filter(id=news_id).first()
 
     # def mount(self):
-    #     self.news = query(News).filter(id=self.url_params.news_id).first()
+    #     self.news = query(News).filter(id=self.init_params.news_id).first()
 
     # def display(self):
     #     return self.render_template_string("""
@@ -117,10 +119,10 @@ class BlogPostWithInlineTemplatePage(Component):
 
     def __init__(self, blog_id: int):
         """Url path is created by default as <int:blog_id>"""
-        self.blog_post = query(Blog).get(self.url_params.blog_id)
+        self.blog_post = query(Blog).get(blog_id)
 
     # def mount(self):
-    #     self.blog_post = query(Blog).get(self.url_params.blog_id)
+    #     self.blog_post = query(Blog).get(self.init_params.blog_id)
 
     @action
     def display(self):
@@ -128,7 +130,7 @@ class BlogPostWithInlineTemplatePage(Component):
             """
             <h1>{{blog_post.title}}</h1>
             <div>{{blog_post.content}}</div>
-        """
+            """
         )
 
 
@@ -136,7 +138,6 @@ class BlogPostWithInlineTemplatePage(Component):
 # SimpleBlog with list and view
 ###################
 # @config(Component.Config(url_path="<uuid:news_uuid>"))
-@config()
 class ViewBlogPost(Component):
     # def mount(self):
     #     self.blog_post = query(Blog).filter(uuid=self.url_params.news_uuid).first()
@@ -156,11 +157,12 @@ class ViewBlogPost(Component):
         return self._render_template_string(
             """
         Ver 1:
-        <nav><a jmb:click="emit_up('close')">Display all blogs</a></nav>
+        <nav><a jmb:click="$emit_up('close')">Display all blogs</a></nav>
         Ver 2, finds component on page via javascript and call action of that component 
-        if component cant be found 
-        submits request to compoent with empty existing model data:
-        <nav><a jmb:click="$component('..', key=None).call('display')">Display all blogs</a></nav>
+        if component cant be found submits request to compoent with empty existing model data:
+        # <nav><a jmb:click="$component('..', key=null).call('display')">Display all blogs</a></nav>
+        <nav><a jmb:click="$component('..')">Display all blogs</a></nav>
+
         <h2>{{blog_post.title}}</h2>
         <div>{{blog_post.content}}</div>
 
@@ -177,7 +179,7 @@ class Blog(Component):
         page: Optional[int] = None,
     ):
         """
-        orderby, pagesize, and page are regular state param that can be used query params
+        orderby, pagesize, and page are regular state param that can be used as query params
         """
         self.order_by = (
             order_by if order_by is not None else self.get_query_param("oby", "-id")
@@ -189,14 +191,18 @@ class Blog(Component):
         )
         self.page = page if page is not None else int(self.get_query_param("p", 25))
 
-    # def mount(self):
-    #     self.order_by = self.query_params.get("order_by", "-date")
-    #     self.page_size = self.query_params.get("page_size", 25)
-    #     self.page = self.query_params.get("page", 0)
+    def url(self) -> str:
+        """
+        bulding url (window.location) in order to allow navigation bach forward
+        and sharing urls
+        """
+        return build_url(
+            super.url(),
+            oby=self.init_params.order_by,
+            psize=self.init_params.page_size,
+            p=self.init_params.page,
+        )
 
-    #     self.blogs = query(Blog).order_by(self.order_by)[
-    #         self.page * self.page_size : (self.page + 1) * self.page_size
-    #     ]
     @action
     def next_page(self):
         self.page += 1
@@ -208,43 +214,13 @@ class Blog(Component):
         return self.display()
 
     # @listener
-    # def _on_close(self, event: "Event"):
+    # def on_close(self, event: "Event"):
     #     if event.name == "close" and event.source.releative_path(self) == "blog":
     #         return self.display()
 
     # @listener("close", "blog")
-    # def _on_close(self, event: "Event"):
+    # def on_close(self, event: "Event"):
     #     return self.display()
-    @listener("display", "blog")
-    def _on_display_blog(self, event: "Event"):
-        return self._render_template_string(
-            """
-            {{component(blog_component)}}
-            """,
-            blog_component=event.source,
-        )
-        # return self.display_blog(event.source.uuid)
-
-    def _url(self) -> str:
-        """
-        bulding url (window.location) in order to allow navigation bach forward
-        and sharing urls
-        """
-        return self._build_url(
-            super.url(),
-            oby=self.init_params.order_by,
-            psize=self.init_params.page_size,
-            p=self.init_params.page,
-        )
-
-    # @action
-    # def display_blog(self, uuid: "UUID"):
-    #     return self._render_template_string(
-    #         """
-    #             {{component("blog", uuid)}}
-    #         """,
-    #         uuid=uuid,
-    #     )
 
     @action
     def display(self):
@@ -267,10 +243,24 @@ class Blog(Component):
         """
         )
 
+    # @listener
+    # def on_display_blog(self, event: "Event"):
+    #     if event.name == "display" and event.source.releative_path(self) == "blog":
+    #         ....
+    @listener("display", "blog")
+    def on_display_blog(self, event: "Event"):
+        return self._render_template_string(
+            """
+            {{component(blog_component)}}
+            """,
+            blog_component=event.source,
+        )
+
 
 ####################
 # Page with counter
 ###################
+# @page("counter", Component.Config(components={"counter": Counter}))
 @page("counter")
 class CounterPage(Component):
     class Config(Component.Config):
@@ -308,10 +298,17 @@ class Counter(Component):
             """
         <div>{{counter}}</div>
         <button jmb:click="increase({{increase_by}})" type="button">Increase</button>
-        <div>By: <input jmb:model="increase_by" type="number" value="1"></div>
+        <div>By: <input jmb:model="increase_by" type="number"></div>
+        # <div>By: <input value="{{increase_by}}" onchange="$set('increase_by', $this.value)" type="number"></div>
+        # $this is magic property that reference javascript current element
+        # $set will chage init property of component and call display of that component via ajax
+        <button jmb:click="increase(10)" type="button">Increase by 10</button>
         """
         )
-
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 @page("counter2", Component.Config(components={"counter": Counter2}))
 class Counter2Page(Component):
@@ -503,9 +500,7 @@ class GlobalNavigationService:
         self.items.extends(items)
         # add to BreadCrumbService also
 
-    def get_menu_path(
-        self, component_full_name: str
-    ) -> Sequence[Union["Menu", "JRL"]]:
+    def get_menu_path(self, component_full_name: str) -> Sequence[Union["Menu", "JRL"]]:
         raise NotImplementedError()
         # pseudo
         # depest_menu_name =""
