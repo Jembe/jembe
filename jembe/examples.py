@@ -1,5 +1,6 @@
 from typing import Optional, Union, Sequence, Dict, Callable, List, Any
 from collections import namedtuple
+from itertools import chain
 from uuid import UUID
 from .jembe import (
     Component,
@@ -10,7 +11,6 @@ from .jembe import (
     action,
     listener,
     singleton,
-    execute_last,
 )
 from .utils import *
 from flask import session
@@ -362,7 +362,7 @@ class EditRecord(Component):
             url_path: Optional[str] = None,
             model: Optional[str] = None,
             form: Optional["Form"] = None,
-            **params
+            **params,
         ):
             self.model = model
             self.form = form
@@ -431,6 +431,10 @@ class NavigationItem:
     def is_menu(self) -> bool:
         return not self.is_link
 
+    @property
+    def jrl(self) -> Optional[str]:
+        return None
+
 
 class JRL(NavigationItem):
     """
@@ -456,9 +460,20 @@ class JRL(NavigationItem):
             url is None and component_full_name is None
         ):
             raise ValueError()
+        self.name = name
+        self.component_full_name = component_full_name
+        self.components_params = components_params
+        self.components_keys = components_keys
+        self.action_name = action_name
+        self.action_params = action_params
+        self.url = url
+        self.target = target
+        self.title = title
+        self.help_text = help_text
+        self.icon = icon
 
     @property
-    def jrl(self):
+    def jrl(self) -> Optional[str]:
         if self.url:
             return (
                 '$url({}, target="{}")'.format(self.url, self.target)
@@ -484,13 +499,13 @@ class Menu(NavigationItem):
         title: Optional[str] = None,
         help_text: Optional[str] = None,
         icon: Optional[str] = None,
-        items: Sequence[Union["Menu", "JRL"]] = ()
+        items: Sequence[Union["Menu", "JRL"]] = (),
     ):
         self.name = name
         self.title = title
         self.help_text = help_text
         self.icon = icon
-        self.items:list = list(items)
+        self.items: list = list(items)
 
     @property
     def is_link(self) -> bool:
@@ -529,11 +544,25 @@ class GlobalNavigationService:
             )
         # TODO add support for at, at_start, before and after
         self.items.extends(items)
-        # TODO add to BreadCrumbService also
 
-    def get_menu_path(self, component_full_name: str) -> Sequence[Union["Menu", "JRL"]]:
+        # # Add to BreadCrumbService also
+        # for item in items:
+        #     if item.component_full_name is not None:
+        #         GlobalBreadcrumbService().add(
+        #             Breadcrumb.init_for_global_menu(item.component_full_name)
+        #         )
+
+    def get(self, menu_full_name: str) -> Union["JRL", "Menu"]:
+        """Returns menu item with supplied manu_full_name"""
+        # example: get("/main/auth/users")
+        raise NotImplementedError()
+
+    def get_menu_path(
+        self, component_full_name: str, partial=False
+    ) -> Sequence[Union["Menu", "JRL"]]:
         """
         Used by breadcrumb service to get menupath of current component
+        partial = True returns menu path from previous componet JRL item to componet_full_name component
         """
         raise NotImplementedError()
         # pseudo
@@ -748,12 +777,16 @@ class Main2PageGN(Component):
                 """
             )
 
+
 GlobalNavigationService().add(
-    Menu("main", items=[
-        JRL("invoices", "/main2_gn/invoices"),
-        JRL("customers", "/main2_gn/customers"),
-    ]),
-    Menu("settings", "Settings")
+    Menu(
+        "main",
+        items=[
+            JRL("invoices", "/main2_gn/invoices"),
+            JRL("customers", "/main2_gn/customers"),
+        ],
+    ),
+    Menu("settings", "Settings"),
 )
 
 GlobalNavigationService().add(
@@ -765,12 +798,6 @@ GlobalNavigationService().add(
 # It is simpler to just use convencition that prefix page names with
 # "module" name like "jembeui_users", "jembeui_main", "finance_main", "finance_settings" etc.
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 Crumb = namedtuple("Crumb", ["title", "jrl"])
 
 
@@ -778,59 +805,71 @@ class Breadcrumb:
     def __init__(
         self,
         component_full_name: str,
-        get_crumbs: Callable[["Component"], Sequence[Crumb]]
-        # get_title: Union[str, Callable[["Component"], str]],
-        # get_url: Optional[Union[str, Callable[["Component"], str]]] = None,
+        get_crumbs: Callable[["Component"], Sequence[Crumb]],
     ):
         """
         component_full_name must start with /
         """
         self.component_full_name = component_full_name
+        self.get_crumbs = get_crumbs
 
     @classmethod
-    def init_for_global_menu(cls, menu_name: str) -> Breadcrumb:
-        jrl = GlobalNavigationService().get_item(menu_name)
+    def init_for_global_menu(cls, menu_full_name: str) -> Breadcrumb:
+        jrl = GlobalNavigationService().get(menu_full_name)
+        if not isinstance(jrl, JRL) or jrl.component_full_name is None:
+            raise ValueError()
         return cls(jrl.component_full_name, cls.get_crumbs_from_global_menu)
 
     @classmethod
     def get_crumbs_from_global_menu(cls, component: "Component") -> Sequence[Crumb]:
         gns = GlobalNavigationService()
         menu_path: Sequence[Union["Menu", "JRL"]] = gns.get_menu_path(
-            component._config.full_name
+            component._config.full_name, partial=True
         )
-
-        # TODO if item is component or item is parent menu
         return [Crumb(item.title, item.jrl) for item in menu_path]
 
 
 @singleton
 class GlobalBreadcrumbService:
     def __init__(self):
-        # [full_name, Breadcrumb]
-        self.breadcrumbs: Dict[str, "Breadcrumb"] = {}
+        # [component_full_name, Breadcrumb]
+        self._breadcrumbs: Dict[str, "Breadcrumb"] = {}
 
     def add(self, *breadcrumbs: "Breadcrumb"):
         for breadcrumb in breadcrumbs:
-            self.breadcrumbs[breadcrumb.component_full_name] = breadcrumb
+            self._breadcrumbs[breadcrumb.component_full_name] = breadcrumb
 
-    def get_crumbs(self) -> Sequence[Crumb]:
-        """ returns crumbs for current app"""
-        # PROBLEM how to execute this after all components are processed
-        # for component in jembe_processor.all_commponents:
-        #     find component with depeast full_name associated with bread crumbs
-        # cmps =jembe_processor.get_component_chain(depest_component)
-        # crumbs = []
-        # for c inf cmps:
-        #     bc = find breadcrubm where c.full_name == bc.component_full_name
-        #     crumbs.extend(bc.get_crumbs(c))
-        # return crumbs
-        raise NotImplementedError()
+    def get_crumbs(self, component_chain: Sequence["Component"]) -> Sequence[Crumb]:
+        return tuple(
+            chain(
+                self._breadcrumbs[c._config.full_name].get_crumbs(c)
+                for c in component_chain
+            )
+        )
 
 
 class BreadcrumbComponent(Component):
-    @execute_last
+    def __init__(self):
+        self._depest_component_level: int = -1
+        self._depest_component = None
+        self._components = []
+        super().__init__()
+
+    @listener("_render")
+    def on_render(self, event: "Event"):
+        self._components.append(event.source)
+        clevel = component_level(event.source)
+        if clevel > self._depest_component_level:
+            self._depest_component_level = clevel
+            self._depest_component = event.source
+
+    @action(deferred=True)
     def display(self):
-        gbs = GlobalBreadcrumbService()
+        component_chain = sorted(
+            [c for c in self._components if is_direct_child(c, self._depest_component)],
+            key=component_level,
+        )
+        crumbs = GlobalBreadcrumbService().get_crumbs(component_chain)
         return self._render_template_string(
             """
                 <ul>
@@ -843,8 +882,23 @@ class BreadcrumbComponent(Component):
                 {% endfor %}
                 </ul>
             """,
-            crumbs=gns.get_crumbs(),
+            crumbs=crumbs,
         )
+
+
+class BreadcrumbUI(Breadcrumb):
+    def __init__(
+        self,
+        component_full_name: str,
+        get_crumbs: Optional[
+            Union[Callable[["Component"], Sequence[Crumb]], str]
+        ] = None,
+    ):
+        if get_crumbs is None:
+            get_crumbs = lambda component: Crum(component.title, component.url)
+        elif isinstance(get_crumbs, str):
+            get_crumbs = lambda component: Crumb(get_crumbs, component.url)
+        super().__init__(component_full_name, get_crumbs)
 
 
 # Breadcrumb ??
@@ -855,26 +909,27 @@ GlobalBreadcrumbService().add(
     Breadcrumb.init_for_global_menu("main.groups"),
     Breadcrumb.init_for_global_menu("main.invoices"),
     Breadcrumb.init_for_global_menu("main.customers"),
+    # Settings > Countries
     Breadcrumb(
         "/myapp/codebook/countries",
         lambda component: [
             Crumb("Settings", None),
-            Crumb(component.title, component.jrl),
+            Crumb(component.title, component.url),
         ],
     ),
     # Settings > Countries > France
     Breadcrumb(
         "/myapp/codebook/countries/1",
-        lambda component: [Crumb(component.title, component.jrl)],
+        lambda component: [Crumb(component.title, component.url)],
     ),
     # Settings > Countries > France > Paris
-    Breadcrumb(
+    BreadcrumbUI(
         "/myapp/codebook/countries/1/cities/3"
     ),  # default to lambda c: [Crumb(c.title, c.jrl)]
-    Breadcrumb("/main/users", _("Users")),
+    BreadcrumbUI("/main/users", "Users"),
     Breadcrumb(
         "/main/users/view",
-        lambda component: [Crumb("View {}".format(component.user), component.jrl)],
+        lambda component: [Crumb("View {}".format(component.user), component.url)],
     ),
-    Breadcrumb("/main/users/edit"),
+    BreadcrumbUI("/main/users/edit"),
 )

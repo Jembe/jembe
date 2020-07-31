@@ -295,7 +295,8 @@ class Component:
 
 
 class Event:
-    pass
+    def __init__(self, source:"Component"):
+        self.source = source
 
 
 class Processor:
