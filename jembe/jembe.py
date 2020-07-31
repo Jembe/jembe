@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Tuple, Dict, Union
+from typing import List, Optional, Type, Tuple, Dict, Union, Sequence
 
 __all__ = (
     "App",
@@ -14,13 +14,8 @@ __all__ = (
 )
 
 
-def execute_last(action):
+def deferred_action(after: Optional[str] = None, before: Optional[str] = None):
     """
-    Decorator signaling jembe processor to execute this action after
-    all other actions on its level are executed.
-
-    Usefull if we need to create breadcrumb or other summary report 
-    based from already executed actions
     """
     raise NotImplementedError()
 
@@ -49,9 +44,22 @@ def config(comoponent_conifg: "ComponentConfig"):
     raise NotImplementedError()
 
 
-def action():
+def action(
+    deferred=False,
+    deferred_after: Optional[str] = None,
+    deferred_before: Optional[str] = None,
+):
     """
     decorator to mark method as public action inside component
+
+    deferred aciton is executed last after allother actions from parent action template
+    are executed no matter of its postion inside parent action template.
+
+    Usefull if we need to create breadcrumb or other summary report 
+    based from already executed actions
+
+    deferred_after and deferred_before are used to execute this action after or before 
+    other specific deferred action, when multiple actions has deferred execution
     """
     # This decorator should not do anytthing except allow
     # componentconfig.set_compoenent_class to
@@ -59,9 +67,27 @@ def action():
     pass
 
 
-def listener(event_name: Optional[str] = None, source_name: Optional[str] = None):
+def listener(
+    event_name: Optional[str] = None,
+    source_name: Optional[Union[str, Sequence[str]]] = None,
+    children: Optional[bool] = None,
+    child: Optional[bool] = None,
+    parents: Optional[bool] = None,
+    parent: Optional[bool] = None,
+    siblings: Optional[bool] = None,
+):
     """
     decorator to mark method as action listener
+    source_name = relative source name 
+
+    if any of paramters child, childs, parent, parents and siblings is provided
+    than additonal filtering is enabled 
+    children - execute for any children
+    child - execute for direct child only
+    parents - execute for any parents action
+    parent - executef for direct parent only
+    siblings - execute for any sibling action
+
     """
     pass
 
@@ -256,8 +282,8 @@ class Component:
         self._key = key
         return self
 
-    def _is_requested_directly(self) -> bool:
-        """Returns true if this component is directly called via http request"""
+    def is_ajax(self) -> bool:
+        """REturns if initial request is ajax request"""
         raise NotImplementedError()
 
     def url(self) -> str:

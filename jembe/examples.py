@@ -1,4 +1,4 @@
-from typing import Optional, Union, Sequence, Dict, Callable, List
+from typing import Optional, Union, Sequence, Dict, Callable, List, Any
 from collections import namedtuple
 from uuid import UUID
 from .jembe import (
@@ -12,7 +12,7 @@ from .jembe import (
     singleton,
     execute_last,
 )
-from .utils import build_url
+from .utils import *
 from flask import session
 
 
@@ -160,7 +160,7 @@ class ViewBlogPost(Component):
         <nav><a jmb:click="$emit_up('close')">Display all blogs</a></nav>
         Ver 2, finds component on page via javascript and call action of that component 
         if component cant be found submits request to compoent with empty existing model data:
-        # <nav><a jmb:click="$component('..', key=null).call('display')">Display all blogs</a></nav>
+        # <nav><a jmb:click="$component('..').key(null).call('display')">Display all blogs</a></nav>
         <nav><a jmb:click="$component('..')">Display all blogs</a></nav>
 
         <h2>{{blog_post.title}}</h2>
@@ -305,10 +305,7 @@ class Counter(Component):
         <button jmb:click="increase(10)" type="button">Increase by 10</button>
         """
         )
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 
 @page("counter2", Component.Config(components={"counter": Counter2}))
 class Counter2Page(Component):
@@ -319,18 +316,18 @@ class Counter2Page(Component):
             """
             <div>
                 First: 
-                    {{component("counter", increase_by=10)._set_key("first")}}
+                    {{component("counter", increase_by=10).key("first")}}
             </div>
             <div>
                 Second: 
-                    {{component("counter",  increase_by=2)._set_key("second")}}
+                    {{component("counter", increase_by=2).key("second")}}
             </div>
             <div>
                 Third: {{component(
                             "counter", 
                             increase_by=5, 
                             current_value=100
-                         )._set_key("third")}}
+                         ).key("third")}}
             </div>
         """
         )
@@ -362,10 +359,7 @@ class EditRecord(Component):
     class Config(Component.Config):
         def __init__(
             self,
-            name=None,
-            url_path="edit/<int:id>",
-            template=None,
-            components=None,
+            url_path: Optional[str] = None,
             model: Optional[str] = None,
             form: Optional["Form"] = None,
             **params
@@ -374,19 +368,15 @@ class EditRecord(Component):
             self.form = form
             if self.form is None:
                 self.form = modelform_factory(self.model)
-            super().__init__(
-                name=name,
-                url_path=url_path,
-                template=template,
-                components=components,
-                **params
-            )
+            if self.url_path is None:
+                self.url_path = "edit/<int:id>"
+            super().__init__(url_path=url_path, **params)
 
     def __init__(self, id: int, form_data: Optional[dict] = None):
         self.id = id
         self.record = query(self._config.model).get(self.id)
-        self.form_data = form_data
-        self._form_validated = False
+        self.form_data: dict = form_data if form_data is not None else {}
+        # self._form_validated = False
 
     @action
     def save(self):
@@ -432,25 +422,39 @@ class EditRecord(Component):
 ###################
 # Global navigation
 ###################
-class JRL:
+class NavigationItem:
+    @property
+    def is_link(self) -> bool:
+        raise NotImplementedError()
+
+    @property
+    def is_menu(self) -> bool:
+        return not self.is_link
+
+
+class JRL(NavigationItem):
+    """
+    Jembe URL can reference some action inside jembe component
+    or a regular URL
+    """
+
     def __init__(
         self,
         name: str,
         component_full_name: Optional[str] = None,
-        components_params: Sequence[Dict[str]] = (),
+        components_params: Sequence[Dict[str, Any]] = (),
+        components_keys: Sequence[Optional[str]] = (),
         action_name: str = "display",
-        action_params: Optional[Dict[str]] = None,
+        action_params: Optional[Dict[str, Any]] = None,
         url: Optional[str] = None,
         target: str = "_blank",
         title: Optional[str] = None,
         help_text: Optional[str] = None,
         icon: Optional[str] = None,
-        url: Optional[str] = None,
-        target: str = "_blank",
     ):
-        if url is not None and component_full_name is not None:
-            raise ValueError()
-        if url is None and component_full_name is None:
+        if (url is not None and component_full_name is not None) or (
+            url is None and component_full_name is None
+        ):
             raise ValueError()
 
     @property
@@ -463,49 +467,79 @@ class JRL:
             )
         else:
             # TODO add support for component and action params
+            # $component("first",**params).component("second", **params)..call("action",**params)
             return '$component("{}").call("{}")'.format(
                 self.component_full_name, self.action_name
             )
 
+    @property
+    def is_link(self) -> bool:
+        return True
 
-class Menu:
+
+class Menu(NavigationItem):
     def __init__(
         self,
         name: str,
         title: Optional[str] = None,
+        help_text: Optional[str] = None,
         icon: Optional[str] = None,
-        *items: Union["Menu", "JRL"]
+        items: Sequence[Union["Menu", "JRL"]] = ()
     ):
         self.name = name
         self.title = title
+        self.help_text = help_text
         self.icon = icon
-        self.items = items
-        self.url = None
+        self.items:list = list(items)
+
+    @property
+    def is_link(self) -> bool:
+        return False
 
 
 @singleton
 class GlobalNavigationService:
     def __init__(self):
         self.items = []
-        self.items_by_name: dict = {}  # ["main/users"] = JRL; ["main"] = Menu
+        self.items_by_name: Dict[
+            str, Union["Menu", "JRL"]
+        ] = {}  # ["main/users"] = JRL; ["main"] = Menu
 
     def add(
         self,
-        at=None,
-        at_start=None,
-        before=None,
-        after=None,
-        *items: Union["Menu", "JRL"]
+        *items: Union["Menu", "JRL"],
+        at: Optional[str] = None,
+        at_start: Optional[str] = None,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
     ):
+        if (
+            sum(
+                [
+                    at is not None,
+                    at_start is not None,
+                    before is not None,
+                    after is not None,
+                ]
+            )
+            > 1
+        ):
+            raise ValueError(
+                "Only one of at, at_start, before and after attributes can be used"
+            )
+        # TODO add support for at, at_start, before and after
         self.items.extends(items)
-        # add to BreadCrumbService also
+        # TODO add to BreadCrumbService also
 
     def get_menu_path(self, component_full_name: str) -> Sequence[Union["Menu", "JRL"]]:
+        """
+        Used by breadcrumb service to get menupath of current component
+        """
         raise NotImplementedError()
         # pseudo
         # depest_menu_name =""
         # for menu_name, item in menu:
-        #    if (item is componentLInk and
+        #    if (item is componentLink and
         #        component_full_name.startswith(item.component_full_name + "/") and
         #        len(menu_name.split("/")) > len(depest_menu_name.split("/"))):
         #      depest_menu_name = menu_name
@@ -523,25 +557,29 @@ class GlobalNavigation(Component):
     def __init__(self):
         self.items = GlobalNavigationService().items
 
+    # its deffered so that we are able to mark active menu state
+    @action(deferred=True)
     def display(self):
+        # pseudo not working:
         return self._render_template_string(
             """
             <ul>
-            {% for link in items %}
-                <li>
-                    <a 
-                        jmb:click="$component(
-                            {{link.action.component_full_name}}
-                        ).call(
-                            {{link.action.name|default:'display'}}
-                        )" 
-                        jmb:click="{{link.jrl}}
-                        title="{{link.help_text}}"
-                    >
-                        {{link.icon}} 
-                        {{link.title}}
-                    </a>
-                </li>
+            {% for item in items %}
+                {% if item.is_link %}
+                    <li>
+                        <a 
+                            jmb:click="{{item.jrl}}
+                            title="{{item.help_text}}"
+                        >
+                            {{item.icon}} {{item.title}}
+                        </a>
+                    </li>
+                {% else %}
+                    <ul>
+                        {{item.title}} {{item.help_text}} {{item.icon}}
+                        # display for menu_item in item.items
+                    </ul>
+                {% endif %}
             {% endfor %}
             </ul> 
             """
@@ -550,7 +588,7 @@ class GlobalNavigation(Component):
 
 # $component
 # $ -- means that is javascript magic request
-# $component().call(action_name) will always send
+# $component(name, **params).key(name).call(name, **params) will always send
 # name of the source component that invoked request and all existing component on the page
 # allowing processor to determine if whole page should be rendered
 # or just specific requested component
@@ -558,7 +596,7 @@ class GlobalNavigation(Component):
 # When $component needs to initialse params for parents components etc. it should use syntax
 # $component("/main").component(
 #   "whatever", param1=1, param2=2
-# ).component(
+# ).key("whatever_key_name").component(
 #   "user", id=123
 # ).call("display", param1=1..)
 
@@ -567,8 +605,10 @@ class GlobalNavigation(Component):
 #       {},
 #       {"param1":1, "param2":2},
 #       {"user"}
-#   ), "display", {"param1": 1, ...})
+#   ), (None, "whatever_key_name", None), "display", {"param1": 1, ...})
 
+#
+# $component(name) without call will execute .call("display") without params
 
 # TODO create pages that uses and displays global navigation
 ########
@@ -601,35 +641,59 @@ class CustomersComponentGN(Component):
     ),
 )
 class Settings2PageGN(Component):
-    @listener("display")
-    def _on_display_child(self, event: "Event"):
+    def __init__(self, component_name: Optional[str] = None):
+        self._updated_component_name: Optional[str] = None
+        super().__init__()
+
+    # events beginig with _ are jembe system events
+    # _render event is fired when any component action renders template response
+    @listener("_render", children=True)
+    def on_render_child(self, event: "Event"):
+        direct_child_name = direct_child_name(self, event.source)
         if (
-            event.source._config.relative_name(self) in ("users", "groups")
-            and event.source._is_requested_directly()
-        ):
+            self._updated_component_name is not None
+            and self._updated_component_name != direct_child_name
+        ) or direct_child_name == "global_navigation":
+            raise ValueError()
+
+        self._updated_component_name = direct_child_name
+        self.init_params["component_name"] = direct_child_name
+
+    def display(self):
+        if self.init_params["component_name"]:
             return self._render_template_string(
                 """
                 ...
                 {{component("global_navigation")}}
-                {{componet(child_component)}}
+                {{component(init_params.component_name)}}
                 ...
-                """,
-                child_component=event.source,
+                """
+            )
+        else:
+            return self._render_template_string(
+                """
+                ...
+                {{component("global_navigation")}}
+                ver 1:
+                <div>Dashboard of some sort</div>
+                ver 2:
+                Display default users
+                {{component("users")}}
+                ...
+                """
             )
 
-    def display(self):
-        return self._render_template_string(
-            """
-            ...
-            {{component("global_navigation")}}
-            ver 1:
-            <div>Dashboard of some sort</div>
-            ver 2:
-            Display default users
-            {{component("users")}}
-            ...
-            """
-        )
+
+# component() jinja2 funciton :
+# component(name) will initialise and render component "name" with no params or
+# with params obtained from url if this component that calls 'name' is primary component
+# comonent_raw(name) will ignore url params even if thay exist
+
+# component(name).key(name).call(name) will not execute if via ajax request
+# same component already exist on page instead component that already exist on
+# the page will be rendered ...
+# comonent().call(name).force() will force componet to rerender itself event if
+# it already exist on the page
 
 
 @page(
@@ -643,44 +707,69 @@ class Settings2PageGN(Component):
     ),
 )
 class Main2PageGN(Component):
-    @listener("display", source_name=("invoices", "customers"), requested_directly=True)
-    def _on_display_child(self, event: "Event"):
-        return self._render_template_string(
-            """
-            ...
-            {{component("global_navigation")}}
-            {{componet(child_component)}}
-            ...
-            """,
-            child_component=event.source,
-        )
+    def __init__(self, component_name: Optional[str] = None):
+        self._updated_component_name: Optional[str] = None
+        super().__init__()
+
+    @listener("_render", children=True)
+    def on_render_child(self, event: "Event"):
+        self.init_params["component_name"] = direct_child_name(self, event.source)
+        # # add checks for invalid behavior
+        # direct_child_name = direct_child_name(self, event.source)
+        # if (
+        #     self._updated_component_name is not None
+        #     and self._updated_component_name != direct_child_name
+        # ) or direct_child_name == "global_navigation":
+        #     raise ValueError()
+        # self._updated_component_name = direct_child_name
+        # self.init_params["component_name"] = direct_child_name
 
     def display(self):
-        return self._render_template_string(
-            """
-            ...
-            {{component("global_navigation")}}
-            ver 1:
-            <div>Dashboard of some sort</div>
-            ver 2:
-            Display default users
-            {{component("invoices")}}
-            ...
-            """
-        )
+        if self.init_params["component_name"]:
+            return self._render_template_string(
+                """
+                ...
+                {{component("global_navigation")}}
+                {{component(init_params.component_name)}}
+                ...
+                """
+            )
+        else:
+            return self._render_template_string(
+                """
+                ...
+                {{component("global_navigation")}}
+                ver 1:
+                <div>Dashboard of some sort</div>
+                ver 2:
+                Display default users
+                {{component("invoices")}}
+                ...
+                """
+            )
 
+GlobalNavigationService().add(
+    Menu("main", items=[
+        JRL("invoices", "/main2_gn/invoices"),
+        JRL("customers", "/main2_gn/customers"),
+    ]),
+    Menu("settings", "Settings")
+)
 
 GlobalNavigationService().add(
     JRL("users", "/setting2_gn/users"),
     JRL("groups", "/setting2_gn/groups"),
-    JRL("invoices", "/main2_gn/invoices"),
-    JRL("customers", "/main2_gn/customers"),
-    at="main",  # at_start, before, after
+    at="settings",  # at_start, before, after
 )
 # No module name in full name
 # It is simpler to just use convencition that prefix page names with
 # "module" name like "jembeui_users", "jembeui_main", "finance_main", "finance_settings" etc.
 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 Crumb = namedtuple("Crumb", ["title", "jrl"])
 
