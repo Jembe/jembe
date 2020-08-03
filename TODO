@@ -4,15 +4,27 @@ Define API for components:
     ☐ InterComponent Comunication
         ✔ Global navigation @done(20-06-29 09:39)
         ✔ Global navigation links @done(20-06-29 09:39)
-        ☐ Breadcrumb
-        ☐ Call action from another component
-        ☐ Render another component
-        ☐ link to action in another component
-        ☐ LInk to another component
-    ☐ Map
-    ☐ Other componont with heavy use of javascript
+        ✔ Breadcrumb @done(20-08-03 09:20)
+        Call action from another component:
+            ✔ From html template @done(20-08-03 09:24)
+                # Can only call direct child action
+            ✔ From javascript @done(20-08-03 09:24)
+                # Can call any action as long as it provides its parents
+                # required state parameters
+                # if state parameters are missing and component exist on
+                # page thay parameters will be used if appropriate
+            ✔ From python @done(20-08-03 09:28)
+                # Via events
+        ✔ Render another component @done(20-08-03 09:42)
+            # by calling display or equivalent action of that component
+        ✔ link to action in another component @done(20-08-03 09:43)
+            # $component magic action in html template
+        ✔ LInk to another component @done(20-08-03 09:43)
+            # same as before
     ☐ Date picker
     ☐ Lookup field
+    ☐ Map
+    ☐ Other componont with heavy use of javascript
     ☐ Simple static form
     ☐ Form with lookup and datepicker
     ☐ form validation

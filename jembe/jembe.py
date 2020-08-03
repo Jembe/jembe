@@ -224,6 +224,9 @@ class Component:
 
         Paramters whose name doesn't begin with underscore are send back and
         forth via ajax request in order to reinitialise current state of the component.
+        Thay are called state parameters (parameters that doesn't begin with underscore).
+        State parameters without default value are required paramters and by default
+        thay will be created as url_path parameters.
 
         Parameters whose name doesn't begin with underscore and thay DO NOT have
         default value (*args) are used to build url_path if url_path is not provided.
@@ -251,7 +254,7 @@ class Component:
     def display(self):
         return self.render_template(self._config.template)
 
-    def _render_template(self, template_name: Optional[str] = None, **context):
+    def render_template(self, template_name: Optional[str] = None, **context):
         """Renderes jinja2 template into html, adds default context variables
         
         - context param defines additional template context variables
@@ -259,7 +262,7 @@ class Component:
         """
         pass
 
-    def _render_template_string(self, source, **context):
+    def render_template_string(self, source, **context):
         """
         Renderes jinja2 template string into html, adds default context variables
 

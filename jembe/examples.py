@@ -1,4 +1,5 @@
 from typing import Optional, Union, Sequence, Dict, Callable, List, Any
+import datetime
 from collections import namedtuple
 from itertools import chain
 from uuid import UUID
@@ -126,7 +127,7 @@ class BlogPostWithInlineTemplatePage(Component):
 
     @action
     def display(self):
-        return self._render_template_string(
+        return self.render_template_string(
             """
             <h1>{{blog_post.title}}</h1>
             <div>{{blog_post.content}}</div>
@@ -154,7 +155,7 @@ class ViewBlogPost(Component):
     @action
     def display(self):
         # TODO how to link to display of parent
-        return self._render_template_string(
+        return self.render_template_string(
             """
         Ver 1:
         <nav><a jmb:click="$emit_up('close')">Display all blogs</a></nav>
@@ -228,7 +229,7 @@ class Blog(Component):
             self.page * self.page_size : (self.page + 1) * self.page_size
         ]
 
-        return self._render_template_string(
+        return self.render_template_string(
             """
             <a href="#" jmb:click="next_page()">Prev</a> 
             <a href="#" jmb:click="prev_page()">Next</a> 
@@ -249,7 +250,7 @@ class Blog(Component):
     #         ....
     @listener("display", "blog")
     def on_display_blog(self, event: "Event"):
-        return self._render_template_string(
+        return self.render_template_string(
             """
             {{component(blog_component)}}
             """,
@@ -299,8 +300,8 @@ class Counter(Component):
         <div>{{counter}}</div>
         <button jmb:click="increase({{increase_by}})" type="button">Increase</button>
         <div>By: <input jmb:model="increase_by" type="number"></div>
-        # <div>By: <input value="{{increase_by}}" onchange="$set('increase_by', $this.value)" type="number"></div>
-        # $this is magic property that reference javascript current element
+        # <div>By: <input value="{{increase_by}}" onchange="$update('increase_by', $elm.value)" type="number"></div>
+        # $elm is magic property that reference javascript current element
         # $set will chage init property of component and call display of that component via ajax
         <button jmb:click="increase(10)" type="button">Increase by 10</button>
         """
@@ -346,7 +347,7 @@ class Counter2(Component):
         return self.display()
 
     def display(self):
-        return self._render_template_string(
+        return self.render_template_string(
             """
             <div>Value: {{current_value}}</div>
             <button jmb:click="increase()" type="button">Increase</button>
@@ -408,7 +409,7 @@ class EditRecord(Component):
             self.form = self._config.form(self.form_data, self.record)
             if self.form_data:
                 self.form.validate()
-        return self._render_template_string(
+        return self.render_template_string(
             """
             <form jmb:submit.prevent="save()" jmb:model="form_data">
                 {% for field in form.fields %}
@@ -590,7 +591,7 @@ class GlobalNavigation(Component):
     @action(deferred=True)
     def display(self):
         # pseudo not working:
-        return self._render_template_string(
+        return self.render_template_string(
             """
             <ul>
             {% for item in items %}
@@ -690,7 +691,7 @@ class Settings2PageGN(Component):
 
     def display(self):
         if self.init_params["component_name"]:
-            return self._render_template_string(
+            return self.render_template_string(
                 """
                 ...
                 {{component("global_navigation")}}
@@ -699,7 +700,7 @@ class Settings2PageGN(Component):
                 """
             )
         else:
-            return self._render_template_string(
+            return self.render_template_string(
                 """
                 ...
                 {{component("global_navigation")}}
@@ -755,7 +756,7 @@ class Main2PageGN(Component):
 
     def display(self):
         if self.init_params["component_name"]:
-            return self._render_template_string(
+            return self.render_template_string(
                 """
                 ...
                 {{component("global_navigation")}}
@@ -764,7 +765,7 @@ class Main2PageGN(Component):
                 """
             )
         else:
-            return self._render_template_string(
+            return self.render_template_string(
                 """
                 ...
                 {{component("global_navigation")}}
@@ -870,7 +871,7 @@ class BreadcrumbComponent(Component):
             key=component_level,
         )
         crumbs = GlobalBreadcrumbService().get_crumbs(component_chain)
-        return self._render_template_string(
+        return self.render_template_string(
             """
                 <ul>
                 {% for crumb in crumbs %}
@@ -933,3 +934,101 @@ GlobalBreadcrumbService().add(
     ),
     BreadcrumbUI("/main/users/edit"),
 )
+
+# component(name, **params).key(name).call(name, **params) and it equivalent
+# $component(name, **params).key(name).call(name, **params)
+# should internaly be implemented via events:
+# - _initial(parent_component_name, parent_key, component_name, component_key, raise_error=True, params):
+#       That will initialise component with component_name and component_key if
+#       parent component already exist otherwise it will raise error
+# - _call(component_name, component_key, action_name, raise_error=True, params):
+#       Will call action of existing component on page if it exist.
+#       component with component_name and component_key doesn't exit
+#       event will raise error
+#
+# On execution on every action inside any component jembe will fire following events:
+# - _called(source, action_name, action_result): when action is executed
+# - _render(source, action_name, action_result): when action returns rendered template string
+#
+# If component want to execute action of another component it must listen
+# for that component _called event in order to get result of execution.
+# This is delibrarly hard in order to encurage moving not UI logic out
+# of UI components.
+
+
+# server side date picker component
+class DatePickerSS(Component):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        value: Optional["date"] = None,
+        c_open: bool = False,
+        c_year: Optional[int] = None,
+        c_month: Optional[int] = None,
+    ):
+        self.name = name if name is not None else self._key
+        if self.name is None:
+            raise ValueError()
+        self.init_params["name"] = self.name
+        today = datetime.date.today()
+        self.c_year = today.year if c_year is None else c_year
+        self.c_month = (
+            today.month if c_month is None or c_month > 12 or c_month < 1 else c_month
+        )
+        self.init_params["c_month"] = self.c_month
+        self.init_params["c_year"] = self.c_year
+
+        self.value = value
+        self.error: Optional[str] = None
+        super().__init__()
+
+    @action
+    def validate(self, date_str: str):
+        try:
+            self.value = datetime.datetime.strptime(date_str,"dd.MM.YYYY.")
+            self.init_params["value"] = self.value
+            self.init_params["c_year"] = self.value.year
+            self.init_params["c_month"] = self.value.month
+            return self.display()
+        except ValueError as ve:
+            pass
+
+    def display(self):
+        return self.render_template_string(
+            """
+            <input name="{{name}}" type="hidden" value="{{value|datetime("ISO")}}">
+            <input type="text" value="{{value|datetime}}" onchange="$call('validate', $elm.value)">
+            {%if error%}<div class="text-red-700">{{error}}</div>{%endif%}
+            {% if c_open %}
+            <div class="relative>
+                <div class="absolute right-0 bottom-0..">
+                <div> prev month year next</div>
+                    <a jmb:click="$set("c_month", $this.c_month - 1)">prev</a>
+                    <select onchange="$set("c_month", $elem.value)">
+                        <option value="1">January</option>
+                        ....
+                    </select>
+                    <select onchange="$set("c_year", $elem.value)">
+                        <option value="1990">1990</option>
+                        ....
+                    </select>
+                    <a jmb:click="$set("c_month", $this.c_month + 1)">next</a>
+                <div>
+                    ... display calendard
+                </div>
+                </div>
+            </div>
+            {%endif%}
+            """
+        )
+
+@config(EditRecord.Config(model=...))
+class EditWithDatepicker(EditRecord):
+    """
+    Edit component should have componets={dateinput: DatepickerSS} defined
+    by default.
+    So when form uses datepicker wiget ... that widget should display field as
+        {{component('dateinput', value=record.date_field_name).key("date_field_name")}}
+    """
+    pass
+# client side date picker component
