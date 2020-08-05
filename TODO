@@ -21,7 +21,7 @@ Define API for components:
             # $component magic action in html template
         ✔ LInk to another component @done(20-08-03 09:43)
             # same as before
-    ☐ Date picker
+    ✔ Date picker @done(20-08-05 11:44)
     ☐ Lookup field
     ☐ Map
     ☐ Other componont with heavy use of javascript

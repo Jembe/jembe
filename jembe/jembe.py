@@ -14,11 +14,6 @@ __all__ = (
 )
 
 
-def deferred_action(after: Optional[str] = None, before: Optional[str] = None):
-    """
-    """
-    raise NotImplementedError()
-
 
 def page(name: str, component_config: Optional["ComponentConfig"] = None):
     """Decorator that adds page to App"""

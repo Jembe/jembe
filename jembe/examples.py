@@ -961,31 +961,37 @@ class DatePickerSS(Component):
     def __init__(
         self,
         name: Optional[str] = None,
-        value: Optional["date"] = None,
+        value: Optional["datetime.date"] = None,
         c_open: bool = False,
         c_year: Optional[int] = None,
         c_month: Optional[int] = None,
     ):
+        # if name is not set name is equal to key
         self.name = name if name is not None else self._key
         if self.name is None:
             raise ValueError()
         self.init_params["name"] = self.name
-        today = datetime.date.today()
-        self.c_year = today.year if c_year is None else c_year
+
+        self.value = value
+        # if value is not set date open calendar at current month
+        # othervise open calendar at month of the value
+        open_at_date: "datetime.date" = datetime.date.today() if self.value is None else value
+        self.c_year = open_at_date.year if c_year is None else c_year
         self.c_month = (
-            today.month if c_month is None or c_month > 12 or c_month < 1 else c_month
+            open_at_date.month
+            if c_month is None or c_month > 12 or c_month < 1
+            else c_month
         )
         self.init_params["c_month"] = self.c_month
         self.init_params["c_year"] = self.c_year
 
-        self.value = value
         self.error: Optional[str] = None
         super().__init__()
 
     @action
     def validate(self, date_str: str):
         try:
-            self.value = datetime.datetime.strptime(date_str,"dd.MM.YYYY.")
+            self.value = datetime.datetime.strptime(date_str, "dd.MM.YYYY.")
             self.init_params["value"] = self.value
             self.init_params["c_year"] = self.value.year
             self.init_params["c_month"] = self.value.month
@@ -998,9 +1004,10 @@ class DatePickerSS(Component):
             """
             <input name="{{name}}" type="hidden" value="{{value|datetime("ISO")}}">
             <input type="text" value="{{value|datetime}}" onchange="$call('validate', $elm.value)">
+            <button jmb:click="$set('c_open', true)" type="button">open</button>
             {%if error%}<div class="text-red-700">{{error}}</div>{%endif%}
             {% if c_open %}
-            <div class="relative>
+            <div class="relative jmb:click.away="$set('c_open', false)">
                 <div class="absolute right-0 bottom-0..">
                 <div> prev month year next</div>
                     <a jmb:click="$set("c_month", $this.c_month - 1)">prev</a>
@@ -1022,13 +1029,124 @@ class DatePickerSS(Component):
             """
         )
 
+
 @config(EditRecord.Config(model=...))
 class EditWithDatepicker(EditRecord):
     """
-    Edit component should have componets={dateinput: DatepickerSS} defined
+    EditRecord component should have componets={dateinput: DatepickerSS} defined
     by default.
-    So when form uses datepicker wiget ... that widget should display field as
-        {{component('dateinput', value=record.date_field_name).key("date_field_name")}}
+    So when form uses datepicker widget ... that widget should display field as
+        {{component('dateinput', value=record.<date_field_name>).key("<date_field_name>")}}
+        if needed DatePickerSS can have init_param form_id to be used on input element to
+        associate it with form
     """
+
     pass
+
+
 # client side date picker component
+
+
+class DatePickerCS(Component):
+    """
+    DatePicker that relies on client side javascript to display calendar etc.
+    Usefull for components that cannot be created purlly with html ower wire
+    or when you just want to use some javascript library.
+
+    It is easyest to implement this functionality as widget but 
+    nevertheless this is implemented as component
+    """
+
+    def __init__(
+        self, name: Optional[str] = None, value: Optional["datetime.date"] = None,
+    ):
+        # if name is not set name is equal to key
+        self.name = name if name is not None else self._key
+        if self.name is None:
+            raise ValueError()
+        self.init_params["name"] = self.name
+
+        self.value = value
+        super().__init__()
+
+    def display(self):
+        return self.render_template_string(
+            """
+            <div x-data="{}" x-init="
+                function() {
+                    this.fpr = window.flatpickr($refs.input, 
+                        {allowInput:true, altInput:true, 
+                         altFormat:window.jmbl10n.date_format, locale: window.flatpickrLangCode
+                    });
+                    return function() {
+                        this.fpr.destroy();
+                    }
+                }
+            ">
+            <div jmb:ignore>
+            # ignore ignores any changes inside this tags made by javascript
+            # when rerendering component assumig that new html also has jmb:ignore tag
+            # if multiple jmb:ignore tags exists every tag should have unique name
+            # like jmb:ignore="<unique_name>"
+                <input x-cloak x-ref="input" type="text" name={{name}}
+                    {% if value != None %} value="{{value}}"{% endif %}>
+                </div>
+            </div>
+            """
+        )
+
+LookupChoice = namedtuple("LookupChoice",("value", "label"))
+
+class LookupSS(Component):
+    """
+    Server side lookup form field with search and select
+    usage in EditRecord, CreateRecord and similar FormComponents should be similar
+    to usage of DatePickerSS
+    """
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        value: Optional[Any] = None,
+        choices:Union[Callable[[str], Sequence["LookupChoice"]], Sequence["LookupChoice"]]= (),
+        s_open: bool = false,
+        s_search: str = "",
+    ):
+        # consider moving choices to Config if thay will not change on each request
+
+        # if name is not set name is equal to key
+        self.name = name if name is not None else self._key
+        if self.name is None:
+            raise ValueError()
+        self.init_params["name"] = self.name
+
+        self.value = value
+        self.s_open = s_open
+        self.s_search = s_search
+
+
+        super().__init__()
+
+    def display(self):
+        self.label = # from choices find label of choice with value == self.value
+        self.choices = # filter self.init_choices[choices] to be displayed with s_search string
+        # if s_open is True else dont do anything
+        return self.render_template_string("""
+            <input name="{{name}}" type="hidden" value="{{value}}">
+            <div>{{label}}</div>
+            {% if s_open %}
+            <div x-div="{hightlightNext:function(target){$this.highlighted = target.previous.getAttribute("val")}, higlighted=null}" x-on:keydown.enter="$set('value', $this.higligted)">
+                {% for choice in choices %}
+                <button jmb:click="$set('value', '{{choice.value}}') type="button" x-on:keydown.down="higlightNext($event.target)>{{choice.label}}</button>
+                { % endfor %}
+            </div>
+            {%endif%}
+        """)
+
+
+class LookupEditableSS(Component):
+    """
+    Server side lookup form field with search, select, create and edit
+    """
+
+    pass
