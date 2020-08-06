@@ -14,7 +14,6 @@ __all__ = (
 )
 
 
-
 def page(name: str, component_config: Optional["ComponentConfig"] = None):
     """Decorator that adds page to App"""
     # App.add_page(name, Page, Page.Config(**params))
@@ -135,7 +134,10 @@ class ComponentConfig:
         url_path: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[
-            Dict[str, Union[Tuple["Component", "ComponentConfig"], "Component"]]
+            Dict[
+                str,
+                Union[Tuple[Type["Component"], "ComponentConfig"], Type["Component"]],
+            ]
         ] = None,
         public_actions: Optional[Tuple[str, ...]] = None,
         public_model: Optional[Tuple[str, ...]] = None,
@@ -293,7 +295,7 @@ class Component:
 
 
 class Event:
-    def __init__(self, source:"Component"):
+    def __init__(self, source: "Component"):
         self.source = source
 
 

@@ -22,7 +22,9 @@ Define API for components:
         ✔ LInk to another component @done(20-08-03 09:43)
             # same as before
     ✔ Date picker @done(20-08-05 11:44)
-    ☐ Lookup field
+    Lookup field:
+        ✔ Lookup Server Side @done(20-08-06 10:51)
+        ☐ Lookup client side
     ☐ Map
     ☐ Other componont with heavy use of javascript
     ☐ Simple static form

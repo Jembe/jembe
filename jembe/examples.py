@@ -1,4 +1,4 @@
-from typing import Optional, Union, Sequence, Dict, Callable, List, Any
+from typing import Optional, Union, Sequence, Dict, Callable, List, Any, Tuple, Type
 import datetime
 from collections import namedtuple
 from itertools import chain
@@ -1095,21 +1095,38 @@ class DatePickerCS(Component):
             """
         )
 
-LookupChoice = namedtuple("LookupChoice",("value", "label"))
+
+LookupChoice = namedtuple("LookupChoice", ("value", "label"))
+
 
 class LookupSS(Component):
     """
     Server side lookup form field with search and select
-    usage in EditRecord, CreateRecord and similar FormComponents should be similar
-    to usage of DatePickerSS
+    usage in EditRecord, CreateRecord and similar FormComponents should be like:
+        - in Form definition adds LookupSSWidget with choices callable
+        - Form Definition add u EditRecord.Config
+        - EditRecord Config reads Form definition and adds subcomponents
+          to it self field_name:(LookupSS, LookupSS.Config(choices=choices)
+        - widget is rendered in form like 
+            {{component('field_name', value=record.field_name, name=field_name)}}
     """
+
+    class Config(Component.Config):
+        def __init__(
+            self,
+            choices: Union[
+                Callable[[str], Sequence["LookupChoice"]], Sequence["LookupChoice"]
+            ] = (),
+            **params,
+        ):
+            self.choices = choices
+            super().__init__(**params)
 
     def __init__(
         self,
         name: Optional[str] = None,
         value: Optional[Any] = None,
-        choices:Union[Callable[[str], Sequence["LookupChoice"]], Sequence["LookupChoice"]]= (),
-        s_open: bool = false,
+        s_open: bool = False,
         s_search: str = "",
     ):
         # consider moving choices to Config if thay will not change on each request
@@ -1124,14 +1141,16 @@ class LookupSS(Component):
         self.s_open = s_open
         self.s_search = s_search
 
-
         super().__init__()
 
     def display(self):
-        self.label = # from choices find label of choice with value == self.value
-        self.choices = # filter self.init_choices[choices] to be displayed with s_search string
-        # if s_open is True else dont do anything
-        return self.render_template_string("""
+        # from choices find label of choice with value == self.value
+        self.label = None
+        if self.s_open:
+            # filter self.init_choices[choices] to be displayed with s_search string
+            self.choices = None
+        return self.render_template_string(
+            """
             <input name="{{name}}" type="hidden" value="{{value}}">
             <div>{{label}}</div>
             {% if s_open %}
@@ -1141,12 +1160,136 @@ class LookupSS(Component):
                 { % endfor %}
             </div>
             {%endif%}
-        """)
+        """
+        )
 
 
 class LookupEditableSS(Component):
     """
     Server side lookup form field with search, select, create and edit
+    Usage similar tu LookupSS with coresponding widget
     """
 
-    pass
+    class Config(Component.Config):
+        def __init__(
+            self,
+            components: Optional[
+                Dict[str, Union[Tuple["Component", "ComponentConfig"], "Component"]]
+            ] = None,
+            choices: Union[
+                Callable[[str], Sequence["LookupChoice"]], Sequence["LookupChoice"]
+            ] = (),
+            edit_record_component: Union[
+                Tuple[Type["Component"], "ComponentConfig"], Type["Component"]
+            ] = EditRecord,
+            create_record_component: Union[
+                Tuple[Type["Component"], "ComponentConfig"], Type["Component"]
+            ] = CreateRecord,
+            view_record_component: Union[
+                Tuple[Type["Component"], "ComponentConfig"], Type["Component"]
+            ] = ViewRecord,
+            **params,
+        ):
+            self.choices = choices
+            self.edit_record_component = edit_record_component
+            self.create_record_component = create_record_component
+            self.view_record_component = view_record_component
+            # TODO initialise edit create view component config with model
+            # if needed
+            if components is None:
+                components = {}
+            components["edit"] = self.edit_record_component
+            components["create"] = self.create_record_component
+            components["view"] = self.view_record_component
+            super().__init__(components=components, **params)
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        value: Optional[Any] = None,
+        s_open: bool = False,
+        s_search: str = "",
+        d_view:bool= False,
+        d_create:bool=False,
+        d_edit:bool=False,
+    ):
+        # consider moving choices to Config if thay will not change on each request
+
+        # if name is not set name is equal to key
+        self.name = name if name is not None else self._key
+        if self.name is None:
+            raise ValueError()
+        self.init_params["name"] = self.name
+
+        self.value = value
+        self.s_open = s_open
+        self.s_search = s_search
+        self.d_view = d_view
+        self.d_create= d_create
+        self.d_edit = d_edit
+        #TODO check that only one of d_view d_create and d_edit can be true
+
+        super().__init__()
+
+    @listener("_called", child=True)
+    def on_save(self, event):
+        if event.method_name == "save":
+            self.value = event.source.init_params["record_id"]
+            self.init_params["value"] = self.value
+            self.init_params["d_view"] = False
+            self.init_params["d_create"] = False
+            self.init_params["d_edit"] = False
+            # sets self.d_view, d_edit, d_create
+            return self.display()
+
+    def display(self):
+        # from choices find label of choice with value == self.value
+        self.label = None
+        if self.s_open:
+            # filter self.init_choices[choices] to be displayed with s_search string
+            self.choices = None
+        return self.render_template_string(
+            """
+            <input name="{{name}}" type="hidden" value="{{value}}">
+            <div>{{label}}</div>
+            <button jmb:click="$set('d_view', true)">View</button>
+            <button jmb:click="$set('d_edit', true)">Edit</button>
+            {% if s_open %}
+            <div x-div="{hightlightNext:function(target){
+                            $this.highlighted = target.previous.getAttribute("val")
+                          }, 
+                         higlighted:null}" 
+                    x-on:keydown.enter="$set('value', $this.higligted)">
+                <button jmb:click="$set('d_create', true) type="button" 
+                        x-on:keydown.down="higlightNext($event.target)>
+                    Create
+                </button>
+                {% for choice in choices %}
+                <button jmb:click="$set('value', '{{choice.value}}') type="button" 
+                        x-on:keydown.down="higlightNext($event.target)>
+                        {{choice.label}}
+                </button>
+                { % endfor %}
+            </div>
+            {%endif%}
+            ### over simplified
+            {% if d_view %}
+                <div class="MODAL">
+                    <button jmb:click="$set("d_view", false)>Close</button>
+                    {{component('d_view', record_id=value)}}
+                </div>
+            {% endif %}
+            {% if d_create %}
+                <div class="MODAL">
+                    <button jmb:click="$set("d_create", false)>Close</button>
+                    {{component('d_create')}}
+                </div>
+            {% endif %}
+            {% if d_edit %}
+                <div class="MODAL">
+                    <button jmb:click="$set("d_edit", false)>Close</button>
+                    {{component('d_edit', record_id=value)}}
+                </div>
+            {% endif %}
+        """
+        )
