@@ -1104,7 +1104,7 @@ class LookupSS(Component):
     Server side lookup form field with search and select
     usage in EditRecord, CreateRecord and similar FormComponents should be like:
         - in Form definition adds LookupSSWidget with choices callable
-        - Form Definition add u EditRecord.Config
+        - Form Definition add to EditRecord.Config
         - EditRecord Config reads Form definition and adds subcomponents
           to it self field_name:(LookupSS, LookupSS.Config(choices=choices)
         - widget is rendered in form like 
@@ -1153,10 +1153,20 @@ class LookupSS(Component):
             """
             <input name="{{name}}" type="hidden" value="{{value}}">
             <div>{{label}}</div>
+            <input name="{{name}}-search" value="{{s_search}}" onchange="$set('s_search',event.target.value)">
             {% if s_open %}
-            <div x-div="{hightlightNext:function(target){$this.highlighted = target.previous.getAttribute("val")}, higlighted=null}" x-on:keydown.enter="$set('value', $this.higligted)">
+            <div x-data="{
+                    hightlightNext:function(target){
+                        $this.highlighted = target.previous.getAttribute("val")
+                    }, 
+                    higlighted:null
+                }" 
+                x-on:keydown.enter="$set('value', $this.higligted)">
                 {% for choice in choices %}
-                <button jmb:click="$set('value', '{{choice.value}}') type="button" x-on:keydown.down="higlightNext($event.target)>{{choice.label}}</button>
+                <button jmb:click="$set('value', '{{choice.value}}') type="button" 
+                        x-on:keydown.down="higlightNext($event.target)>
+                    {{choice.label}}
+                </button>
                 { % endfor %}
             </div>
             {%endif%}
@@ -1209,9 +1219,9 @@ class LookupEditableSS(Component):
         value: Optional[Any] = None,
         s_open: bool = False,
         s_search: str = "",
-        d_view:bool= False,
-        d_create:bool=False,
-        d_edit:bool=False,
+        d_view: bool = False,
+        d_create: bool = False,
+        d_edit: bool = False,
     ):
         # consider moving choices to Config if thay will not change on each request
 
@@ -1225,9 +1235,9 @@ class LookupEditableSS(Component):
         self.s_open = s_open
         self.s_search = s_search
         self.d_view = d_view
-        self.d_create= d_create
+        self.d_create = d_create
         self.d_edit = d_edit
-        #TODO check that only one of d_view d_create and d_edit can be true
+        # TODO check that only one of d_view d_create and d_edit can be true
 
         super().__init__()
 
@@ -1252,6 +1262,7 @@ class LookupEditableSS(Component):
             """
             <input name="{{name}}" type="hidden" value="{{value}}">
             <div>{{label}}</div>
+            <input name="{{name}}-search" value="{{s_search}}" onchange="$set('s_search',event.target.value)">
             <button jmb:click="$set('d_view', true)">View</button>
             <button jmb:click="$set('d_edit', true)">Edit</button>
             {% if s_open %}
@@ -1293,3 +1304,238 @@ class LookupEditableSS(Component):
             {% endif %}
         """
         )
+
+
+# Searchable Grid/Table
+class GField:
+    """represends grid field"""
+
+    pass
+
+
+class GFilter:
+    """represends grid filter"""
+
+    pass
+
+
+class GFilterExp(JsonSerializable):
+    """represents grid filter expression"""
+
+    pass
+
+
+class GridBody(Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            query: Union["Query", Callable[["Component"], "Query"]],
+            fields: Sequence[GField] = (),
+            **params,
+        ):
+            self.query = query
+            self.fields = fields
+            super().__init__(**params,)
+
+        def get_query(
+            self,
+            component: "Component",
+            filter_by: "GFilterExp",
+            order_by: Sequence[str],
+        ):
+            if isinstalce(self.query, Query):
+                q = query
+            else:
+                q = query(component)
+            q = filter_by.apply_to(q)
+            q = q.order_by(*order_by)
+            return q
+
+    def __init__(
+        self,
+        page_size: int = 10,
+        page: int = 0,
+        order_by: Sequence[str] = (),
+        filter_by: "GFilterExp" = GFilterExp(),
+    ):
+        self.order_by = order_by
+        self.filter_by = filter_by
+        self.page_size = page_size
+        self.page = page
+        super().__init__()
+
+    @action
+    def next_page(self):
+        self.page += 1
+        self.init_params["page"] = self.page
+        return self.display()
+
+    @action
+    def prev_page(self):
+        self.page -= 1
+        self.init_params["page"] = self.page
+        return self.display()
+
+    def display(self):
+        query = self._config.get_query(self, self.filter_by, self.order_by)
+        self.data = query.all()
+        self.total = query.count()
+        self.display_next = self.page * self.page_size < self.total
+        self.display_prev = self.page > 0
+        return self.render_template_string(
+            """
+            # over simplified
+            {% for field in _config.fields %}
+                <th>field</th>
+                # with order_by jmb:click="rotate_order_by('{{field.name}}')"
+
+            {%endfor%}
+            {%for record in data %}
+            <tr>{{record}}</tr>
+            {%endfor%}
+            {% if display_prev %}
+            <a jmb:click="prev_page">prev</a>
+            {% endif %}
+            {% if display_next %}
+            <a jmb:click="next_page">next</a>
+            {% endif %}
+        """
+        )
+
+class GridFilters(Component):
+    class Config(Component.Config):
+        def __init__(
+            self, filters: Sequence[GFilter] = (), **params,
+        ):
+            self.filters = filters
+            super().__init__(**params)
+
+    def __init__(self, filter_by: Optional["GFilterExp"] = None):
+        self.filter_by = filter_by if filter_by is not None else self.get_filter_by()
+        super().__init__()
+
+    def get_filter_by(self):
+        try:
+            filter_by_str = self.get_query_param("fby")
+            return GFilterExp(self._config.filters, filter_by_str)
+        except ValueError:
+            return session.get("filter_by", GFilterExp)
+
+    def display(self):
+        return self.render_template_string(
+            """
+            # over simplified
+            {% for filter in _config.filters %}
+                # render filter with jmb:model="filter_by.<filter_name>" 
+                # or onchange="$set("filter_by.<filter_name>", event.target.value)"
+            {% endfor %}
+        """
+        )
+
+
+class Grid(Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            query: Union["Query", Callable[["Component"], "Query"]],
+            fields: Sequence[GField] = (),
+            filters: Sequence[GFilter] = (),
+            components=None,
+            **params,
+        ):
+            if components is None:
+                components = {}
+            components["body"] = (GridBody, GridBody.Config(query=query, fields=fields))
+            components["filter"] = (GridFilters, GridFilters.Config(filters=filters))
+            # body and filters should not update window.location 
+            # only this component shuld do it when any of those two are 
+            # deepest components
+
+            super().__init__(
+                components=components, **params,
+            )
+
+    def __init__(
+        self,
+        page_size: Optional[int] = None,
+        page: Optional[int] = None,
+        order_by: Sequence[str] = (),
+        filter_by: Optional["GFilterExp"] = None,
+    ):
+        self.order_by = order_by if order_by is not None else self.get_order_by()
+        self.filter_by = filter_by if filter_by is not None else self.get_filter_by()
+        self.page_size = page_size if page_size is not None else self.get_page_size()
+        self.page = page if page is not None else self.get_page()
+        self.init_params["order_by"] = self.order_by
+        self.init_params["filter_by"] = self.filter_by
+        self.init_params["page"] = self.page
+        self.init_params["page_size"] = self.page_size
+        session.set("order_by", self.order_by)
+        session.set("filter_by", self.order_by)
+        session.set("page", self.order_by)
+        session.set("page_size", self.order_by)
+        super().__init__()
+
+    def get_page_size(self):
+        try:
+            page_size_str = self.get_query_param("ps")
+            return int(page_size_str)
+        except ValueError:
+            return session.get("page_size", 10)
+
+    def get_page(self):
+        try:
+            page_str = self.get_query_param("p")
+            return int(page_str)
+        except ValueError:
+            return session.get("page", 0)
+
+    def get_order_by(self):
+        try:
+            order_by_str = self.get_query_param("oby")
+            return order_by_str.split(",")
+        except ValueError:
+            return session.get("order_by", ("-id"))
+
+    def get_filter_by(self):
+        try:
+            filter_by_str = self.get_query_param("fby")
+            return GFilterExp(self._config.filters, filter_by_str)
+        except ValueError:
+            return session.get("filter_by", GFilterExp)
+
+    @listener("_render", child=True)
+    def on_render(self, event):
+        if event.source._config.name == "filters":
+            # check if filter_by != event.source.init_params["filter_by"]
+            # and then
+            self.filter_by = event.source.init_params["filter_by"]
+            # TODO update session and init_params
+            return self.display()
+        elif event.source._config.name == "body":
+            # TODO check if any value is different
+            # this should be done by jembe directly not explicitly here
+            self.filter_by = event.source.init_params["filter_by"]
+            self.order_by = event.source.init_params["order_by"]
+            self.page = event.source.init_params["page"]
+            self.page_size = event.source.init_params["page_size"]
+            # TODO update session and init_params
+            return self.display()
+
+    def display(self):
+        return self.render_template_string(
+            """
+            {{component("filters", filter_by=filter_by)}}
+            {{component(
+                "body", 
+                filter_by=filter_by, 
+                page=page, 
+                page_size=page_size, 
+                order_by=order_by
+             )}}
+        """
+        )
+
+# how to use grid inside edit record? 
+# something like this
+# {{component("notes_grid", parent_record_id=init_params.id, _parent_record=record)}}

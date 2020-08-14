@@ -256,6 +256,11 @@ class Component:
         
         - context param defines additional template context variables
         - if template_name is none render default template
+
+
+        IF init_params are the same in two renderes of the same component
+        (same full_name and same key and same init_params, excluding init params
+        which name starts with underscore) then dont rerender component
         """
         pass
 
@@ -264,6 +269,11 @@ class Component:
         Renderes jinja2 template string into html, adds default context variables
 
         - context param defines additional template context variables
+
+
+        IF init_params are the same in two renderes of the same component
+        (same full_name and same key and same init_params, excluding init params
+        which name starts with underscore) then dont rerender component
         """
         pass
 
