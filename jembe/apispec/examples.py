@@ -1343,10 +1343,10 @@ class GridBody(Component):
             filter_by: "GFilterExp",
             order_by: Sequence[str],
         ):
-            if isinstalce(self.query, Query):
-                q = query
+            if isinstance(self.query, Query):
+                q = self.query
             else:
-                q = query(component)
+                q = self.query(component)
             q = filter_by.apply_to(q)
             q = q.order_by(*order_by)
             return q

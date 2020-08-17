@@ -42,3 +42,6 @@
 17. Every component can accept config parameters that change behavior of that component
     1. Final goal is to behavior change is implementd with metaprograming but for first versions simple conditionals will be sufficient
 18. Parent componet can change config parameters of its childrens
+
+19. Application structure should be orginised similar to django projects but without project folder (project folder should be root folder)
+/settings
