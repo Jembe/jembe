@@ -1,7 +1,10 @@
-from typing import TYPE_CHECKING, Optional, Type, Tuple, Dict
+from typing import TYPE_CHECKING, Optional, Type, Tuple, Dict, List, Union
+from .errors import JembeError
+from flask import render_template, render_template_string
 
 if TYPE_CHECKING:
     from .common import ComponentRef
+    from flask import Response
 
 
 class ComponentConfig:
@@ -15,38 +18,96 @@ class ComponentConfig:
         name: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[Dict[str, "ComponentRef",]] = None,
-        public_actions: Optional[Tuple[str, ...]] = None,
-        public_model: Optional[Tuple[str, ...]] = None,
-        default_action: str = "display",
         **params,
     ):
         self.name = name
-        self.template = template
+        self.template = (
+            template if template is not None else self._get_default_template_name()
+        )
         self.components = components
-        self.public_actions = public_actions
-        self.public_model = public_model
-        self.default_action = default_action
+        self.public_model: List[str] = []
+        self.default_action: str = "display"
+        self.public_actions: List[str] = [self.default_action]
 
         self._component_class: Optional[Type["Component"]]
+        self._parent:Optional["ComponentConfig"] = None
 
-    def _set_component_class(self, component_class: Type["Component"]):
+    @property
+    def component_class(self) -> Type["Component"]:
+        if self._component_class is None:
+            raise JembeError(
+                "Component Config {} is not initialised properly".format(self.full_name)
+            )
+        return self._component_class
+
+    @component_class.setter
+    def component_class(self, component_class: Type["Component"]):
         """
-        Called by jembe processor after init to set component class that
+        Called by jembe app after init to set component class that
         is using this concret config 
 
         usefull for setting/checking public_actions and public_model
         """
         self._component_class = component_class
+    @property
+    def parent(self) -> Optional["ComponentConfig"]:
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent: "ComponentConfig"):
+        """
+        Called by jembe app after init to set parent componet config
+        """
+        self._parent = parent
 
     @property
     def full_name(self) -> str:
         return "/{}".format(self.name)
-    
+
     @property
     def url_path(self) -> str:
         return "/{}".format(self.name)
+
+    def _get_default_template_name(self) -> str:
+        return "{}.jinja2".format(self.full_name.strip("/"))
 
 
 class Component:
     class Config(ComponentConfig):
         pass
+
+    def __init__(self):
+        self.__config: Optional[Config] = None
+
+    @property
+    def _config(self) -> Config:
+        if self.__config is None:
+            raise JembeError("_config is not set for component {}".format(self))
+        return self.__config
+
+    @_config.setter
+    def _config(self, config: Config):
+        self.__config = config
+
+    def display(self) -> Union[str, None, "Response"]:
+        return self.render_template()
+
+    def render_template(self, template: Optional[str] = None, **context) -> str:
+        """Renderes jinja2 template into html, adds default context variables
+
+        TODO 
+        - context param defines additional template context variables
+        - if template_name is none render default template
+
+        TODO IF init_params are the same in two renderes of the same component
+        (same full_name and same key and same init_params, excluding init params
+        which name starts with underscore) then dont rerender component
+        """
+        context = {
+            # TODO add instance variables not starting with underscore
+            # TODO add init_params
+            **context,
+        }
+        template = template if template else self._config.template
+        return render_template(template, **context)
+

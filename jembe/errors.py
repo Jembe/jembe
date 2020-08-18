@@ -1,0 +1,2 @@
+class JembeError(Exception):
+    pass

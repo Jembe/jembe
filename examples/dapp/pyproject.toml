@@ -8,6 +8,7 @@ authors = ["Predrag Peranović <predrag.peranovic@blokkod.me>"]
 jembe = {path="../.."}
 python = "^3.8"
 python-dotenv = "^0.14.0"
+lxml = "^4.5.2"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.782"

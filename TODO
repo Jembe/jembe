@@ -1,0 +1,16 @@
+Public Dev Lunch:
+    ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s)
+    ☐ Make test for simple page
+    ☐ Add test for jmb attributes additon
+    ☐ Add jmb tag with init_params for page
+        ☐ Adding tag should be done by Processor
+        ☐ Jinja templates should not be aweare of tag beeing added
+        ☐ Tag will be added via lxml, but should think about performance penalties
+            ☐ Consier using jinja2 template engin to add tags if posible
+        ☐ If component has one sorounding tag attributes should be added inside that tag
+        ☐ Othervise if there is not souronding tag response will be wraped in div with jembe dom attrs
+    ☐ Display simple page with custom config
+    ☐ Display page with init_params
+    ☐ Create counter
+    ☐ Multi counter should work
+    ☐ Suport for init_params for basic types

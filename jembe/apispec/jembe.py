@@ -128,6 +128,8 @@ class ComponentConfig:
     @page decorator, components config params and @config decorator to work
     """
 
+    component_class: Type["Component"]
+
     def __init__(
         self,
         name: Optional[str] = None,
