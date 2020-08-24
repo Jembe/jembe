@@ -3,16 +3,26 @@ Public Dev Lunch:
     Make test for simple page:
         ✔ Pytest @started(20-08-24 10:01) @done(20-08-24 10:54) @lasted(53m27s)
         ✔ converge test @started(20-08-24 10:55) @done(20-08-24 11:25) @lasted(30m52s)
-    ☐ Add test for jmb attributes additon
-    ☐ Add jmb tag with init_params for page
-        ☐ Adding tag should be done by Processor
-        ☐ Jinja templates should not be aweare of tag beeing added
-        ☐ Tag will be added via lxml, but should think about performance penalties
-            ☐ Consier using jinja2 template engin to add tags if posible
-        ☐ If component has one sorounding tag attributes should be added inside that tag
-        ☐ Othervise if there is not souronding tag response will be wraped in div with jembe dom attrs
-    ☐ Display simple page with custom config
-    ☐ Display page with init_params
+        ✔ Live reload of coverage -m pytest @started(20-08-24 11:49) @done(20-08-24 13:19) @lasted(1h30m2s)
+            watchmedo shell-command -c 'coverage run -m pytest' jembe tests
+
+    ✔ Add test for jmb attributes additon @done(20-08-24 13:21)
+    Add jmb tag with init_params for page:
+        ✔ Adding tag should be done by Processor @done(20-08-24 13:21)
+        ✔ Jinja templates should not be aweare of tag beeing added @done(20-08-24 13:20)
+        ✔ Tag will be added via lxml, but should think about performance penalties @done(20-08-24 13:20)
+            ✘ Consier using jinja2 template engin to add tags if posible @cancelled(20-08-24 13:20)
+        ✔ If component has one sorounding tag attributes should be added inside that tag @done(20-08-24 13:20)
+        ✔ Othervise if there is not souronding tag response will be wraped in div with jembe dom attrs @done(20-08-24 13:20)
+    ✔ Display simple page with custom config @done(20-08-24 13:19)
+    Init params:
+        ☐ Display page with url params
+        ☐ url params types
+        ☐ put state params in jmb:data (in html)
+        ☐ serialization of state params
+        ☐ performance params support
+        ☐ state and url params in template context
+        ☐ updateing state params
     ☐ Create counter
     ☐ Multi counter should work
     ☐ Suport for init_params for basic types

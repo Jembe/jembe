@@ -44,36 +44,68 @@ class Jembe:
             self._unregistred_pages = {}
 
     def add_page(
-        self, name: str, component: "ComponentRef",
+        self,
+        name: str,
+        component: Type["Component"],
+        component_config: Optional["ComponentConfig"] = None,
     ):
-        if self.flask is not None:
-            self._register_page(name, component)
-        else:
-            self._unregistred_pages[name] = component
 
-    def _register_page(self, name: str, page: "ComponentRef"):
+        component_ref: "ComponentRef" = (
+            component,
+            component_config,
+        ) if component_config else component
+
+        if self.flask is not None:
+            self._register_page(name, component_ref)
+        else:
+            self._unregistred_pages[name] = component_ref
+
+    def page(
+        self,
+        name: str,
+        component_config: Optional["ComponentConfig"] = None,
+    ):
+        """
+        A decorator that is used to register a jembe page commponent.
+        It does same thing as add_page but is intended for decorator usage::
+
+            @jmb.page("page", Component.Config(components={..}))
+            class SimplePage(Component):
+                pass
+        """
+        def decorator(component):
+            self.add_page(name, component ,component_config)
+            return component
+        return decorator
+
+    def _register_page(self, name: str, component_ref: "ComponentRef"):
         if self.flask is None:
             raise NotImplementedError()
         # fill components_configs
-        # TODO go down component hiearchy
         # TODO handle config with custom config default values
-        if isinstance(page, tuple):
-            raise NotImplementedError()
-        elif issubclass(page, Component):
-            bp = Blueprint(name, page.__module__)
-            config = page.Config(name)
-            config.component_class = page
-            page_url_path = config.url_path
-
-            self.components_configs[config.full_name] = config
-            bp.add_url_rule(
-                config.url_path[len(page_url_path) :],
-                config.full_name,
-                jembe_master_view,
-                methods=["GET", "POST"],
+        if isinstance(component_ref, tuple):
+            page = component_ref[0]
+            config = page.Config(
+                **{**component_ref[1]._raw_init_params, "name": name}  # type:ignore
             )
-            self.flask.register_blueprint(bp, url_prefix=config.url_path)
-            # TODO register with route
+        elif issubclass(component_ref, Component):
+            page = component_ref
+            config = page.Config(name=name)
+
+        # TODO go down component hiearchy
+        bp = Blueprint(name, page.__module__)
+        config.component_class = page
+        page_url_path = config.url_path
+
+        self.components_configs[config.full_name] = config
+        bp.add_url_rule(
+            config.url_path[len(page_url_path) :],
+            config.full_name,
+            jembe_master_view,
+            methods=["GET", "POST"],
+        )
+        self.flask.register_blueprint(bp, url_prefix=config.url_path)
+        # TODO register with route
 
 
 def jembe_master_view(**kwargs) -> "Response":
