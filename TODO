@@ -1,6 +1,8 @@
 Public Dev Lunch:
     ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s)
-    ☐ Make test for simple page
+    Make test for simple page:
+        ✔ Pytest @started(20-08-24 10:01) @done(20-08-24 10:54) @lasted(53m27s)
+        ✔ converge test @started(20-08-24 10:55) @done(20-08-24 11:25) @lasted(30m52s)
     ☐ Add test for jmb attributes additon
     ☐ Add jmb tag with init_params for page
         ☐ Adding tag should be done by Processor

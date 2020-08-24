@@ -68,8 +68,12 @@ class Processor:
         """
         def set_jmb_attrs(elem):
             elem.set("jmb:name", component._config.full_name)
-            elem.set("jmb:key", None)
-            elem.set("jmb:data", None)
+            if component.key:
+                elem.set("jmb:key", None)
+            elem.set("jmb:data", "{}")
+
+        if not html:
+            html = "<div></div>"
         root = etree.HTML(html)
         if component._config.parent is None:
             doc = root.getroottree()

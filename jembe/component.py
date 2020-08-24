@@ -30,7 +30,7 @@ class ComponentConfig:
         self.public_actions: List[str] = [self.default_action]
 
         self._component_class: Optional[Type["Component"]]
-        self._parent:Optional["ComponentConfig"] = None
+        self._parent: Optional["ComponentConfig"] = None
 
     @property
     def component_class(self) -> Type["Component"]:
@@ -49,6 +49,7 @@ class ComponentConfig:
         usefull for setting/checking public_actions and public_model
         """
         self._component_class = component_class
+
     @property
     def parent(self) -> Optional["ComponentConfig"]:
         return self._parent
@@ -89,6 +90,10 @@ class Component:
     def _config(self, config: Config):
         self.__config = config
 
+    @property
+    def key(self) -> str:
+        return ""
+
     def display(self) -> Union[str, None, "Response"]:
         return self.render_template()
 
@@ -110,4 +115,22 @@ class Component:
         }
         template = template if template else self._config.template
         return render_template(template, **context)
+
+    def render_template_string(self, source, **context):
+        """
+        Renderes jinja2 template string into html, adds default context variables
+
+        - context param defines additional template context variables
+
+
+        TODO IF init_params are the same in two renderes of the same component
+        (same full_name and same key and same init_params, excluding init params
+        which name starts with underscore) then dont rerender component
+        """
+        context = {
+            # TODO add instance variables not starting with underscore
+            # TODO add init_params
+            **context,
+        }
+        return render_template_string(source, **context)
 
