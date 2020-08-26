@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional,  Union
+from typing import TYPE_CHECKING, Optional, Union, Dict, Any
 from .errors import JembeError
 from flask import render_template, render_template_string
 from .component_config import ComponentConfig
@@ -44,8 +44,7 @@ class Component:
         which name starts with underscore) then dont rerender component
         """
         context = {
-            # TODO add instance variables not starting with underscore
-            # TODO add init_params
+            **self._get_default_template_context(),
             **context,
         }
         template = template if template else self._config.template
@@ -63,9 +62,17 @@ class Component:
         which name starts with underscore) then dont rerender component
         """
         context = {
-            # TODO add instance variables not starting with underscore
-            # TODO add init_params
+            **self._get_default_template_context(),
             **context,
         }
         return render_template_string(source, **context)
+
+    def _get_default_template_context(self) -> Dict[str, Any]:
+        """
+        returns dict with all instance variables not starting with underscore
+        and init_params dict
+        """
+        # TODO add init_params
+        # add instance variables not starting with underscore
+        return {name:value for name, value in vars(self).items() if not name.startswith("_")}
 

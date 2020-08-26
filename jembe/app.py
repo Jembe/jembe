@@ -84,17 +84,22 @@ class Jembe:
         # fill components_configs
         # TODO handle config with custom config default values
         if isinstance(component_ref, tuple):
+            # create config with custom params
             page = component_ref[0]
             config = page.Config(
                 **{**component_ref[1]._raw_init_params, "name": name}  # type:ignore
             )
         elif issubclass(component_ref, Component):
+            # create config with default params
             page = component_ref
             config = page.Config(name=name)
 
+        # accosciate component with config and vice verse
+        # config will set its remaining params reading component classs description
+        config.component_class = page
+
         # TODO go down component hiearchy
         bp = Blueprint(name, page.__module__)
-        config.component_class = page
         page_url_path = config.url_path
 
         self.components_configs[config.full_name] = config
@@ -113,5 +118,5 @@ def jembe_master_view(**kwargs) -> "Response":
     if not (request.endpoint and request.blueprint):
         raise JembeError("Request {} can't be handled by jembe processor")
     component_full_name = request.endpoint[len(request.blueprint) + 1 :]
-    processor = Processor(jembe, component_full_name, request, **kwargs)
+    processor = Processor(jembe, component_full_name, request)
     return processor.process_request()

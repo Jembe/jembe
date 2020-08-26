@@ -67,10 +67,6 @@ class BlogPostPage(Component):
     depending of url it is used
     """
 
-    class Config(Component.Config):
-        def __init__(self, url_path="<str:blog_name>", **params):
-            super().__init__(url_path=url_path, **params)
-
     def __init__(self, blog_name: str):
         """
         self.init_params["blog_name"] = blog_name will be set by jembe processor
@@ -87,12 +83,10 @@ class BlogPostPage(Component):
 
 App.add_page("blogpost", BlogPostPage)
 # set new blog post with different url_path
-App.add_page(
-    "blogpost2", BlogPostPage, BlogPostPage.Config(url_path="blogpost2/<str:blog_name>")
-)
+App.add_page( "blogpost2", BlogPostPage)
 
 
-@page("news", Component.Config(url_path="<int:news_id>"))
+@page("news")
 class NewsPage(Component):
     """
     Simple page that displays different News

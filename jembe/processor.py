@@ -16,14 +16,10 @@ class Processor:
         will be used to render compononet 
     """
 
-    def __init__(
-        self,
-        jembe: "Jembe",
-        component_full_name: str,
-        request: "Request",
-        **request_kwargs
-    ):
+    def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
         self.jembe = jembe
+        self.request = request
+
         self.components: Dict[str, "Component"] = self.init_components(
             component_full_name
         )
@@ -32,17 +28,13 @@ class Processor:
             self.directly_requested_component._config.default_action
         )
 
-        self.request = request
-        self.request_kwargs = request_kwargs
-
     def init_components(self, component_full_name: str) -> Dict[str, "Component"]:
-        # TODO provide init_params
         # TODO initialise parent components
         # TODO create component hiearachy etc.
         components = {}
 
         cconfig = self.jembe.components_configs[component_full_name]
-        component = cconfig.component_class()
+        component = cconfig._init_component_class_from_request(self.request)
         component._config = cconfig  # type:ignore
         components[component_full_name] = component
 
@@ -66,6 +58,7 @@ class Processor:
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
+
         def set_jmb_attrs(elem):
             elem.set("jmb:name", component._config.full_name)
             if component.key:
