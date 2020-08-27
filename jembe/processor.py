@@ -1,11 +1,35 @@
-from typing import TYPE_CHECKING, Dict, cast, Type
+from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional
 from lxml import etree
+from flask import json, escape
+from .component import ComponentState
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .app import Jembe
     from flask import Request, Response
-    from .component import Component
+    from .component import Component, ComponentConfig
+
+
+class AppState:
+    def __init__(self, app_state: Dict[str, "ComponentState"]):
+        self.app_state = app_state
+        self.components: Dict[str, "Component"] = {}
+
+    @classmethod
+    def from_request(
+        cls, request: "Request", component_full_name: str, jembe: "Jembe"
+    ) -> "AppState":
+        if request.headers.get(jembe.X_JEMBE, False):
+            data = json.loads(request.data)
+            # self.components: Dict[str, "Component"] = self.init_components(
+            #     app_state=data.state
+            # )
+            raise NotImplementedError("Handling ajax requst")
+        else:
+            return AppState({component_full_name: ComponentState()})
+            # self.components: Dict[str, "Component"] = self.init_components(
+            #     component_full_name
+            # )
 
 
 class Processor:
@@ -20,9 +44,14 @@ class Processor:
         self.jembe = jembe
         self.request = request
 
-        self.components: Dict[str, "Component"] = self.init_components(
-            component_full_name
+        # TODO create app state for direct or ajax request
+        # refactor init_components to accept AppState
+        # do
+        self.request_app_state = AppState.from_request(
+            request, component_full_name, jembe
         )
+
+        self.components: Dict[str, "Component"] = self._init_components()
         self.directly_requested_component = self.components[component_full_name]
         self.directly_requested_component_action = (
             self.directly_requested_component._config.default_action
@@ -35,7 +64,6 @@ class Processor:
 
         cconfig = self.jembe.components_configs[component_full_name]
         component = cconfig._init_component_class_from_request(self.request)
-        component._config = cconfig  # type:ignore
         components[component_full_name] = component
 
         return components
@@ -63,7 +91,8 @@ class Processor:
             elem.set("jmb:name", component._config.full_name)
             if component.key:
                 elem.set("jmb:key", None)
-            elem.set("jmb:data", "{}")
+            json_state = json.dumps(component.state, separators=(",", ":"))
+            elem.set("jmb:state", json_state)
 
         if not html:
             html = "<div></div>"

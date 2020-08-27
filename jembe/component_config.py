@@ -4,7 +4,7 @@ from enum import Enum
 from inspect import signature
 from .errors import JembeError
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     import inspect
     from .component import Component
     from .common import ComponentRef
@@ -115,7 +115,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         be set or changed by end user or any other class except Jembe app.
         """
         self._component_class = component_class
-        # Calculate url_params
         self._calc_url_params()
 
     def _calc_url_params(self):
@@ -123,13 +122,14 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         Gets all component.__init__ paramters without default value 
         and populate self._url_params
         """
-        init_sig = signature(self.component_class.__init__)
+        init_sig = self.component_class._jembe_init_signature
         # TODO set urlparamdef identifier to name_0, name_1 etc.
         self._url_params = tuple(
             UrlParamDef.from_inspect_parameter(p)
             for p in init_sig.parameters.values()
             if p.default == p.empty and p.name != "self" and not p.name.startswith("_")
         )
+
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
@@ -165,5 +165,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         component state_data from ajax request
         """
         # TODO include state data from ajax request
-        init_args = {upd.name: request.view_args[upd.identifier] for upd in self._url_params}
+        init_args = {
+            upd.name: request.view_args[upd.identifier] for upd in self._url_params
+        }
         return self.component_class(**init_args)  # type:ignore

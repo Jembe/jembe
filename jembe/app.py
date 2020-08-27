@@ -4,7 +4,7 @@ from .component import Component
 from .processor import Processor
 from .errors import JembeError
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
     from flask import Flask, Request, Response
     from .component import ComponentConfig
@@ -17,6 +17,7 @@ class Jembe:
     """
     This class is used to configure Jembe pages and Flask integration.
     """
+    X_JEMBE = "X-Jembe"
 
     def __init__(self, app: Optional["Flask"] = None):
         """Initialise jembe configuration"""
@@ -61,9 +62,7 @@ class Jembe:
             self._unregistred_pages[name] = component_ref
 
     def page(
-        self,
-        name: str,
-        component_config: Optional["ComponentConfig"] = None,
+        self, name: str, component_config: Optional["ComponentConfig"] = None,
     ):
         """
         A decorator that is used to register a jembe page commponent.
@@ -73,19 +72,20 @@ class Jembe:
             class SimplePage(Component):
                 pass
         """
+
         def decorator(component):
-            self.add_page(name, component ,component_config)
+            self.add_page(name, component, component_config)
             return component
+
         return decorator
 
     def _register_page(self, name: str, component_ref: "ComponentRef"):
-        if self.flask is None:
+        if self.flask is None:  # pragma: no cover
             raise NotImplementedError()
-        # fill components_configs
         # TODO handle config with custom config default values
         if isinstance(component_ref, tuple):
             # create config with custom params
-            page = component_ref[0]
+            page: Type["Component"] = component_ref[0]
             config = page.Config(
                 **{**component_ref[1]._raw_init_params, "name": name}  # type:ignore
             )
@@ -97,11 +97,13 @@ class Jembe:
         # accosciate component with config and vice verse
         # config will set its remaining params reading component classs description
         config.component_class = page
+        setattr(page, "_config", config)
 
         # TODO go down component hiearchy
         bp = Blueprint(name, page.__module__)
         page_url_path = config.url_path
 
+        # fill components_configs
         self.components_configs[config.full_name] = config
         bp.add_url_rule(
             config.url_path[len(page_url_path) :],
