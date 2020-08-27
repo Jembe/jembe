@@ -12,6 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class UrlConvertor(Enum):
+    STR0 = "string(minlength=0)"
     STR = "string"
     PATH = "path"
     INT = "int"
@@ -19,14 +20,25 @@ class UrlConvertor(Enum):
     UUID = "uuid"
 
 
+def calc_url_param_identifier(name: str, level: int):
+    return name if level == 0 else "{}.{}".format(name, level)
+
+
 class UrlParamDef:
-    def __init__(self, name: str, convertor: Optional["UrlConvertor"] = None):
+    def __init__(
+        self,
+        name: str,
+        convertor: Optional["UrlConvertor"] = None,
+        identifier: Optional[str] = None,
+    ):
         self.name = name
-        self.identifier = name
+        self.identifier = name if not identifier else identifier
         self.convertor = convertor if convertor else UrlConvertor.STR
 
     @classmethod
-    def from_inspect_parameter(cls, p: "inspect.Parameter") -> "UrlParamDef":
+    def from_inspect_parameter(
+        cls, p: "inspect.Parameter", level: int
+    ) -> "UrlParamDef":
         convertor = UrlConvertor.STR
         if p.annotation.__name__ == "int":
             convertor = UrlConvertor.INT
@@ -37,7 +49,7 @@ class UrlParamDef:
         elif p.annotation.__name__ == "UUID":
             convertor = UrlConvertor.UUID
         # TODO convertor PATH
-        return UrlParamDef(p.name, convertor)
+        return UrlParamDef(p.name, convertor, calc_url_param_identifier(p.name, level))
 
     @property
     def url_pattern(self) -> str:
@@ -73,6 +85,10 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     are known at build time, like: url_path, subcomponents, name etc.
     """
 
+    KEY_URL_PARAM_NAME = "component_key"
+    KEY_URL_PARAM_SEPARATOR = "."
+    DEFAULT_DISPLAY_ACTION = "display"
+
     _raw_init_params: dict
 
     def __init__(
@@ -87,13 +103,16 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         )
         self.components = components
         self.public_model: List[str] = []
-        self.default_action: str = "display"
-        self.public_actions: List[str] = [self.default_action]
+        self.public_actions: List[str] = [self.DEFAULT_DISPLAY_ACTION]
 
+        # initialise after setting compoent_class
         self._component_class: Optional[Type["Component"]]
-        self._parent: Optional["ComponentConfig"] = None
 
-        self._url_params: Tuple["UrlParamDef", ...] = ()
+        # initalise after setting parent
+        self._parent: Optional["ComponentConfig"]
+        self._hiearchy_level: int
+        self._url_params: Tuple["UrlParamDef", ...]
+        self._key_url_param: "UrlParamDef"
 
     @property
     def component_class(self) -> Type["Component"]:
@@ -115,32 +134,32 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         be set or changed by end user or any other class except Jembe app.
         """
         self._component_class = component_class
-        self._calc_url_params()
-
-    def _calc_url_params(self):
-        """
-        Gets all component.__init__ paramters without default value 
-        and populate self._url_params
-        """
-        init_sig = self.component_class._jembe_init_signature
-        # TODO set urlparamdef identifier to name_0, name_1 etc.
-        self._url_params = tuple(
-            UrlParamDef.from_inspect_parameter(p)
-            for p in init_sig.parameters.values()
-            if p.default == p.empty and p.name != "self" and not p.name.startswith("_")
-        )
-
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
         return self._parent
 
     @parent.setter
-    def parent(self, parent: "ComponentConfig"):
+    def parent(self, parent: Optional["ComponentConfig"]):
         """
         Called by jembe app after init to set parent componet config
         """
         self._parent = parent
+        self._hiearchy_level = 0 if not parent else parent._hiearchy_level + 1
+        # Gets all component.__init__ paramters without default value
+        # and populate self._url_params
+        self._url_params = tuple(
+            UrlParamDef.from_inspect_parameter(p, self._hiearchy_level)
+            for p in self.component_class._jembe_init_signature.parameters.values()
+            if p.default == p.empty and p.name != "self" and not p.name.startswith("_")
+        )
+        self._key_url_param = UrlParamDef(
+            self.KEY_URL_PARAM_NAME,
+            identifier=calc_url_param_identifier(
+                self.KEY_URL_PARAM_NAME, self._hiearchy_level
+            ),
+            convertor=UrlConvertor.STR0,
+        )
 
     @property
     def full_name(self) -> str:
@@ -149,17 +168,19 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     @property
     def url_path(self) -> str:
         if not self._url_params:
-            return "/{}".format(self.name)
+            return "/{}{}".format(self.name, self._key_url_param.url_pattern)
         else:
-            return "/{name}/{url_params}".format(
+            url_params = "/".join(up.url_pattern for up in self._url_params)
+            return "/{name}{key}/{url_params}".format(
                 name=self.name,
-                url_params="/".join(up.url_pattern for up in self._url_params),
+                key=self._key_url_param.url_pattern,
+                url_params=url_params,
             )
 
     def _get_default_template_name(self) -> str:
         return "{}.jinja2".format(self.full_name.strip("/"))
 
-    def _init_component_class_from_request(self, request: "Request") -> "Component":
+    def _init_component_from_url_path(self, request: "Request") -> "Component":
         """
         Init compoent class from request considering request.args and
         component state_data from ajax request
@@ -168,4 +189,19 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         init_args = {
             upd.name: request.view_args[upd.identifier] for upd in self._url_params
         }
-        return self.component_class(**init_args)  # type:ignore
+        component = self.component_class(**init_args)  # type:ignore
+        component.key = request.view_args[self._key_url_param.identifier]
+        return component
+
+    def _init_component_from_json_data(
+        self, parent: Optional["Component"], component_data
+    ) -> "Component":
+        """
+        Init component class from ajax json request considering request.args and
+        component state_data from ajax request
+        """
+        component = self.component_class(**component_data["state"])  # type: ignore
+        # TODO execName to key
+        component.key = ""
+        component.parent = parent
+        return component

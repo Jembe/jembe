@@ -136,11 +136,23 @@ def test_counter_on_page(jmb, client):
     assert b'<button jmb:click="increase()"' in res.data
 
     # Refresh page with ajax request
-    ajax_post_data = json.dumps(dict(
-        state=[dict(fullName="/cop", state=dict(counter=0))],
-        action=dict(componentFullName="/cop", name="display",args=list(), kwargs=dict())
-    ))
-    r = client.post("/cop", data=ajax_post_data, headers={'x-jembe': True})
+    ajax_post_data = json.dumps(
+        dict(
+            components=[
+                dict(execName="/cop", state=dict(counter=0))
+            ],
+            commands=[
+                dict(
+                    type="call", # emit, initialise
+                    componentExecName="/cop",
+                    actionName="display",
+                    args=list(),
+                    kwargs=dict(),
+                )
+            ],
+        )
+    )
+    r = client.post("/cop", data=ajax_post_data, headers={"x-jembe": True})
     assert r.status_code == 200
 
     print(r.data)
@@ -150,23 +162,35 @@ def test_counter_on_page(jmb, client):
     assert ajax_response_data[0]["dom"].endswith("</html>")
     assert b"Counter: 0" in ajax_response_data[0]["dom"]
     assert b"c=0" in ajax_response_data[0]["dom"]
-    assert b'<button jmb:click=\"increase()\"' in ajax_response_data[0]["dom"]
+    assert b'<button jmb:click="increase()"' in ajax_response_data[0]["dom"]
     assert ajax_response_data[0]["fullName"] == "/cop"
-    assert ajax_response_data[0]["state"] == {"counter":0}
+    assert ajax_response_data[0]["state"] == {"counter": 0}
 
     # Call increase action
-    ajax_post_data = json.dumps(dict(
-        state=[dict(fullName="/cop", state=dict(counter=0))],
-        action=dict(componentFullName="/cop", name="increase",args=list(), kwargs=dict())
-    ))
-    r = client.post("/cop", data=ajax_post_data, headers={'x-jembe': True})
+    ajax_post_data = json.dumps(
+        dict(
+            components=[
+                dict(fullName="/cop", execName="/cop", key="", state=dict(counter=0))
+            ],
+            commands=[
+                dict(
+                    type="call",
+                    componentExecName="/cop",
+                    actionName="increase",
+                    args=list(),
+                    kwargs=dict(),
+                )
+            ],
+        )
+    )
+    r = client.post("/cop", data=ajax_post_data, headers={"x-jembe": True})
     assert r.status_code == 200
 
     ajax_response_data = json.loads(r.data)
     assert len(ajax_response_data) == 1
     assert b"Counter: 1" in ajax_response_data[0]["dom"]
     assert b"c=1" in ajax_response_data[0]["dom"]
-    assert ajax_response_data[0]["state"] == {"counter":1}
+    assert ajax_response_data[0]["state"] == {"counter": 1}
 
 
 # def test_blog(jmb, client):

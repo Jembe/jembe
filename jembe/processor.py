@@ -1,35 +1,68 @@
-from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional
+from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional, Union
 from lxml import etree
 from flask import json, escape
-from .component import ComponentState
+from .errors import JembeError
+from .component import ComponentConfig
 
 
 if TYPE_CHECKING:  # pragma: no cover
     from .app import Jembe
     from flask import Request, Response
-    from .component import Component, ComponentConfig
+    from .component import Component
 
 
-class AppState:
-    def __init__(self, app_state: Dict[str, "ComponentState"]):
-        self.app_state = app_state
-        self.components: Dict[str, "Component"] = {}
+class Command:
+    jembe: "Jembe"
 
-    @classmethod
-    def from_request(
-        cls, request: "Request", component_full_name: str, jembe: "Jembe"
-    ) -> "AppState":
-        if request.headers.get(jembe.X_JEMBE, False):
-            data = json.loads(request.data)
-            # self.components: Dict[str, "Component"] = self.init_components(
-            #     app_state=data.state
-            # )
-            raise NotImplementedError("Handling ajax requst")
-        else:
-            return AppState({component_full_name: ComponentState()})
-            # self.components: Dict[str, "Component"] = self.init_components(
-            #     component_full_name
-            # )
+    def mount(self, processor: "Processor") -> "Command":
+        self.processor = processor
+        return self
+
+    def execute(self):
+        raise NotImplementedError()
+
+
+class CallCommand(Command):
+    def __init__(self, component_exec_name: str, action_name: str, *args, **kwargs):
+        self.component_exec_name = component_exec_name
+        self.action_name = action_name
+        self.args = args
+        self.kwargs = kwargs
+
+        self.component: "Component"
+
+    def mount(self, processor: "Processor") -> "CallCommand":
+        super().mount(processor)
+        self.component = processor.components[self.component_exec_name]
+        return self
+
+    def execute(self) -> Union[None, bool, str, "Response"]:
+        if self.action_name in self.component._config.public_actions:
+            return getattr(self.component, self.action_name)(*self.args, **self.kwargs)
+        raise JembeError(
+            "Action {}.{} does not exist or is not marked as public action".format(
+                self.component._config.full_name, self.action_name
+            )
+        )
+
+
+class EmitCommand(Command):
+    pass
+
+
+class InitialiseCommand(Command):
+    pass
+
+
+def command_factory(command_data: dict) -> "Command":
+    if command_data["type"] == "call":
+        return CallCommand(
+            command_data["componentExecName"],
+            command_data["actionName"],
+            *command_data["args"],
+            **command_data["kwargs"],
+        )
+    raise NotImplementedError()
 
 
 class Processor:
@@ -44,39 +77,56 @@ class Processor:
         self.jembe = jembe
         self.request = request
 
-        # TODO create app state for direct or ajax request
-        # refactor init_components to accept AppState
-        # do
-        self.request_app_state = AppState.from_request(
-            request, component_full_name, jembe
-        )
+        self.components: Dict[str, "Component"]
+        self.commands: List["Command"]
+        self._init_components(component_full_name)
 
-        self.components: Dict[str, "Component"] = self._init_components()
-        self.directly_requested_component = self.components[component_full_name]
-        self.directly_requested_component_action = (
-            self.directly_requested_component._config.default_action
-        )
-
-    def init_components(self, component_full_name: str) -> Dict[str, "Component"]:
+    def _init_components(self, component_full_name: str):
         # TODO initialise parent components
         # TODO create component hiearachy etc.
-        components = {}
+        self.components = {}
+        self.commands = []
+        if self.request.headers.get(self.jembe.X_JEMBE, False):
+            # x-jembe ajax request
+            data = json.loads(self.request.data)
+            # TODO order components from lower to deeper so that parent can be set
+            for component_data in data["components"]:
+                # TODO exec_name to full_name
+                component_full_name = component_data["execName"]
+                cconfig = self.jembe.components_configs[component_full_name]
 
-        cconfig = self.jembe.components_configs[component_full_name]
-        component = cconfig._init_component_class_from_request(self.request)
-        components[component_full_name] = component
+                parent_exec_name = "/".join(component_data["execName"].split("/")[:-1])
+                parent = self.components[parent_exec_name] if parent_exec_name else None
+                component = cconfig._init_component_from_json_data(
+                    parent, component_data
+                )
+                self.components[component.exec_name] = component
+            for command_data in data["commands"]:
+                self.commands.append(command_factory(command_data))
+        else:
+            # regular http/s GET request
+            cconfig = self.jembe.components_configs[component_full_name]
+            component = cconfig._init_component_from_url_path(self.request)
+            self.components[component.exec_name] = component
+            direct_component_exec_name = component.exec_name
 
-        return components
+            self.commands.append(
+                CallCommand(
+                    direct_component_exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                )
+            )
 
     def process_request(self) -> "Response":
         # TODO pickup responses from other components
         # TODO handle AJAX request
-        cresponse = getattr(
-            self.directly_requested_component, self.directly_requested_component_action
-        )()
+        # cresponse = getattr(
+        #     self.directly_requested_component, self.directly_requested_component_action
+        # )()
+        cresponse = self.commands[0].mount(self).execute()
+
         if isinstance(cresponse, str):
             # action returns html
-            cresponse = self.add_dom_attrs(self.directly_requested_component, cresponse)
+            cresponse = self.add_dom_attrs(self.commands[0].component, cresponse)
 
         return cresponse
 

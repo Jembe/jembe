@@ -17,6 +17,7 @@ class Jembe:
     """
     This class is used to configure Jembe pages and Flask integration.
     """
+
     X_JEMBE = "X-Jembe"
 
     def __init__(self, app: Optional["Flask"] = None):
@@ -97,6 +98,8 @@ class Jembe:
         # accosciate component with config and vice verse
         # config will set its remaining params reading component classs description
         config.component_class = page
+        config.parent = None
+        # config.parent = ..
         setattr(page, "_config", config)
 
         # TODO go down component hiearchy
