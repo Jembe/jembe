@@ -111,20 +111,18 @@ def test_counter_on_page(jmb, client):
         @action
         def increase(self):
             self.state.counter += 1
+            return self.display()
 
         def display(self):
             return self.render_template_string(
-                """
-                <html>
+                """<html>
                 <head></head>
                 <body>
                     <div>Counter: {{counter}}</div>
                     <div>c={{state.counter}}</div>
                     <button jmb:click="increase()"/>
                 </body>
-                </html>
-
-            """
+                </html>"""
             )
 
     # First load
@@ -138,12 +136,10 @@ def test_counter_on_page(jmb, client):
     # Refresh page with ajax request
     ajax_post_data = json.dumps(
         dict(
-            components=[
-                dict(execName="/cop", state=dict(counter=0))
-            ],
+            components=[dict(execName="/cop", state=dict(counter=0))],
             commands=[
                 dict(
-                    type="call", # emit, initialise
+                    type="call",  # emit, initialise
                     componentExecName="/cop",
                     actionName="display",
                     args=list(),
@@ -155,15 +151,14 @@ def test_counter_on_page(jmb, client):
     r = client.post("/cop", data=ajax_post_data, headers={"x-jembe": True})
     assert r.status_code == 200
 
-    print(r.data)
     ajax_response_data = json.loads(r.data)
     assert len(ajax_response_data) == 1
     assert ajax_response_data[0]["dom"].startswith("<html")
     assert ajax_response_data[0]["dom"].endswith("</html>")
-    assert b"Counter: 0" in ajax_response_data[0]["dom"]
-    assert b"c=0" in ajax_response_data[0]["dom"]
-    assert b'<button jmb:click="increase()"' in ajax_response_data[0]["dom"]
-    assert ajax_response_data[0]["fullName"] == "/cop"
+    assert "Counter: 0" in ajax_response_data[0]["dom"]
+    assert "c=0" in ajax_response_data[0]["dom"]
+    assert '<button jmb:click="increase()"' in ajax_response_data[0]["dom"]
+    assert ajax_response_data[0]["execName"] == "/cop"
     assert ajax_response_data[0]["state"] == {"counter": 0}
 
     # Call increase action
@@ -188,8 +183,8 @@ def test_counter_on_page(jmb, client):
 
     ajax_response_data = json.loads(r.data)
     assert len(ajax_response_data) == 1
-    assert b"Counter: 1" in ajax_response_data[0]["dom"]
-    assert b"c=1" in ajax_response_data[0]["dom"]
+    assert "Counter: 1" in ajax_response_data[0]["dom"]
+    assert "c=1" in ajax_response_data[0]["dom"]
     assert ajax_response_data[0]["state"] == {"counter": 1}
 
 

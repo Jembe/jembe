@@ -90,8 +90,6 @@ class Component(metaclass=ComponentMeta):
 
     def __init__(self):
         self.__key: str = ""
-        self.__parent: Optional[Component] = None
-
         self.__exec_name: str
 
     @property
@@ -101,35 +99,38 @@ class Component(metaclass=ComponentMeta):
     @key.setter
     def key(self, key: str):
         self.__key = key
-        self.__update_exec_name()
-
-    @property
-    def parent(self) -> Optional["Component"]:
-        return self.__parent
-
-    @parent.setter
-    def parent(self, parent: Optional["Component"]):
-        self.__parent = parent
-        self.__update_exec_name()
+        # TODO update __exec_name
+        # self.__update_exec_name()
 
     @property
     def exec_name(self) -> str:
         return self.__exec_name
-    
-    def __update_exec_name(self):
-        if self.parent:
-            self.__exec_name = "{}/{}".format(
-                self.parent.exec_name,
-                self._config.name
-                if not self.key
-                else "{}.{}".format(self._config.name, self.key),
-            )
-        else:
-            self.__exec_name = (
-                "/{}".format(self._config.name) # type:ignore
-                if not self.key
-                else "/{}.{}".format(self._config.name, self.key)
-            )
+
+    @exec_name.setter
+    def exec_name(self, exec_name: str):
+        self.__exec_name = exec_name
+        # TODO verify exec_name with _config.full_name
+        # TODO set , __key
+
+    def set_parent_exec_name(self, parent_exec_name: str):
+        self.__exec_name = "{}/{}.{}".format(parent_exec_name, self.name, self.key)
+        # TODO verify parent_exec_name with _config.full_name
+        # TODO set __exec_name
+
+    # def __update_exec_name(self):
+    #     if self.parent:
+    #         self.__exec_name = "{}/{}".format(
+    #             self.parent.exec_name,
+    #             self._config.name
+    #             if not self.key
+    #             else "{}.{}".format(self._config.name, self.key),
+    #         )
+    #     else:
+    #         self.__exec_name = (
+    #             "/{}".format(self._config.name) # type:ignore
+    #             if not self.key
+    #             else "/{}.{}".format(self._config.name, self.key)
+    #         )
 
     def display(self) -> Union[str, None, "Response"]:
         return self.render_template()

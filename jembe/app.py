@@ -73,7 +73,6 @@ class Jembe:
             class SimplePage(Component):
                 pass
         """
-
         def decorator(component):
             self.add_page(name, component, component_config)
             return component

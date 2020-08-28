@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional, Type, Dict, List, Tuple, Any
 from abc import ABCMeta
 from enum import Enum
-from inspect import signature
+from inspect import signature, getmembers, isfunction
 from .errors import JembeError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,6 +61,58 @@ class UrlParamDef:
         return self.url_pattern
 
 
+def action(
+    method,
+    deferred=False,
+    deferred_after: Optional[str] = None,
+    deferred_before: Optional[str] = None,
+):
+    """
+    decorator to mark method as public action inside component
+
+    deferred aciton is executed last after allother actions from parent action template
+    are executed no matter of its postion inside parent action template.
+
+    Usefull if we need to create breadcrumb or other summary report 
+    based from already executed actions
+
+    deferred_after and deferred_before are used to execute this action after or before 
+    other specific deferred action, when multiple actions has deferred execution
+    """
+    # This decorator don't anytthing except allow
+    # componentconfig.set_compoenent_class to
+    # recognise method as action
+
+    setattr(method, "_jembe_action", True)
+    setattr(method, "_jembe_action_deferred", deferred)
+    setattr(method, "_jembe_action_deferred_after", deferred_after)
+    setattr(method, "_jembe_action_deferred_before", deferred_before)
+    return method
+
+
+class ComponentAction:
+    def __init__(
+        self,
+        name: str,
+        deferred: bool = False,
+        deferred_after: Optional[str] = None,
+        deferred_before: Optional[str] = None,
+    ):
+        self.name = name
+        self.deferred = deferred
+        self.deferred_after = deferred_after
+        self.deferred_before = deferred_before
+
+    @classmethod
+    def from_method(cls, method) -> "ComponentAction":
+        return cls(
+            method.__name__,
+            getattr(method, "_jembe_action_deferred", False),
+            getattr(method, "_jembe_action_deferred_after", None),
+            getattr(method, "_jembe_action_deferred_before", None),
+        )
+
+
 def componentConfigInitDecorator(init_method):
     def decoratedInit(self, *args, **kwargs):
         """Saves named init params as self._raw_init_params"""
@@ -102,11 +154,10 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             template if template is not None else self._get_default_template_name()
         )
         self.components = components
-        self.public_model: List[str] = []
-        self.public_actions: List[str] = [self.DEFAULT_DISPLAY_ACTION]
+        # initialise after setting component_class
 
-        # initialise after setting compoent_class
         self._component_class: Optional[Type["Component"]]
+        self.component_actions: Dict[str, "ComponentAction"]
 
         # initalise after setting parent
         self._parent: Optional["ComponentConfig"]
@@ -134,6 +185,16 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         be set or changed by end user or any other class except Jembe app.
         """
         self._component_class = component_class
+        self.component_actions = {
+            self.DEFAULT_DISPLAY_ACTION: ComponentAction.from_method(
+                getattr(self._component_class, self.DEFAULT_DISPLAY_ACTION)
+            )
+        }
+        for method_name, method in getmembers(
+            self._component_class,
+            lambda o: isfunction(o) and getattr(o, "_jembe_action", False),
+        ):
+            self.component_actions[method_name] = ComponentAction.from_method(method)
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
@@ -180,28 +241,3 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def _get_default_template_name(self) -> str:
         return "{}.jinja2".format(self.full_name.strip("/"))
 
-    def _init_component_from_url_path(self, request: "Request") -> "Component":
-        """
-        Init compoent class from request considering request.args and
-        component state_data from ajax request
-        """
-        # TODO include state data from ajax request
-        init_args = {
-            upd.name: request.view_args[upd.identifier] for upd in self._url_params
-        }
-        component = self.component_class(**init_args)  # type:ignore
-        component.key = request.view_args[self._key_url_param.identifier]
-        return component
-
-    def _init_component_from_json_data(
-        self, parent: Optional["Component"], component_data
-    ) -> "Component":
-        """
-        Init component class from ajax json request considering request.args and
-        component state_data from ajax request
-        """
-        component = self.component_class(**component_data["state"])  # type: ignore
-        # TODO execName to key
-        component.key = ""
-        component.parent = parent
-        return component

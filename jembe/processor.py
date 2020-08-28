@@ -1,21 +1,28 @@
 from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional, Union
 from lxml import etree
-from flask import json, escape
+from flask import json, escape, jsonify, Response
 from .errors import JembeError
 from .component import ComponentConfig
+from .common import exec_name_to_full_name
 
 
 if TYPE_CHECKING:  # pragma: no cover
     from .app import Jembe
-    from flask import Request, Response
+    from flask import Request
     from .component import Component
 
 
 class Command:
     jembe: "Jembe"
 
+    def __init__(self, component_exec_name: str):
+        self.component_exec_name = component_exec_name
+
+        self.component: "Component"
+
     def mount(self, processor: "Processor") -> "Command":
         self.processor = processor
+        self.component = processor.components[self.component_exec_name]
         return self
 
     def execute(self):
@@ -24,20 +31,16 @@ class Command:
 
 class CallCommand(Command):
     def __init__(self, component_exec_name: str, action_name: str, *args, **kwargs):
-        self.component_exec_name = component_exec_name
+        super().__init__(component_exec_name)
         self.action_name = action_name
         self.args = args
         self.kwargs = kwargs
 
-        self.component: "Component"
+    def execute(self) -> Union[None, str, "Response"]:
+        if self.action_name in self.component._config.component_actions:
+            # if self.action_name == "increase":
+            #     import pdb; pdb.set_trace()
 
-    def mount(self, processor: "Processor") -> "CallCommand":
-        super().mount(processor)
-        self.component = processor.components[self.component_exec_name]
-        return self
-
-    def execute(self) -> Union[None, bool, str, "Response"]:
-        if self.action_name in self.component._config.public_actions:
             return getattr(self.component, self.action_name)(*self.args, **self.kwargs)
         raise JembeError(
             "Action {}.{} does not exist or is not marked as public action".format(
@@ -86,49 +89,82 @@ class Processor:
         # TODO create component hiearachy etc.
         self.components = {}
         self.commands = []
-        if self.request.headers.get(self.jembe.X_JEMBE, False):
+        if self.is_x_jembe_request():
             # x-jembe ajax request
             data = json.loads(self.request.data)
-            # TODO order components from lower to deeper so that parent can be set
+            # init components
             for component_data in data["components"]:
-                # TODO exec_name to full_name
-                component_full_name = component_data["execName"]
+                component_full_name = exec_name_to_full_name(component_data["execName"])
                 cconfig = self.jembe.components_configs[component_full_name]
-
-                parent_exec_name = "/".join(component_data["execName"].split("/")[:-1])
-                parent = self.components[parent_exec_name] if parent_exec_name else None
-                component = cconfig._init_component_from_json_data(
-                    parent, component_data
+                component = cconfig.component_class(  # type:ignore
+                    **component_data["state"]
                 )
+                component.exec_name = component_data["execName"]
                 self.components[component.exec_name] = component
+
+            # init commands
             for command_data in data["commands"]:
                 self.commands.append(command_factory(command_data))
         else:
             # regular http/s GET request
+            # init components
+            # TODO init componentes in for loop from page...
             cconfig = self.jembe.components_configs[component_full_name]
-            component = cconfig._init_component_from_url_path(self.request)
-            self.components[component.exec_name] = component
-            direct_component_exec_name = component.exec_name
-
-            self.commands.append(
-                CallCommand(
-                    direct_component_exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
-                )
+            component_key = self.request.view_args[cconfig._key_url_param.identifier]
+            component_exec_name = (
+                component_full_name
+                if not component_key
+                else "{}.{}".format(component_full_name, component_key)
             )
+            component = cconfig.component_class(  # type:ignore
+                **{
+                    up.name: self.request.view_args[up.identifier]
+                    for up in cconfig._url_params
+                }
+            )
+            component.exec_name = component_exec_name
+            self.components[component.exec_name] = component
+
+            # init commands
+            if component._config.full_name == component_full_name:
+                self.commands.append(
+                    CallCommand(
+                        component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                    )
+                )
+            # TODO loop from page to :-1 and add call to display action
 
     def process_request(self) -> "Response":
         # TODO pickup responses from other components
         # TODO handle AJAX request
-        # cresponse = getattr(
-        #     self.directly_requested_component, self.directly_requested_component_action
-        # )()
-        cresponse = self.commands[0].mount(self).execute()
+        if self.is_x_jembe_request():
+            ajax_responses = []
+            for command in self.commands:
+                command_response = command.mount(self).execute()
+                if isinstance(command_response, str):
+                    ajax_responses.append(
+                        self.create_x_jembe_component_response(
+                            command.component, command_response
+                        )
+                    )
+                elif isinstance(command_response, Response):
+                    # return raw response and skip fruther processing
+                    raise NotImplementedError()
+            return jsonify(ajax_responses)
+        else:
+            # TODO for page with components build united response
+            cresponse = self.commands[0].mount(self).execute()
 
-        if isinstance(cresponse, str):
-            # action returns html
-            cresponse = self.add_dom_attrs(self.commands[0].component, cresponse)
+            if isinstance(cresponse, str):
+                # action returns html
+                cresponse = self.add_dom_attrs(self.commands[0].component, cresponse)
 
-        return cresponse
+            return cresponse
+
+    def create_x_jembe_component_response(
+        self, component: "Component", html: str
+    ) -> dict:
+        return dict(execName=component.exec_name, state=component.state, dom=html)
 
     def add_dom_attrs(self, component: "Component", html: str) -> str:
         """
@@ -161,3 +197,5 @@ class Processor:
 
             return etree.tostring(doc[0], method="html")
 
+    def is_x_jembe_request(self) -> bool:
+        return bool(self.request.headers.get(self.jembe.X_JEMBE, False))

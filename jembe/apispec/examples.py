@@ -83,7 +83,7 @@ class BlogPostPage(Component):
 
 App.add_page("blogpost", BlogPostPage)
 # set new blog post with different url_path
-App.add_page( "blogpost2", BlogPostPage)
+App.add_page("blogpost2", BlogPostPage)
 
 
 @page("news")
@@ -1396,6 +1396,7 @@ class GridBody(Component):
         """
         )
 
+
 class GridFilters(Component):
     class Config(Component.Config):
         def __init__(
@@ -1441,8 +1442,8 @@ class Grid(Component):
                 components = {}
             components["body"] = (GridBody, GridBody.Config(query=query, fields=fields))
             components["filter"] = (GridFilters, GridFilters.Config(filters=filters))
-            # body and filters should not update window.location 
-            # only this component shuld do it when any of those two are 
+            # body and filters should not update window.location
+            # only this component shuld do it when any of those two are
             # deepest components
 
             super().__init__(
@@ -1530,6 +1531,84 @@ class Grid(Component):
         """
         )
 
-# how to use grid inside edit record? 
+
+# how to use grid inside edit record?
 # something like this
 # {{component("notes_grid", parent_record_id=init_params.id, _parent_record=record)}}
+
+
+# View and sub list
+# /user/1/groups/1
+class DisplayGroupsComponent(Component):
+    def __init__(self, user_id: int):
+        super().__init__()
+
+    def display(self):
+        groups = Group.objects.filter(user_id=self.state.user_id).all()
+        return self.render_template_string(
+            """
+            <ul>
+            {% for group in groups %}
+                <li>{{group}}</li>
+            {% endfor %}
+            </ul>
+        """
+        )
+
+
+@page("user", Component.Config(components={"groups": DisplayGroupsComponent}))
+class UserPage(Component):
+    def __init__(self, user_id: int):
+        super().__init__()
+
+    def display(self):
+        user = User.objects.get(pk=self.state.user_id)
+        return self.render_template_string(
+            """
+            <div>Name: {{user.name}}</div>
+            <div>Groups: {{component("groups", user_id=user_id)}}
+        """
+        )
+
+
+# /user/1/groups
+class DisplayGroupsComponent2(Component):
+    def __init__(self, user_id: Optional[int] = None):
+        if self.state.user_id is None:
+            # user_id is not url param but is required
+            raise ValueError("User_id must be set")
+        super().__init__()
+
+    def display(self):
+        groups = Group.objects.filter(user_id=self.state.user_id).all()
+        return self.render_template_string(
+            """
+            <ul>
+            {% for group in groups %}
+                <li>{{group}}</li>
+            {% endfor %}
+            </ul>
+        """
+        )
+
+
+@page("user", Component.Config(components={"groups": DisplayGroupsComponent2}))
+class UserPage2(Component):
+    def __init__(self, user_id: int):
+        super().__init__()
+
+    @listener("_initialising", ".groups")
+    # _initialising, _initialised, _rendering, _rendered, _calling, _called, _emiting, _emited
+    def on_groups_initialising(self, event):
+        event.source.init_params.user_id = self.state.user_id
+        return False
+
+    def display(self):
+        user = User.objects.get(pk=self.state.user_id)
+        return self.render_template_string(
+            """
+            <div>Name: {{user.name}}</div>
+            <div>Groups: {{component("groups")}}
+        """
+        )
+
