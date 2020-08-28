@@ -82,7 +82,7 @@ class Jembe:
     def _register_page(self, name: str, component_ref: "ComponentRef"):
         if self.flask is None:  # pragma: no cover
             raise NotImplementedError()
-        # TODO handle config with custom config default values
+        # handle config with custom config default values
         if isinstance(component_ref, tuple):
             # create config with custom params
             page: Type["Component"] = component_ref[0]

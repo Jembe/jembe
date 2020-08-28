@@ -174,9 +174,7 @@ class Processor:
         """
 
         def set_jmb_attrs(elem):
-            elem.set("jmb:name", component._config.full_name)
-            if component.key:
-                elem.set("jmb:key", None)
+            elem.set("jmb:name", component.exec_name)
             json_state = json.dumps(component.state, separators=(",", ":"))
             elem.set("jmb:state", json_state)
 

@@ -1,11 +1,13 @@
 Public Dev Lunch:
-    ☐ use .html templates instead of jinja2 in order to enable autoescaping
+    ☐ update window.location on x-jembe request
+    ☐ update window.location on regular http request if necessary
     ☐ Create page counter
     ☐ Create page with coutner component
     ☐ Create page with multiple coutner components
     ☐ Create blog post demo
     ☐ create list/view/list demo
     ☐ Suport for init_params for basic types
+    ☐ use .html templates instead of jinja2 in order to enable autoescaping
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)

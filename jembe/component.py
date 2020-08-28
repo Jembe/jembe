@@ -113,7 +113,9 @@ class Component(metaclass=ComponentMeta):
         # TODO set , __key
 
     def set_parent_exec_name(self, parent_exec_name: str):
-        self.__exec_name = "{}/{}.{}".format(parent_exec_name, self.name, self.key)
+        self.__exec_name = "{}/{}.{}".format(
+            parent_exec_name, self._config.name, self.key
+        )
         # TODO verify parent_exec_name with _config.full_name
         # TODO set __exec_name
 
