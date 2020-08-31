@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, cast, Type, List, Optional, Union, Sequence
 from lxml import etree
 from flask import json, escape, jsonify, Response
 from .errors import JembeError
-from .component import ComponentConfig
-from .common import exec_name_to_full_name
+from .component_config import ComponentConfig
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -87,6 +86,8 @@ class Processor:
     def _init_components(self, component_full_name: str):
         # TODO initialise parent components
         # TODO create component hiearachy etc.
+        from .component import Component
+
         self.components = {}
         self.commands = []
         if self.is_x_jembe_request():
@@ -94,7 +95,9 @@ class Processor:
             data = json.loads(self.request.data)
             # init components
             for component_data in data["components"]:
-                component_full_name = exec_name_to_full_name(component_data["execName"])
+                component_full_name = Component._exec_name_to_full_name(
+                    component_data["execName"]
+                )
                 cconfig = self.jembe.components_configs[component_full_name]
                 component = cconfig.component_class(  # type:ignore
                     **component_data["state"]
@@ -109,6 +112,16 @@ class Processor:
             # regular http/s GET request
             # init components
             # TODO init componentes in for loop from page...
+            
+            # get all components exec names from url_path and url_component_key params
+            # components_full_names = []
+            # for name in component_full_name.strip("/").split("/"):
+            #     components_full_names.append("/".join((
+            #         components_full_names[-1] if components_full_names else "",
+            #         name
+            #     )))
+            # import pdb; pdb.set_trace()
+
             cconfig = self.jembe.components_configs[component_full_name]
             component_key = self.request.view_args[cconfig._key_url_param.identifier]
             component_exec_name = (
@@ -134,7 +147,23 @@ class Processor:
                 )
             # TODO loop from page to :-1 and add call to display action
 
+    def init_component(
+        self, exec_name: str, init_params: dict,
+    ) -> "Component":
+        from .component import Component
+
+        component_full_name = Component._exec_name_to_full_name(exec_name)
+        cconfig = self.jembe.components_configs[component_full_name]
+        component = cconfig.component_class(**init_params) # type:ignore
+        component.exec_name = exec_name
+        self.components[component.exec_name] = component
+        return component
+
     def process_request(self) -> "Response":
+        # TODO safe all component responses in memory, and build appropriate final response
+        # TODO dont display execute action in ajax that is already on client in proper state
+        # TODO compose respons from components here if is not ajax request otherwise let javascript
+        # compose full page
         # TODO pickup responses from other components
         # TODO handle AJAX request
         if self.is_x_jembe_request():
@@ -197,3 +226,4 @@ class Processor:
 
     def is_x_jembe_request(self) -> bool:
         return bool(self.request.headers.get(self.jembe.X_JEMBE, False))
+

@@ -2,8 +2,9 @@ from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple
 from abc import ABCMeta
 from inspect import signature
 from .errors import JembeError
-from flask import render_template, render_template_string
+from flask import render_template, render_template_string, Markup
 from .component_config import ComponentConfig
+from .app import get_processor
 
 if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
@@ -41,6 +42,42 @@ class ComponentState(dict):
             raise JembeError("Can't set arbitrary attribute to component state")
         self[name] = value
         # return super().__setattr__(name, value)
+
+
+class _SubComponentRenderer:
+    def __init__(self, component: "Component", name: str, **kwargs):
+        self.component = component
+        self.name = name
+        self._key = ""
+        self.action = ComponentConfig.DEFAULT_DISPLAY_ACTION
+        self.action_args: Tuple[Any, ...] = ()
+        self.action_kwargs: dict = {}
+        self.kwargs = kwargs
+
+    def __call__(self) -> str:
+        """Do render"""
+        processor = get_processor()
+        component_exec_name = Component._build_exec_name(
+            self.name, self._key, self.component.exec_name
+        )
+        subcomponent = processor.init_component(
+            component_exec_name, self.kwargs
+        )
+        action = getattr(subcomponent, self.action)
+        return action(*self.action_args, **self.action_kwargs)
+
+    def key(self, key: str) -> "_SubComponentRenderer":
+        self._key = key
+        return self
+
+    def call(self, action: str, *args, **kwargs) -> "_SubComponentRenderer":
+        self.action = action
+        self.action_args = args
+        self.action_kwargs = kwargs
+        return self
+
+    def __html__(self):
+        return self.__call__()
 
 
 def componentInitDecorator(init_method):
@@ -119,20 +156,20 @@ class Component(metaclass=ComponentMeta):
         # TODO verify parent_exec_name with _config.full_name
         # TODO set __exec_name
 
-    # def __update_exec_name(self):
-    #     if self.parent:
-    #         self.__exec_name = "{}/{}".format(
-    #             self.parent.exec_name,
-    #             self._config.name
-    #             if not self.key
-    #             else "{}.{}".format(self._config.name, self.key),
-    #         )
-    #     else:
-    #         self.__exec_name = (
-    #             "/{}".format(self._config.name) # type:ignore
-    #             if not self.key
-    #             else "/{}.{}".format(self._config.name, self.key)
-    #         )
+    @classmethod
+    def _exec_name_to_full_name(cls, exec_name:str)->str:
+        """
+        Removes component keys from exec name to get full_name.
+
+        keys in exec_name are separated by . (dot)
+        """
+        return "/".join(ck.split(".")[0] for ck in exec_name.split("/"))
+
+    @classmethod
+    def _build_exec_name(cls, name:str, key:str="", parent_exec_name:str="") ->str:
+        """Build component exec name"""
+        local_exec_name = name if not key else "{}.{}".format(name, key)
+        return "/".join((parent_exec_name, local_exec_name))
 
     def display(self) -> Union[str, None, "Response"]:
         return self.render_template()
@@ -190,5 +227,11 @@ class Component(metaclass=ComponentMeta):
                 for name, value in vars(self).items()
                 if not name.startswith("_")
             },
+            "component": self._render_subcomponent_template,
         }
+
+    def _render_subcomponent_template(
+        self, name: str, *args, **kwargs
+    ) -> "_SubComponentRenderer":
+        return _SubComponentRenderer(self, name, *args, **kwargs)
 

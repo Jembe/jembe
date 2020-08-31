@@ -21,7 +21,7 @@ class UrlConvertor(Enum):
 
 
 def calc_url_param_identifier(name: str, level: int):
-    return name if level == 0 else "{}.{}".format(name, level)
+    return name if level == 0 else "{}__{}".format(name, level)
 
 
 class UrlParamDef:
@@ -150,10 +150,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         components: Optional[Dict[str, "ComponentRef",]] = None,
     ):
         self.name = name
-        self.template = (
-            template if template is not None else self._get_default_template_name()
-        )
         self.components = components
+        self._template = template
         # initialise after setting component_class
 
         self._component_class: Optional[Type["Component"]]
@@ -164,6 +162,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._hiearchy_level: int
         self._url_params: Tuple["UrlParamDef", ...]
         self._key_url_param: "UrlParamDef"
+        self.template: str
 
     @property
     def component_class(self) -> Type["Component"]:
@@ -221,22 +220,34 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             ),
             convertor=UrlConvertor.STR0,
         )
+        # populate default template
+        self.template = (
+            self._template
+            if self._template is not None
+            else self._get_default_template_name()
+        )
 
     @property
     def full_name(self) -> str:
+        if self.parent:
+            return "{}/{}".format(self.parent.full_name, self.name)
         return "/{}".format(self.name)
 
     @property
     def url_path(self) -> str:
         if not self._url_params:
-            return "/{}{}".format(self.name, self._key_url_param.url_pattern)
+            url_path = "/{}{}".format(self.name, self._key_url_param.url_pattern)
         else:
             url_params = "/".join(up.url_pattern for up in self._url_params)
-            return "/{name}{key}/{url_params}".format(
+            url_path = "/{name}{key}/{url_params}".format(
                 name=self.name,
                 key=self._key_url_param.url_pattern,
                 url_params=url_params,
             )
+        url_path = (
+            "{}{}".format(self.parent.url_path, url_path) if self.parent else url_path
+        )
+        return url_path
 
     def _get_default_template_name(self) -> str:
         return "{}.jinja2".format(self.full_name.strip("/"))
