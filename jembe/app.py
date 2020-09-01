@@ -152,4 +152,4 @@ def get_processor():
 
 
 def jembe_master_view(**kwargs) -> "Response":
-    return get_processor().process_request()
+    return get_processor().process_request().build_response()

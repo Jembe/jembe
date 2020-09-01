@@ -30,23 +30,24 @@ def test_counter(jmb, client):
     # call page 
     counter0_page_html = b"""<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
 <html jmb:name="/cpage" jmb:state="{}"><head></head><body>
-<div jmb:name="/cpage/counter" jmb:state="{counter:0}"><div>Count: 0</div> <a jmb:click="increase()">increase</a></div>
+<div jmb:name="/cpage/counter" jmb:state=\'{"value":0}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div>
 </body></html>"""
     r = client.get("/cpage")
     assert r.status_code == 200
-    print(r.data)
-    print(counter0_page_html)
     assert r.data == counter0_page_html
+
     # call counter
     r = client.get("/cpage/counter")
-    assert r.status == 200
+    assert r.status_code == 200
     assert r.data == counter0_page_html
+
+
     # increase counter
     ajax_post_data = json.dumps(
         dict(
             components=[
                 dict(execName="/cpage", state=dict()),
-                dict(execName="/cpage/counter", state=dict(counter=0))
+                dict(execName="/cpage/counter", state=dict(value=0))
             ],
             commands=[
                 dict(
@@ -59,21 +60,54 @@ def test_counter(jmb, client):
             ],
         )
     )
-    r = client.post("/cop", data=ajax_post_data, headers={"x-jembe": True})
+    r = client.post("/cpage/counter", data=ajax_post_data, headers={"x-jembe": True})
     assert r.status_code == 200
 
     ajax_response_data = json.loads(r.data)
-    counter1_page_html = """
-<html jmb:name="/cpage" jmb:state="{}"><head></head><body>
-<div jmb:name="/cpage/counter" jmb:state="{counter:1}">
-<div>Count: 1</div>
-<a jmb:click="increase()">increase</a>
-</div>
-</body></html>
-    """
+    counter1_html = """<div>Count: 1</div> <a jmb:click="increase()">increase</a>"""
     assert len(ajax_response_data) == 1
-    assert ajax_response_data[0]["dom"] == counter1_page_html
-    assert ajax_response_data[0]["state"] == {"counter": 1}
+    assert ajax_response_data[0]["execName"] == "/cpage/counter"
+    assert ajax_response_data[0]["state"] == {"value": 1}
+    assert ajax_response_data[0]["dom"] == counter1_html
+
+    ajax_post_data2 = json.dumps(
+        dict(
+            components=[
+                dict(execName="/cpage", state=dict()),
+                dict(execName="/cpage/counter", state=dict(value=0))
+            ],
+            commands=[
+                dict(
+                    type="call",
+                    componentExecName="/cpage/counter",
+                    actionName="increase",
+                    args=list(),
+                    kwargs=dict(),
+                ),
+                dict(
+                    type="call",
+                    componentExecName="/cpage",
+                    actionName="display",
+                    args=list(),
+                    kwargs=dict(),
+                )
+            ],
+        )
+    )
+    r = client.post("/cpage", data=ajax_post_data2, headers={"x-jembe": True})
+    assert r.status_code == 200
+
+    ajax_response_data = json.loads(r.data)
+    counter1_page_html = """<html><head></head><body>
+<div jmb-placeholder="/cpage/counter"></div>
+</body></html>"""
+    assert len(ajax_response_data) == 2
+    assert ajax_response_data[0]["execName"] =="/cpage/counter" 
+    assert ajax_response_data[0]["state"] == {"value": 1}
+    assert ajax_response_data[0]["dom"] == counter1_html
+    assert ajax_response_data[1]["execName"] == "/cpage"
+    assert ajax_response_data[1]["state"] == {}
+    assert ajax_response_data[1]["dom"] == counter1_page_html
 
 # TODO test change window.location when calling counter and page
 # TODO test counter with configurable increment

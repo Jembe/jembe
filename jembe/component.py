@@ -5,6 +5,7 @@ from .errors import JembeError
 from flask import render_template, render_template_string, Markup
 from .component_config import ComponentConfig
 from .app import get_processor
+from .processor import CallCommand, InitialiseCommand
 
 if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
@@ -60,11 +61,29 @@ class _SubComponentRenderer:
         component_exec_name = Component._build_exec_name(
             self.name, self._key, self.component.exec_name
         )
-        subcomponent = processor.init_component(
-            component_exec_name, self.kwargs
+        processor.commands.append(
+            CallCommand(
+                component_exec_name, self.action, self.action_args, self.action_kwargs
+            )
         )
-        action = getattr(subcomponent, self.action)
-        return action(*self.action_args, **self.action_kwargs)
+        if not component_exec_name in processor.components:
+            # create new component if component with same exec_name
+            # does not exist
+            processor.commands.append(
+                InitialiseCommand(component_exec_name, self.kwargs)
+            )
+        else:
+            # if state params are same continue
+            # else raise jembeerror until find better solution
+            component = processor.components[component_exec_name]
+            for key, value in component.state.items():
+                if key in self.kwargs and value != self.kwargs[key]:
+                    raise JembeError(
+                        "Rendering component with different state params from existing compoenent {}".format(
+                            component
+                        )
+                    )
+        return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key
@@ -157,7 +176,7 @@ class Component(metaclass=ComponentMeta):
         # TODO set __exec_name
 
     @classmethod
-    def _exec_name_to_full_name(cls, exec_name:str)->str:
+    def _exec_name_to_full_name(cls, exec_name: str) -> str:
         """
         Removes component keys from exec name to get full_name.
 
@@ -166,7 +185,9 @@ class Component(metaclass=ComponentMeta):
         return "/".join(ck.split(".")[0] for ck in exec_name.split("/"))
 
     @classmethod
-    def _build_exec_name(cls, name:str, key:str="", parent_exec_name:str="") ->str:
+    def _build_exec_name(
+        cls, name: str, key: str = "", parent_exec_name: str = ""
+    ) -> str:
         """Build component exec name"""
         local_exec_name = name if not key else "{}.{}".format(name, key)
         return "/".join((parent_exec_name, local_exec_name))

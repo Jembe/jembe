@@ -111,7 +111,6 @@ def test_counter_on_page(jmb, client):
         @action
         def increase(self):
             self.state.counter += 1
-            return self.display()
 
         def display(self):
             return self.render_template_string(
