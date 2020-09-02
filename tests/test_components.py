@@ -28,7 +28,7 @@ def test_counter(jmb, client):
             
     # call page 
     counter0_page_html = b"""<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-<html jmb:name="/cpage" jmb:state="{}"><head></head><body><div jmb:name="/cpage/counter" jmb:state=\'{"value":0}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
+<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body><div jmb:name="/cpage/counter" jmb:state=\'{"value":0}\' jmb:url="/cpage/counter"><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
     r = client.get("/cpage")
     assert r.status_code == 200
     assert r.data == counter0_page_html

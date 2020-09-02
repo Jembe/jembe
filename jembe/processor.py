@@ -235,7 +235,6 @@ class Processor:
         cconfig = self.jembe.components_configs[component_full_name]
         component = cconfig.component_class(**init_params)  # type:ignore
         component.exec_name = exec_name
-        component.processor = self
         self.components[component.exec_name] = component
         return component
 
@@ -260,7 +259,7 @@ class Processor:
         else:
             # TODO for page with components build united response
             c_etrees = {
-                exec_name: self._lxml_add_dom_attrs(html, exec_name, state)
+                exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url)
                 for exec_name, (state, url, html) in self.renderers.items()
             }
             unused_exec_names = sorted(c_etrees.keys(), key=len)
@@ -283,7 +282,7 @@ class Processor:
             return etree.tostring(response_etree, method="html")
 
     def _lxml_add_dom_attrs(
-        self, html: str, exec_name: str, state: "ComponentState"
+        self, html: str, exec_name: str, state: "ComponentState", url:str
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
@@ -296,6 +295,7 @@ class Processor:
             elem.set("jmb:name", exec_name)
             json_state = json.dumps(state, separators=(",", ":"))
             elem.set("jmb:state", json_state)
+            elem.set("jmb:url", url)
 
         if not html:
             html = "<div></div>"
