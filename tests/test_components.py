@@ -23,15 +23,12 @@ def test_counter(jmb, client):
     class CPage(Component):
         def display(self):
             return self.render_template_string(
-                """<html><head></head><body>
-{{component("counter")}}
-</body></html>"""
+                """<html><head></head><body>{{component("counter")}}</body></html>"""
             )
+            
     # call page 
     counter0_page_html = b"""<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-<html jmb:name="/cpage" jmb:state="{}"><head></head><body>
-<div jmb:name="/cpage/counter" jmb:state=\'{"value":0}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div>
-</body></html>"""
+<html jmb:name="/cpage" jmb:state="{}"><head></head><body><div jmb:name="/cpage/counter" jmb:state=\'{"value":0}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
     r = client.get("/cpage")
     assert r.status_code == 200
     assert r.data == counter0_page_html
@@ -69,6 +66,8 @@ def test_counter(jmb, client):
     assert ajax_response_data[0]["execName"] == "/cpage/counter"
     assert ajax_response_data[0]["state"] == {"value": 1}
     assert ajax_response_data[0]["dom"] == counter1_html
+    assert ajax_response_data[0]["url"] == "/cpage/counter"
+
 
     ajax_post_data2 = json.dumps(
         dict(
@@ -98,16 +97,16 @@ def test_counter(jmb, client):
     assert r.status_code == 200
 
     ajax_response_data = json.loads(r.data)
-    counter1_page_html = """<html><head></head><body>
-<div jmb-placeholder="/cpage/counter"></div>
-</body></html>"""
+    counter1_page_html = """<html><head></head><body><div jmb-placeholder="/cpage/counter"></div></body></html>"""
     assert len(ajax_response_data) == 2
     assert ajax_response_data[0]["execName"] =="/cpage/counter" 
     assert ajax_response_data[0]["state"] == {"value": 1}
     assert ajax_response_data[0]["dom"] == counter1_html
+    assert ajax_response_data[0]["url"] == "/cpage/counter"
     assert ajax_response_data[1]["execName"] == "/cpage"
     assert ajax_response_data[1]["state"] == {}
     assert ajax_response_data[1]["dom"] == counter1_page_html
+    assert ajax_response_data[1]["url"] == "/cpage"
 
 # TODO test change window.location when calling counter and page
 # TODO test counter with configurable increment

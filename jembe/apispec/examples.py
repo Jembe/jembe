@@ -188,7 +188,7 @@ class Blog(Component):
 
     def url(self) -> str:
         """
-        bulding url (window.location) in order to allow navigation bach forward
+        bulding url (window.location) in order to allow navigation back forward
         and sharing urls
         """
         return build_url(

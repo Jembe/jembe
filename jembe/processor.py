@@ -99,6 +99,7 @@ class CallCommand(Command):
             # Add component html to processor rendererd
             self.processor.renderers[self.component.exec_name] = (
                 self.component.state,
+                self.component.url,
                 action_result,
             )
         elif (
@@ -167,8 +168,8 @@ class Processor:
 
         self.components: Dict[str, "Component"] = dict()
         self.commands: Deque["Command"] = deque()
-        # component renderers is dict[exec_name] = (componentState, rendered_str)
-        self.renderers: Dict[str, Tuple["ComponentState", str]] = dict()
+        # component renderers is dict[exec_name] = (componentState, url, rendered_str)
+        self.renderers: Dict[str, Tuple["ComponentState", str, str]] = dict()
         self.__init_components(component_full_name)
 
     def __init_components(self, component_full_name: str):
@@ -234,6 +235,7 @@ class Processor:
         cconfig = self.jembe.components_configs[component_full_name]
         component = cconfig.component_class(**init_params)  # type:ignore
         component.exec_name = exec_name
+        component.processor = self
         self.components[component.exec_name] = component
         return component
 
@@ -250,14 +252,16 @@ class Processor:
         # compose full page
         if self.is_x_jembe_request():
             ajax_responses = []
-            for exec_name, (state, html) in self.renderers.items():
-                ajax_responses.append(dict(execName=exec_name, state=state, dom=html))
+            for exec_name, (state, url, html) in self.renderers.items():
+                ajax_responses.append(
+                    dict(execName=exec_name, state=state, dom=html, url=url)
+                )
             return jsonify(ajax_responses)
         else:
             # TODO for page with components build united response
             c_etrees = {
                 exec_name: self._lxml_add_dom_attrs(html, exec_name, state)
-                for exec_name, (state, html) in self.renderers.items()
+                for exec_name, (state, url, html) in self.renderers.items()
             }
             unused_exec_names = sorted(c_etrees.keys(), key=len)
             response_etree = None
@@ -267,23 +271,26 @@ class Processor:
                 if response_etree is None:
                     response_etree = c_etrees[unused_exec_names.pop(0)]
                 # TODO compose response including all components not just page
-                # find all placeholders in response_tree and replace them with 
+                # find all placeholders in response_tree and replace them with
                 # appropriate etrees
                 for placeholder in response_etree.xpath(".//div[@jmb-placeholder]"):
                     can_find_placeholder = True
                     exec_name = placeholder.attrib["jmb-placeholder"]
                     c_etree = c_etrees[exec_name]
                     unused_exec_names.pop(unused_exec_names.index(exec_name))
-                    placeholder.addnext(c_etree) 
+                    placeholder.addnext(c_etree)
                     placeholder.getparent().remove(placeholder)
             return etree.tostring(response_etree, method="html")
 
-    def _lxml_add_dom_attrs(self, html: str, exec_name: str, state: "ComponentState"): #-> "lxml.html.HtmlElement":
+    def _lxml_add_dom_attrs(
+        self, html: str, exec_name: str, state: "ComponentState"
+    ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
+        from .component import Component
 
         def set_jmb_attrs(elem):
             elem.set("jmb:name", exec_name)
@@ -293,12 +300,11 @@ class Processor:
         if not html:
             html = "<div></div>"
         root = etree.HTML(html)
-        if len(exec_name.strip("/").split("/")) == 1:
+        if Component._is_page_exec_name(exec_name):
             # exec_name is fom page component, component with no parent
             doc = root.getroottree()
             set_jmb_attrs(root)
             return doc
-            # return etree.tostring(doc, method="html")
         else:
             doc = root[0]
             if len(root[0]) == 1:
@@ -312,7 +318,6 @@ class Processor:
                 for child in children:
                     div.append(child)
             return doc[0]
-            # return etree.tostring(doc[0], method="html")
 
     def is_x_jembe_request(self) -> bool:
         return bool(self.request.headers.get(self.jembe.X_JEMBE, False))

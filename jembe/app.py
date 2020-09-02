@@ -24,7 +24,7 @@ class Jembe:
 
     def __init__(self, app: Optional["Flask"] = None):
         """Initialise jembe configuration"""
-        self.flask: Optional["Flask"] = None
+        self.__flask: "Flask"
         # all registred jembe components configs [full_name, config instance]
         self.components_configs: Dict[str, "ComponentConfig"] = {}
         # pages waiting to be registred
@@ -32,6 +32,15 @@ class Jembe:
 
         if app is not None:
             self.init_app(app)
+
+    @property
+    def flask(self) -> "Flask":
+        try:
+            return self.__flask
+        except AttributeError:
+            raise JembeError(
+                "Jembe app is not initilised with flask app. Call init_app first."
+            )
 
     def init_app(self, app: "Flask"):
         """
@@ -43,7 +52,7 @@ class Jembe:
         # app.teardown_appcontext(self.teardown)
         # app.context_processor(self.template_processor)
 
-        self.flask = app
+        self.__flask = app
         if self._unregistred_pages:
             for name, component in self._unregistred_pages.items():
                 self._register_page(name, component)
@@ -129,6 +138,9 @@ class Jembe:
                 component_config.full_name,
                 jembe_master_view,
                 methods=["GET", "POST"],
+            )
+            component_config.endpoint = "{}.{}".format(
+                bp.name, component_config.full_name
             )
 
             if component_config.components:

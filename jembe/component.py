@@ -11,6 +11,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
     from flask import Response
     from inspect import Signature
+    from .processor import Processor
 
 
 class ComponentState(dict):
@@ -191,6 +192,18 @@ class Component(metaclass=ComponentMeta):
         """Build component exec name"""
         local_exec_name = name if not key else "{}.{}".format(name, key)
         return "/".join((parent_exec_name, local_exec_name))
+
+    @classmethod
+    def _is_page_exec_name(cls, exec_name: str) -> bool:
+        return len(exec_name.strip("/").split("/")) == 1
+
+    @property
+    def url(self) -> Optional[str]:
+        """
+        Returns url of this component build using url_path of parent
+        components and url_path of this component
+        """
+        return self._config.build_url(self.exec_name)
 
     def display(self) -> Union[str, None, "Response"]:
         return self.render_template()

@@ -1,13 +1,17 @@
 from typing import TYPE_CHECKING, Optional, Type, Dict, List, Tuple, Any
 from abc import ABCMeta
 from enum import Enum
+from itertools import accumulate
+from operator import add
 from inspect import signature, getmembers, isfunction
 from .errors import JembeError
+from flask import url_for
 
 if TYPE_CHECKING:  # pragma: no cover
     import inspect
-    from .component import Component
+    from .component import Component, ComponentState
     from .common import ComponentRef
+    from .processor import Processor
     from flask import Request
 
 
@@ -152,8 +156,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self.name = name
         self.components = components
         self._template = template
-        # initialise after setting component_class
 
+        # intialise by Jembe app after registring route
+        self.__endpoint: str
+
+        # initialise after setting component_class
         self._component_class: Optional[Type["Component"]]
         self.component_actions: Dict[str, "ComponentAction"]
 
@@ -163,6 +170,17 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._url_params: Tuple["UrlParamDef", ...]
         self._key_url_param: "UrlParamDef"
         self.template: str
+
+    @property
+    def endpoint(self) -> str:
+        try:
+            return self.__endpoint
+        except AttributeError:
+            raise JembeError("Endpoint not set by jembe app: {}".format(self.full_name))
+
+    @endpoint.setter
+    def endpoint(self, endpoint: str):
+        self.__endpoint = endpoint
 
     @property
     def component_class(self) -> Type["Component"]:
@@ -248,6 +266,28 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             "{}{}".format(self.parent.url_path, url_path) if self.parent else url_path
         )
         return url_path
+
+    def get_raw_url_params(self, state: "ComponentState", key: str) -> dict:
+        url_params = {up.identifier: state[up.name] for up in self._url_params}
+        url_params[self._key_url_param.identifier] = (
+            "{}{}".format(self.KEY_URL_PARAM_SEPARATOR, key) if key else ""
+        )
+        return url_params
+
+    def build_url(self, exec_name: str) -> str:
+        from .app import get_processor
+
+        processor: "Processor" = get_processor()
+        exec_names = tuple(
+            accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
+        )
+        url_params = dict()
+        for en in exec_names:
+            component = processor.components[en]
+            url_params.update(
+                component._config.get_raw_url_params(component.state, component.key)
+            )
+        return url_for(self.endpoint, **url_params)
 
     def _get_default_template_name(self) -> str:
         return "{}.jinja2".format(self.full_name.strip("/"))
