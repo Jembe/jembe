@@ -67,23 +67,7 @@ class _SubComponentRenderer:
                 component_exec_name, self.action, self.action_args, self.action_kwargs
             )
         )
-        if not component_exec_name in processor.components:
-            # create new component if component with same exec_name
-            # does not exist
-            processor.commands.append(
-                InitialiseCommand(component_exec_name, self.kwargs)
-            )
-        else:
-            # if state params are same continue
-            # else raise jembeerror until find better solution
-            component = processor.components[component_exec_name]
-            for key, value in component.state.items():
-                if key in self.kwargs and value != self.kwargs[key]:
-                    raise JembeError(
-                        "Rendering component with different state params from existing compoenent {}".format(
-                            component
-                        )
-                    )
+        processor.commands.append(InitialiseCommand(component_exec_name, self.kwargs))
         return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":
@@ -165,9 +149,18 @@ class Component(metaclass=ComponentMeta):
 
     @exec_name.setter
     def exec_name(self, exec_name: str):
+        # verify exec_name with _config.full_name
+        if self._exec_name_to_full_name(exec_name) != self._config.full_name:
+            raise JembeError(
+                "Invalid exec_name {} for {}".format(exec_name, self._config.full_name)
+            )
+
         self.__exec_name = exec_name
-        # TODO verify exec_name with _config.full_name
-        # TODO set , __key
+
+        # set , __key
+        name_key = exec_name.strip("/").split("/")[-1].split(".")
+        if len(name_key) == 2:
+            self.__key = name_key[1]
 
     def set_parent_exec_name(self, parent_exec_name: str):
         self.__exec_name = "{}/{}.{}".format(

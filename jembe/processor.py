@@ -140,7 +140,21 @@ class InitialiseCommand(Command):
         self.init_params = init_params
 
     def execute(self):
-        self.processor.init_component(self.component_exec_name, self.init_params)
+        if not self.component_exec_name in self.processor.components:
+            # create new component if component with identical exec_name
+            # does not exist
+            self.processor.init_component(self.component_exec_name, self.init_params)
+        else:
+            # if state params are same continue
+            # else raise jembeerror until find better solution
+            component = self.processor.components[self.component_exec_name]
+            for key, value in component.state.items():
+                if key in self.init_params and value != self.init_params[key]:
+                    raise JembeError(
+                        "Rendering component with different state params from existing compoenent {}".format(
+                            component
+                        )
+                    )
 
 
 def command_factory(command_data: dict) -> "Command":
@@ -282,7 +296,7 @@ class Processor:
             return etree.tostring(response_etree, method="html")
 
     def _lxml_add_dom_attrs(
-        self, html: str, exec_name: str, state: "ComponentState", url:str
+        self, html: str, exec_name: str, state: "ComponentState", url: str
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
@@ -293,7 +307,7 @@ class Processor:
 
         def set_jmb_attrs(elem):
             elem.set("jmb:name", exec_name)
-            json_state = json.dumps(state, separators=(",", ":"))
+            json_state = json.dumps(state, separators=(",", ":"), sort_keys=True)
             elem.set("jmb:state", json_state)
             elem.set("jmb:url", url)
 
