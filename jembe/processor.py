@@ -10,8 +10,11 @@ from typing import (
     Tuple,
     Deque,
     Any,
+    NamedTuple,
 )
-from collections import deque
+from collections import deque, namedtuple
+from itertools import accumulate, chain
+from operator import add
 from lxml import etree
 from lxml.html import Element
 from flask import json, escape, jsonify, Response
@@ -69,7 +72,7 @@ class CallCommand(Command):
         if (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
             and self.component.exec_name in self.processor.renderers
-            and self.processor.renderers[self.component.exec_name][0]
+            and self.processor.renderers[self.component.exec_name].state
             == self.component.state
         ):
             # if action is display and compoent already is displayed/rendered in same state
@@ -97,10 +100,8 @@ class CallCommand(Command):
         ):
             # save component display responses in memory
             # Add component html to processor rendererd
-            self.processor.renderers[self.component.exec_name] = (
-                self.component.state,
-                self.component.url,
-                action_result,
+            self.processor.renderers[self.component.exec_name] = ComponentRender(
+                True, self.component.state, self.component.url, action_result,
             )
         elif (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -162,10 +163,19 @@ def command_factory(command_data: dict) -> "Command":
         return CallCommand(
             command_data["componentExecName"],
             command_data["actionName"],
-            *command_data["args"],
-            **command_data["kwargs"],
+            command_data["args"],
+            command_data["kwargs"],
         )
     raise NotImplementedError()
+
+
+class ComponentRender(NamedTuple):
+    """represents rendered coponent html with additional parametars"""
+
+    fresh: bool = False
+    state: Optional["ComponentState"] = None
+    url: Optional[str] = None
+    html: Optional[str] = None
 
 
 class Processor:
@@ -183,48 +193,29 @@ class Processor:
         self.components: Dict[str, "Component"] = dict()
         self.commands: Deque["Command"] = deque()
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
-        self.renderers: Dict[str, Tuple["ComponentState", str, str]] = dict()
+        self.renderers: Dict[str, "ComponentRender"] = dict()
         self.__init_components(component_full_name)
 
     def __init_components(self, component_full_name: str):
-        from .component import Component
-
         if self.is_x_jembe_request():
             # x-jembe ajax request
             data = json.loads(self.request.data)
-            # init components
+            # init components from data["components"]
             for component_data in data["components"]:
-                self.init_component(component_data["execName"], component_data["state"])
+                component = self.init_component(
+                    component_data["execName"], component_data["state"]
+                )
+                # mark component as already rendered/displayed at client browser
+                self.renderers[component.exec_name] = ComponentRender()
+            # init components from url_path if thay doesnot exist in data["compoenents"]
+            self._init_components_from_url_path(component_full_name)
 
             # init commands
             for command_data in reversed(data["commands"]):
                 self.commands.append(command_factory(command_data))
         else:
             # regular http/s GET request
-            c_configs: List["ComponentConfig"] = list()
-            # get all components configs from root to requested component
-            for cname in component_full_name.strip("/").split("/"):
-                c_configs.append(
-                    self.jembe.components_configs[
-                        "/".join((c_configs[-1].full_name if c_configs else "", cname))
-                    ]
-                )
-            # initialise all components from root to requested component
-            # >> parent component exec name, makes easy to build next component exec_name
-            parent_exec_name = ""
-            for cconfig in c_configs:
-                if cconfig.name is None:
-                    raise JembeError()
-                key = self.request.view_args[cconfig._key_url_param.identifier]
-                exec_name = Component._build_exec_name(
-                    cconfig.name, key, parent_exec_name
-                )
-                parent_exec_name = exec_name
-                init_params = {
-                    up.name: self.request.view_args[up.identifier]
-                    for up in cconfig._url_params
-                }
-                self.init_component(exec_name, init_params)
+            self._init_components_from_url_path(component_full_name)
 
             # init commands
             c_full_names = list(self.components.keys())
@@ -242,6 +233,38 @@ class Processor:
                 )
             )
 
+    def _init_components_from_url_path(self, component_full_name: str):
+        """ 
+            inits components from request url_path 
+            if component with same exec_name is not already initialised
+        """
+        from .component import Component
+
+        c_configs: List["ComponentConfig"] = list()
+        # get all components configs from root to requested component
+        for cname in component_full_name.strip("/").split("/"):
+            c_configs.append(
+                self.jembe.components_configs[
+                    "/".join((c_configs[-1].full_name if c_configs else "", cname))
+                ]
+            )
+        # initialise all components from root to requested component
+        # >> parent component exec name, makes easy to build next component exec_name
+        parent_exec_name = ""
+        for cconfig in c_configs:
+            if cconfig.name is None:
+                raise JembeError()
+
+            key = self.request.view_args[cconfig._key_url_param.identifier].lstrip(".")
+            exec_name = Component._build_exec_name(cconfig.name, key, parent_exec_name)
+            parent_exec_name = exec_name
+            if exec_name not in self.components:
+                init_params = {
+                    up.name: self.request.view_args[up.identifier]
+                    for up in cconfig._url_params
+                }
+                self.init_component(exec_name, init_params)
+
     def init_component(self, exec_name: str, init_params: dict,) -> "Component":
         from .component import Component
 
@@ -253,6 +276,28 @@ class Processor:
         return component
 
     def process_request(self) -> "Processor":
+        # execute all commands from self.commands stack
+        while self.commands:
+            command = self.commands.pop()
+            command.mount(self).execute()
+        # for all freshly rendered component who does not have parent renderers
+        # eather at client (send via x-jembe.components) nor just created by
+        # server call display command
+        needs_render_exec_names = set(
+            chain.from_iterable(
+                accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
+                for exec_name, cr in self.renderers.items()
+                if cr.fresh == True
+            )
+        )
+        missing_render_exec_names = needs_render_exec_names - set(self.renderers.keys())
+        for exec_name in sorted(
+            missing_render_exec_names,
+            key=lambda exec_name: self.components[exec_name]._config._hiearchy_level,
+        ):
+            self.commands.append(
+                CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
+            )
         while self.commands:
             command = self.commands.pop()
             command.mount(self).execute()
@@ -265,18 +310,25 @@ class Processor:
         # compose full page
         if self.is_x_jembe_request():
             ajax_responses = []
-            for exec_name, (state, url, html) in self.renderers.items():
-                ajax_responses.append(
-                    dict(execName=exec_name, state=state, dom=html, url=url)
-                )
+            for exec_name, (fresh, state, url, html) in self.renderers.items():
+                if fresh:
+                    ajax_responses.append(
+                        dict(execName=exec_name, state=state, dom=html, url=url)
+                    )
             return jsonify(ajax_responses)
         else:
             # TODO for page with components build united response
             c_etrees = {
                 exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url)
-                for exec_name, (state, url, html) in self.renderers.items()
+                for exec_name, (fresh, state, url, html) in self.renderers.items()
+                if fresh and state is not None and url is not None and html is not None
             }
-            unused_exec_names = sorted(c_etrees.keys(), key=len)
+            unused_exec_names = sorted(
+                c_etrees.keys(),
+                key=lambda exec_name: self.components[
+                    exec_name
+                ]._config._hiearchy_level,
+            )
             response_etree = None
             can_find_placeholder = True
             while unused_exec_names and can_find_placeholder:

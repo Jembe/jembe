@@ -96,14 +96,14 @@ def test_counter(jmb, client):
     ajax_response_data = json.loads(r.data)
     counter1_page_html = """<html><head></head><body><div jmb-placeholder="/cpage/counter"></div></body></html>"""
     assert len(ajax_response_data) == 2
-    assert ajax_response_data[0]["execName"] == "/cpage/counter"
-    assert ajax_response_data[0]["state"] == {"value": 1}
-    assert ajax_response_data[0]["dom"] == counter1_html
-    assert ajax_response_data[0]["url"] == "/cpage/counter"
-    assert ajax_response_data[1]["execName"] == "/cpage"
-    assert ajax_response_data[1]["state"] == {}
-    assert ajax_response_data[1]["dom"] == counter1_page_html
-    assert ajax_response_data[1]["url"] == "/cpage"
+    assert ajax_response_data[1]["execName"] == "/cpage/counter"
+    assert ajax_response_data[1]["state"] == {"value": 1}
+    assert ajax_response_data[1]["dom"] == counter1_html
+    assert ajax_response_data[1]["url"] == "/cpage/counter"
+    assert ajax_response_data[0]["execName"] == "/cpage"
+    assert ajax_response_data[0]["state"] == {}
+    assert ajax_response_data[0]["dom"] == counter1_page_html
+    assert ajax_response_data[0]["url"] == "/cpage"
 
 
 def test_multi_counter(jmb, client):
@@ -159,12 +159,189 @@ def test_multi_counter(jmb, client):
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
         """</body></html>"""
-    ).encode('utf-8')
+    ).encode("utf-8")
     assert r.data == test_r_data
+
     # display second counter and build page
+    r = client.get("/cpage/counter.second")
+    assert r.status_code == 200
+    test_r_data = (
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n'
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body>"""
+        """<div jmb:name="/cpage/counter.first" jmb:state=\'{"increment":1,"value":0}\' jmb:url="/cpage/counter.first">"""
+        """<div>Count: 0</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+        """</div>"""
+        """<div jmb:name="/cpage/counter.second" jmb:state=\'{"increment":1,"value":0}\' jmb:url="/cpage/counter.second">"""
+        """<div>Count: 0</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+        """</div>"""
+        """<div jmb:name="/cpage/counter.third" jmb:state=\'{"increment":1,"value":0}\' jmb:url="/cpage/counter.third">"""
+        """<div>Count: 0</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    assert r.data == test_r_data
     # increase first counter - ajax simulate
-    # increase second counter - ajax simulate
-    # change first counter increment - ajax simulate
+    r = client.post(
+        "/cpage/counter.first",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/cpage", state=dict()),
+                    dict(
+                        execName="/cpage/counter.first",
+                        state=dict(increment=1, value=0),
+                    ),
+                    dict(
+                        execName="/cpage/counter.second",
+                        state=dict(increment=1, value=0),
+                    ),
+                    dict(
+                        execName="/cpage/counter.third",
+                        state=dict(increment=1, value=0),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.first",
+                        actionName="increase",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    ajax_response_data = json.loads(r.data)
+    assert len(ajax_response_data) == 1
+    assert ajax_response_data[0]["execName"] == "/cpage/counter.first"
+    assert ajax_response_data[0]["state"] == dict(increment=1, value=1)
+    assert ajax_response_data[0]["dom"] == (
+        """<div>Count: 1</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+    )
+    assert ajax_response_data[0]["url"] == "/cpage/counter.first"
+    # increase second counter - ajax simulate without components
+    # when calling from navigation for example 
+    # this call should never be fired without commands to intialise
+    # /cpage/counter.second parents but processor should be able to handle this
+    # initialising /cpage with url_params ...
+    r = client.post(
+        "/cpage/counter.second",
+        data=json.dumps(
+            dict(
+                components=[
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.second",
+                        actionName="increase",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    ajax_response_data = json.loads(r.data)
+    assert len(ajax_response_data) == 4
+    assert ajax_response_data[0]["execName"] == "/cpage/counter.second"
+    assert ajax_response_data[0]["state"] == dict(increment=1, value=1)
+    assert ajax_response_data[0]["dom"] == (
+        """<div>Count: 1</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+    )
+    assert ajax_response_data[0]["url"] == "/cpage/counter.second"
+    assert ajax_response_data[1]["execName"] == "/cpage"
+    assert ajax_response_data[1]["state"] == dict()
+    assert ajax_response_data[1]["dom"] == (
+        """<html><head></head><body>"""
+        """<div jmb-placeholder="/cpage/counter.first"></div>"""
+        """<div jmb-placeholder="/cpage/counter.second"></div>"""
+        """<div jmb-placeholder="/cpage/counter.third"></div>"""
+        """</body></html>"""
+    )
+    assert ajax_response_data[1]["url"] == "/cpage"
+    assert ajax_response_data[2]["execName"] == "/cpage/counter.third"
+    assert ajax_response_data[2]["state"] == dict(increment=1, value=0)
+    assert ajax_response_data[2]["dom"] == (
+        """<div>Count: 0</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+    )
+    assert ajax_response_data[2]["url"] == "/cpage/counter.third"
+    assert ajax_response_data[3]["execName"] == "/cpage/counter.first"
+    assert ajax_response_data[3]["state"] == dict(increment=1, value=0)
+    assert ajax_response_data[3]["dom"] == (
+        """<div>Count: 0</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="1">"""
+        """<a jmb:click="increase()">increase</a>"""
+    )
+    assert ajax_response_data[3]["url"] == "/cpage/counter.first"
+    # change third counter increment and icrease it - ajax simulate
+    r = client.post(
+        "/cpage/counter.first",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/cpage", state=dict()),
+                    dict(
+                        execName="/cpage/counter.first",
+                        state=dict(increment=1, value=1),
+                    ),
+                    dict(
+                        execName="/cpage/counter.second",
+                        state=dict(increment=1, value=2),
+                    ),
+                    dict(
+                        execName="/cpage/counter.third",
+                        state=dict(increment=1, value=3),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.third",
+                        actionName="set_increment",
+                        args=[10],
+                        kwargs=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.third",
+                        actionName="increase",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    ajax_response_data = json.loads(r.data)
+    assert len(ajax_response_data) == 1
+    assert ajax_response_data[0]["execName"] == "/cpage/counter.third"
+    assert ajax_response_data[0]["state"] == dict(increment=10, value=13)
+    assert ajax_response_data[0]["dom"] == (
+        """<div>Count: 13</div>"""
+        """<input jmb:change="set_increment($elm.value)" value="10">"""
+        """<a jmb:click="increase()">increase</a>"""
+    )
+    assert ajax_response_data[0]["url"] == "/cpage/counter.third"
     # change second counter increment - ajax simulate
 
 
