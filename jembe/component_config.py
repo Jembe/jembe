@@ -1,4 +1,14 @@
-from typing import TYPE_CHECKING, Optional, Type, Dict, List, Tuple, Any
+from typing import (
+    TYPE_CHECKING,
+    Optional,
+    Type,
+    Dict,
+    List,
+    Tuple,
+    Any,
+    Union,
+    Sequence,
+)
 from abc import ABCMeta
 from enum import Enum
 from itertools import accumulate
@@ -94,6 +104,39 @@ def action(
     return method
 
 
+def listener(
+    method,
+    event: Optional[str] = None,
+    source: Optional[Union[str, Sequence[str]]] = None,
+):
+    """
+    decorator to mark method as action listener inside component
+    filter by:
+    source = glob like component exec_name matcher
+    if source is:
+
+        - None -> process event from any compoenent
+        - /compoent1.key1/compoent2.key2    -> process event from  compoenent with this exec_name
+        - ./component                       -> process event from direct child named "component" without key
+        - ./component.*                     -> process event from direct child named "component" with any key
+        - ./component.key                   -> process event from direct child named "component with key equals "key"
+        - ./**/component[.[*|<key>]]        -> process event from child at any level
+        - ..                                -> process event from parent
+        - ../component[.[*|<key>]]          -> process event from sibling 
+        - /**/.                             -> process event from parent at any level
+        - /**/component[.[*|<key>]]/**/.    -> process event from parent at any level named
+        - etc.
+    """
+    # This decorator don't anytthing except allow
+    # componentconfig.set_compoenent_class to
+    # recognise method as listener
+
+    setattr(method, "_jembe_listener", True)
+    setattr(method, "_jembe_listener_event_name", event)
+    setattr(method, "_jembe_listener_source", source)
+    return method
+
+
 class ComponentAction:
     def __init__(
         self,
@@ -114,6 +157,23 @@ class ComponentAction:
             getattr(method, "_jembe_action_deferred", False),
             getattr(method, "_jembe_action_deferred_after", None),
             getattr(method, "_jembe_action_deferred_before", None),
+        )
+
+
+class ComponentListener:
+    def __init__(
+        self, method_name: str, event_name: Optional[str], source: Tuple[str, ...] = (),
+    ):
+        self.method_name = method_name
+        self.event_name = event_name
+        self.source = source
+
+    @classmethod
+    def from_method(cls, method) -> "ComponentListener":
+        return cls(
+            method.__name__,
+            getattr(method, "_jembe_listener_event_name", None),
+            getattr(method, "_jembe_listener_source", ()),
         )
 
 
@@ -162,7 +222,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
         # initialise after setting component_class
         self._component_class: Optional[Type["Component"]]
-        self.component_actions: Dict[str, "ComponentAction"]
+        self.component_actions: Dict[str, "ComponentAction"]  # [method_name]
+        self.component_listeners: Dict[str, "ComponentListener"]  # [method_name]
 
         # initalise after setting parent
         self._parent: Optional["ComponentConfig"]
@@ -212,6 +273,15 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             lambda o: isfunction(o) and getattr(o, "_jembe_action", False),
         ):
             self.component_actions[method_name] = ComponentAction.from_method(method)
+
+        self.component_listeners = {}
+        for method_name, method in getmembers(
+            self._component_class,
+            lambda o: isfunction(o) and getattr(o, "_jembe_listener", False),
+        ):
+            self.component_listeners[method_name] = ComponentListener.from_method(
+                method
+            )
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:

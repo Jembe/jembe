@@ -28,6 +28,14 @@ if TYPE_CHECKING:  # pragma: no cover
     from .component import Component, ComponentState
 
 
+class Event:
+    def __init__(self, source: "Component", name: str, to: Optional[str], params: dict):
+        self.source = source
+        self.name = name
+        self.params = params
+        self.to: Optional[str] = None
+
+
 class Command:
     jembe: "Jembe"
 
@@ -101,7 +109,10 @@ class CallCommand(Command):
             # save component display responses in memory
             # Add component html to processor rendererd
             self.processor.renderers[self.component.exec_name] = ComponentRender(
-                True, self.component.state, self.component.url, action_result,
+                True,
+                self.component.state.deepcopy(),
+                self.component.url,
+                action_result,
             )
         elif (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -130,9 +141,79 @@ class CallCommand(Command):
 
 
 class EmitCommand(Command):
+    def __init__(self, component_exec_name: str, event_name: str, params: dict):
+        super().__init__(component_exec_name)
+        self.event_name = event_name
+        self.params = params
+        self._to: Optional[str] = None
+
     def mount(self, processor: "Processor") -> "Command":
         self.component = processor.components[self.component_exec_name]
         return super().mount(processor)
+
+    def to(self, to: Optional[str]):
+        """
+        emit_event_to is glob like string for finding compoennt.
+
+        if emit_event_to is:
+
+            - None -> emit to every initialised component 
+            - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
+            - ./component                       -> emit to direct child named "component" without key
+            - ./component.*                     -> emit to direct child named "component" with any key
+            - ./component.key                   -> emit to direct child named "component with key equals "key"
+            - ./**/component[.[*|<key>]]        -> emit to child at any level
+            - ..                                -> emit to parent
+            - ../component[.[*|<key>]]          -> emit to sibling 
+            - /**/.                             -> emit to parent at any level
+            - /**/component[.[*|<key>]]/**/.    -> emit to parent at any level named
+            - etc.
+        """
+        self._to = to
+
+    def execute(self):
+        """
+        finds all components mathcing self.to that have registred listeners
+        whose source is matched to self.component.exec_name and calls matching 
+        listeners
+        """
+        # TODO create function glob_match_exec_name(pattern_exec_name, pattern, component_exec_name)
+        event = Event(self.component, self.event_name, self._to, self.params)
+        # ignore emit.to, emit.event_name and listener.event_name, listener.source
+        for exec_name, component in self.processor.components.items():
+            for (
+                listener_method_name,
+                listener,
+            ) in component._config.component_listeners.items():
+                # TODO filter by glob match both way
+                if listener.event_name is None or listener.event_name == self.event_name:
+                    self._execute_listener(component, listener_method_name, event)
+
+    def _execute_listener(
+        self, component: "Component", listener_method_name: str, event: "Event"
+    ):
+        listener_result = getattr(component, listener_method_name)(event)
+        if listener_result is None or (
+            isinstance(listener_result, bool) and listener_result == True
+        ):
+            # after executing listener that returns True or None
+            # component should be rendered by executing display
+            self.processor.commands.append(
+                CallCommand(
+                    component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                )
+            )
+        elif isinstance(listener_result, bool) or listener_result == False:
+            # Do nothing
+            pass
+        else:
+            raise JembeError(
+                "Invalid listener result type: {}.{} {}".format(
+                    component._config.full_name,
+                    listener_method_name,
+                    listener_result,
+                )
+            )
 
 
 class InitialiseCommand(Command):
@@ -172,10 +253,10 @@ def command_factory(command_data: dict) -> "Command":
 class ComponentRender(NamedTuple):
     """represents rendered coponent html with additional parametars"""
 
-    fresh: bool = False
-    state: Optional["ComponentState"] = None
-    url: Optional[str] = None
-    html: Optional[str] = None
+    fresh: bool
+    state: "ComponentState"
+    url: Optional[str]
+    html: Optional[str]
 
 
 class Processor:
@@ -206,7 +287,9 @@ class Processor:
                     component_data["execName"], component_data["state"]
                 )
                 # mark component as already rendered/displayed at client browser
-                self.renderers[component.exec_name] = ComponentRender()
+                self.renderers[component.exec_name] = ComponentRender(
+                    False, component.state.deepcopy(), component_data["url"], None
+                )
             # init components from url_path if thay doesnot exist in data["compoenents"]
             self._init_components_from_url_path(component_full_name)
 

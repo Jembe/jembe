@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple
+from copy import deepcopy
 from abc import ABCMeta
 from inspect import signature
 from .errors import JembeError
 from flask import render_template, render_template_string, Markup
 from .component_config import ComponentConfig
 from .app import get_processor
-from .processor import CallCommand, InitialiseCommand
+from .processor import CallCommand, InitialiseCommand, EmitCommand
 
 if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
@@ -45,9 +46,18 @@ class ComponentState(dict):
         self[name] = value
         # return super().__setattr__(name, value)
 
+    def __eq__(self, value):
+        return super().__eq__(value)
+
+    def deepcopy(self):
+        c = ComponentState(**self)
+        for key, value in self.items():
+            c[key] = deepcopy(value)
+        return c
+
 
 class _SubComponentRenderer:
-    def __init__(self, component: "Component", name: str, **kwargs):
+    def __init__(self, component: "Component", name: str, args: tuple, kwargs: dict):
         self.component = component
         self.name = name
         self._key = ""
@@ -260,5 +270,11 @@ class Component(metaclass=ComponentMeta):
     def _render_subcomponent_template(
         self, name: str, *args, **kwargs
     ) -> "_SubComponentRenderer":
-        return _SubComponentRenderer(self, name, *args, **kwargs)
+        return _SubComponentRenderer(self, name, args, kwargs)
+
+    def emit(self, name: str, **params) -> "EmitCommand":
+        processor = get_processor()
+        emmit_command = EmitCommand(self.exec_name, name, params)
+        processor.commands.appendleft(emmit_command)
+        return emmit_command
 

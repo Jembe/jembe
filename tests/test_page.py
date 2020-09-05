@@ -135,7 +135,7 @@ def test_counter_on_page(jmb, client):
     # Refresh page with ajax request
     ajax_post_data = json.dumps(
         dict(
-            components=[dict(execName="/cop", state=dict(counter=0))],
+            components=[],
             commands=[
                 dict(
                     type="call",  # emit, initialise
@@ -165,7 +165,7 @@ def test_counter_on_page(jmb, client):
     ajax_post_data = json.dumps(
         dict(
             components=[
-                dict(execName="/cop", state=dict(counter=0))
+                dict(execName="/cop", state=dict(counter=0), url="/cop")
             ],
             commands=[
                 dict(
