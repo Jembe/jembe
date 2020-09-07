@@ -12,6 +12,7 @@ from typing import (
     Any,
     NamedTuple,
 )
+import re
 from collections import deque, namedtuple
 from itertools import accumulate, chain
 from operator import add
@@ -153,11 +154,11 @@ class EmitCommand(Command):
 
     def to(self, to: Optional[str]):
         """
-        emit_event_to is glob like string for finding compoennt.
+        emit_event_to is glob like string for finding component.
 
         if emit_event_to is:
 
-            - None -> emit to every initialised component 
+            - None -> match to every initialised component 
             - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
             - ./component                       -> emit to direct child named "component" without key
             - ./component.*                     -> emit to direct child named "component" with any key
@@ -177,7 +178,6 @@ class EmitCommand(Command):
         whose source is matched to self.component.exec_name and calls matching 
         listeners
         """
-        # TODO create function glob_match_exec_name(pattern_exec_name, pattern, component_exec_name)
         event = Event(self.component, self.event_name, self._to, self.params)
         # ignore emit.to, emit.event_name and listener.event_name, listener.source
         for exec_name, component in self.processor.components.items():
@@ -185,9 +185,98 @@ class EmitCommand(Command):
                 listener_method_name,
                 listener,
             ) in component._config.component_listeners.items():
-                # TODO filter by glob match both way
-                if listener.event_name is None or listener.event_name == self.event_name:
+                if (
+                    self._glob_match_exec_name(
+                        self.component_exec_name, self._to, component.exec_name
+                    )
+                    and listener.event_name is None
+                    or listener.event_name == self.event_name
+                ):
                     self._execute_listener(component, listener_method_name, event)
+
+    @classmethod
+    def _glob_match_exec_name(
+        cls, pattern_exec_name, pattern, component_exec_name
+    ) -> bool:
+        """
+        Check if glob pattern set by component with pattern_exec_name match
+        with compoment_exec_name
+
+        if pattern is:
+
+            - None -> match to every initialised component 
+            - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
+            - ./*                               -> direct children with or without key
+            - ./*.*                             -> direct children with any key
+            - ./**/*                            -> all children with or without key
+            - ./**/*.*                          -> all children with any key
+            - ./component                       -> match to direct child named "component" without key
+            - ./component.*                     -> match to direct child named "component" with any key
+            - ./component.key                   -> match to direct child named "component with key equals "key"
+            - ./**/component[.[*|<key>]]        -> match to child at any level
+            - ..                                -> match to parent
+            - ../component[.[*|<key>]]          -> match to sibling 
+            - /**/.                             -> match to parent at any level
+            - /**/component[.[*|<key>]]/**/.    -> match to parent at any level named
+            - etc.
+        """
+
+        if pattern is None:
+            # match any compoennt
+            return True
+        if "/**/." in pattern:
+            # reverse match for parent
+            if pattern_exec_name == component_exec_name:
+                return False
+            if not pattern_exec_name.startswith(component_exec_name):
+                return False
+            if not pattern.startswith("/**/") or pattern == "/**/.":
+                return True
+            else:
+                re_pattern = (
+                    "(/{p}/)|(/{p}$)".format(
+                        p=re.escape(
+                            # removes /**/ from begining and /**/. from end
+                            pattern[4:-5]
+                        )
+                    )
+                    .replace(
+                        "/\\*\\*/",
+                        "((/.*/)|(/))",  # ** replace wit regex to match compoente path
+                    )
+                    .replace("\\*\\.\\*", "[^./]+\\.[^./]+")
+                    .replace("\\.\\*", "\\.[^./]+")  # replace with regex to match any key
+                    .replace("\\*", "[^/]*")  # replace to match compoent name
+                )
+                return re.search(re_pattern, pattern_exec_name) is not None
+        else:
+            # regular path match
+            if pattern.startswith("/"):
+                pass
+            elif pattern.startswith("./"):
+                pattern = "{}{}".format(pattern_exec_name, pattern.lstrip("."))
+            elif pattern.startswith(".."):
+                pattern_begins = pattern_exec_name.lstrip("/").split("/")
+                while pattern.startswith(".."):
+                    pattern = pattern.lstrip(".").lstrip("/")
+                    try:
+                        pattern_begins = pattern_begins[:-1]
+                    except KeyError:
+                        # no parrent so no match
+                        return False
+                pattern = "/".join(["", *pattern_begins, pattern]).rstrip("/")
+
+            re_pattern = (
+                re.escape(pattern)
+                .replace(
+                    "/\\*\\*/",
+                    "((/.*/)|(/))",  # ** replace wit regex to match compoente path
+                )
+                .replace("\\*\\.\\*", "[^./]+\\.[^./]+")
+                .replace("\\.\\*", "\\.[^./]+")  # replace with regex to match any key
+                .replace("\\*", "[^/]*")  # replace to match compoent name
+            )
+            return re.fullmatch(re_pattern, component_exec_name) is not None
 
     def _execute_listener(
         self, component: "Component", listener_method_name: str, event: "Event"
@@ -199,9 +288,7 @@ class EmitCommand(Command):
             # after executing listener that returns True or None
             # component should be rendered by executing display
             self.processor.commands.append(
-                CallCommand(
-                    component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
-                )
+                CallCommand(component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
         elif isinstance(listener_result, bool) or listener_result == False:
             # Do nothing
@@ -209,9 +296,7 @@ class EmitCommand(Command):
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
-                    component._config.full_name,
-                    listener_method_name,
-                    listener_result,
+                    component._config.full_name, listener_method_name, listener_result,
                 )
             )
 

@@ -1612,3 +1612,9 @@ class UserPage2(Component):
         """
         )
 
+
+
+# $jmb.call(<method_name>, params)[.redisplay(force=True)]
+# $jmb.emit(<event_name>, event_params).to(<selector>)
+# $jmb.set(<state_praam_name>, value).deffer()
+# $jmb.component(<component_name>, <state_params>).key(<key>).[call|emit|component]

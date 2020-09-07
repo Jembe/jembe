@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 from jembe import Component
 from flask import json
 from jembe import action, listener
@@ -302,15 +302,18 @@ def test_multi_counter(jmb, client):
                     dict(execName="/cpage", state=dict(), url="/cpage"),
                     dict(
                         execName="/cpage/counter.first",
-                        state=dict(increment=1, value=1), url="/cpage/counter.first",
+                        state=dict(increment=1, value=1),
+                        url="/cpage/counter.first",
                     ),
                     dict(
                         execName="/cpage/counter.second",
-                        state=dict(increment=1, value=2), url="/cpage/counter.second",
+                        state=dict(increment=1, value=2),
+                        url="/cpage/counter.second",
                     ),
                     dict(
                         execName="/cpage/counter.third",
-                        state=dict(increment=1, value=3), url="/cpage/counter.third",
+                        state=dict(increment=1, value=3),
+                        url="/cpage/counter.third",
                     ),
                 ],
                 commands=[
@@ -495,18 +498,99 @@ def test_multi_counter_intercommunication_events(jmb, client):
     ajax_response_data = json.loads(r.data)
     assert len(ajax_response_data) == 2
     assert ajax_response_data[0]["execName"] == "/cpage/counter.first"
-    assert ajax_response_data[0]["state"] == {"value": 1}
+    assert ajax_response_data[0]["state"] == dict(
+        connected_counter_exec_name="../counter.second", value=1
+    )
     assert ajax_response_data[0]["dom"] == (
         """<div>Count: 1</div>""" """<a jmb:click="increase()">increase</a>"""
     )
     assert ajax_response_data[0]["url"] == "/cpage/counter.first"
 
     assert ajax_response_data[1]["execName"] == "/cpage/counter.second"
-    assert ajax_response_data[1]["state"] == {"value": 1}
+    assert ajax_response_data[1]["state"] == dict(
+        connected_counter_exec_name=None, value=1
+    )
     assert ajax_response_data[1]["dom"] == (
         """<div>Count: 1</div>""" """<a jmb:click="increase()">increase</a>"""
     )
     assert ajax_response_data[1]["url"] == "/cpage/counter.second"
+
+
+def test_dynamic_add_remove_counters(jmb, client):
+    class Counter(Component):
+        def __init__(self, value: int = 0):
+            super().__init__()
+
+        def display(self):
+            # uses $jmb.set to increase and redisplay counter
+            # puts logic in template which is not very good but it can be done
+            return self.render_template_string(
+                """<div>Counter ({{self.key}}): {{value}}<button onclick="$jmb.set("value", {{value + 1}})">Increase</button></div>"""
+            )
+
+    @jmb.page("cpage", Component.Config(components={"counter": Counter}))
+    class Page(Component):
+        def __init__(self, counters: Tuple[str, ...] = ()):
+            super().__init__()
+
+        @action
+        def add_counter(self, key: str):
+            if key and key not in self.state.counters:
+                self.state.counters = self.state.counters + (key,)
+
+        @action
+        def remove_counter(self, key: str):
+            if key and key in self.state.counters:
+                l = list(self.state.counters)
+                l.remove(key)
+                self.state.counters = tuple(l)
+
+        @listener("_rendered", "./*")
+        def on_counter_render(self, event):
+            if event.source.key not in self.state.counters:
+                self.state.counters = self.state.counters + (event.source.key)
+
+        def display(self):
+            return self.render_template_string(
+                "<html><head></head><body>"
+                """<input jmb:ref="key" name="key" value="">"""
+                """<button onclick="$jmb.call('add_counter', $jmb.ref('key').value)">Add counter</button>"""
+                """{% for counter in counters %}"""
+                """<div>{{component("counter").key(counter)}}<button onclick="$jmb.call('remove_counter', '{{counter}}')">Remove</div></div>"""
+                "{% endfor %}"
+                "</body></html>"
+            )
+
+    # TODO display page with no counters
+    r = client.get("/cpage")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state=\'{"counters":[]}\' jmb:url="/cpage"><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        "</body></html>"
+    ).encode("utf-8")
+    # TODO call to some counter with url should add that counter
+    r = client.get("/cpage/counter.first")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state=\'{"counters":[]}\' jmb:url="/cpage"><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<div><div jmb:name="/cpage/counter.first" jmb:state=\'{"value":0}\' jmb:url="/cpage.counter.first">Counter (first): 0<button onclick="$jmb.set("value", 1)">Increase</button></div>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        "</body></html>"
+    ).encode("utf-8")
+    # TODO call add_counter three times in row
+    # TODO increase some counter two times in row
+    # TODO remove counter
+
+
+# TODO make dynamic counter with persisted data on server
 
 
 # TODO test counter with configurable increment
