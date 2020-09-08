@@ -186,6 +186,7 @@ def test_multi_counter(jmb, client):
         """</body></html>"""
     ).encode("utf-8")
     assert r.data == test_r_data
+   
     # increase first counter - ajax simulate
     r = client.post(
         "/cpage/counter.first",
@@ -277,22 +278,22 @@ def test_multi_counter(jmb, client):
         """</body></html>"""
     )
     assert ajax_response_data[1]["url"] == "/cpage"
-    assert ajax_response_data[2]["execName"] == "/cpage/counter.third"
+    assert ajax_response_data[2]["execName"] == "/cpage/counter.first"
     assert ajax_response_data[2]["state"] == dict(increment=1, value=0)
     assert ajax_response_data[2]["dom"] == (
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
     )
-    assert ajax_response_data[2]["url"] == "/cpage/counter.third"
-    assert ajax_response_data[3]["execName"] == "/cpage/counter.first"
+    assert ajax_response_data[2]["url"] == "/cpage/counter.first"
+    assert ajax_response_data[3]["execName"] == "/cpage/counter.third"
     assert ajax_response_data[3]["state"] == dict(increment=1, value=0)
     assert ajax_response_data[3]["dom"] == (
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
     )
-    assert ajax_response_data[3]["url"] == "/cpage/counter.first"
+    assert ajax_response_data[3]["url"] == "/cpage/counter.third"
     # change third counter increment and icrease it - ajax simulate
     r = client.post(
         "/cpage/counter.first",

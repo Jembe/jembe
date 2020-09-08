@@ -72,12 +72,12 @@ class _SubComponentRenderer:
         component_exec_name = Component._build_exec_name(
             self.name, self._key, self.component.exec_name
         )
-        processor.commands.append(
+        processor.staging_commands.append(InitialiseCommand(component_exec_name, self.kwargs))
+        processor.staging_commands.append(
             CallCommand(
                 component_exec_name, self.action, self.action_args, self.action_kwargs
             )
         )
-        processor.commands.append(InitialiseCommand(component_exec_name, self.kwargs))
         return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":

@@ -417,15 +417,22 @@ class EmitCommand(Command):
 class InitialiseCommand(Command):
     TYPE = "Initialise"
 
-    def __init__(self, component_exec_name: str, init_params: dict):
+    def __init__(
+        self, component_exec_name: str, init_params: dict, exist_on_client: bool = False
+    ):
         super().__init__(component_exec_name)
         self.init_params = init_params
+        self.exist_on_client = exist_on_client
 
     def execute(self):
         if not self.component_exec_name in self.processor.components:
             # create new component if component with identical exec_name
             # does not exist
-            self.processor.init_component(self.component_exec_name, self.init_params)
+            component = self._init_component()
+            if self.exist_on_client:
+                self.processor.renderers[component.exec_name] = ComponentRender(
+                    False, component.state.deepcopy(), component.url, None
+                )
         else:
             # if state params are same continue
             # else raise jembeerror until find better solution
@@ -438,6 +445,18 @@ class InitialiseCommand(Command):
                         )
                     )
         self.move_staged_commands_to_execution_queue()
+
+    def _init_component(self) -> "Component":
+        from .component import Component
+
+        component_full_name = Component._exec_name_to_full_name(
+            self.component_exec_name
+        )
+        cconfig = self.processor.jembe.components_configs[component_full_name]
+        component = cconfig.component_class(**self.init_params)  # type:ignore
+        component.exec_name = self.component_exec_name
+        self.processor.components[component.exec_name] = component
+        return component
 
 
 def command_factory(command_data: dict) -> "Command":
@@ -485,46 +504,48 @@ class Processor:
             # x-jembe ajax request
             data = json.loads(self.request.data)
             # init components from data["components"]
+            to_be_initialised = []
             for component_data in data["components"]:
-                component = self.init_component(
-                    component_data["execName"], component_data["state"]
-                )
-                # mark component as already rendered/displayed at client browser
-                self.renderers[component.exec_name] = ComponentRender(
-                    False, component.state.deepcopy(), component_data["url"], None
-                )
+                self.commands.appendleft(InitialiseCommand(
+                    component_data["execName"],
+                    component_data["state"],
+                    exist_on_client=True
+                ))
+                to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
-            self._init_components_from_url_path(component_full_name)
+            self._init_components_from_url_path(component_full_name, to_be_initialised)
 
             # init commands
-            for command_data in reversed(data["commands"]):
-                self.commands.append(command_factory(command_data))
+            for command_data in data["commands"]:
+                self.commands.appendleft(command_factory(command_data))
         else:
             # regular http/s GET request
-            self._init_components_from_url_path(component_full_name)
+            exec_names = self._init_components_from_url_path(component_full_name, list())
 
-            # init commands
-            c_full_names = list(self.components.keys())
-            for c in reversed(c_full_names[:-1]):
-                self.commands.append(
-                    CallCommand(
-                        self.components[c].exec_name,
-                        ComponentConfig.DEFAULT_DISPLAY_ACTION,
-                    )
-                )
-            self.commands.append(
+            self.commands.appendleft(
                 CallCommand(
-                    self.components[c_full_names[-1]].exec_name,
-                    ComponentConfig.DEFAULT_DISPLAY_ACTION,
+                    exec_names[-1],
+                    ComponentConfig.DEFAULT_DISPLAY_ACTION
                 )
             )
+            for exec_name in exec_names[:-1]:
+                self.commands.appendleft(
+                    CallCommand(
+                        exec_name,
+                        ComponentConfig.DEFAULT_DISPLAY_ACTION
+                    )
+                )
 
-    def _init_components_from_url_path(self, component_full_name: str):
+    def _init_components_from_url_path(self, component_full_name: str, to_be_initialised:List[str]) -> List[str]:
         """ 
             inits components from request url_path 
             if component with same exec_name is not already initialised
+
+            returns exec names from root to component_full_name
         """
         from .component import Component
+
+        exec_names = []
 
         c_configs: List["ComponentConfig"] = list()
         # get all components configs from root to requested component
@@ -544,37 +565,21 @@ class Processor:
             key = self.request.view_args[cconfig._key_url_param.identifier].lstrip(".")
             exec_name = Component._build_exec_name(cconfig.name, key, parent_exec_name)
             parent_exec_name = exec_name
-            if exec_name not in self.components:
+            if exec_name not in to_be_initialised:
                 init_params = {
                     up.name: self.request.view_args[up.identifier]
                     for up in cconfig._url_params
                 }
-                self.init_component(exec_name, init_params)
+                self.commands.appendleft(InitialiseCommand(exec_name, init_params))
+            exec_names.append(exec_name)
 
-    def init_component(self, exec_name: str, init_params: dict,) -> "Component":
-        from .component import Component
-
-        component_full_name = Component._exec_name_to_full_name(exec_name)
-        cconfig = self.jembe.components_configs[component_full_name]
-        component = cconfig.component_class(**init_params)  # type:ignore
-        component.exec_name = exec_name
-        self.components[component.exec_name] = component
-        return component
+        return exec_names
 
     def process_request(self) -> "Processor":
         # execute all commands from self.commands stack
-        while self.commands:
-            # import pdb; pdb.set_trace()
-            print(self.commands)
-            command = self.commands.pop()
-            # emit_before_commands, emit_after_commands = SystemEvents.get_emit_commands(
-            #     command
-            # )
-            # for bcommand in emit_before_commands:
-            #     bcommand.mount(self).execute()
-            command.mount(self).execute()
-            # for c in emit_after_commands:
-            #     c.mount(self).execute()
+        print()
+        print('Processing', self.request)
+        self._execute_commands()
         # for all freshly rendered component who does not have parent renderers
         # eather at client (send via x-jembe.components) nor just created by
         # server call display command
@@ -593,10 +598,23 @@ class Processor:
             self.commands.append(
                 CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
-        while self.commands:
-            command = self.commands.pop()
-            command.mount(self).execute()
+        self._execute_commands()
         return self
+
+    def _execute_commands(self):
+        while self.commands:
+            # import pdb; pdb.set_trace()
+            print(self.commands)
+            command = self.commands.pop()
+            # emit_before_commands, emit_after_commands = SystemEvents.get_emit_commands(
+            #     command
+            # )
+            # for bcommand in emit_before_commands:
+            #     bcommand.mount(self).execute()
+            command.mount(self).execute()
+            # for c in emit_after_commands:
+            #     c.mount(self).execute()
+
 
     def build_response(self) -> "Response":
         # TODO compose respons from components here if is not ajax request otherwise let javascript
