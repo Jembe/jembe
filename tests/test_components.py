@@ -41,10 +41,8 @@ def test_counter(jmb, client):
     ajax_post_data = json.dumps(
         dict(
             components=[
-                dict(execName="/cpage", state=dict(), url="/cpage"),
-                dict(
-                    execName="/cpage/counter", state=dict(value=0), url="/cpage/counter"
-                ),
+                dict(execName="/cpage", state=dict()),
+                dict(execName="/cpage/counter", state=dict(value=0)),
             ],
             commands=[
                 dict(
@@ -71,10 +69,8 @@ def test_counter(jmb, client):
     ajax_post_data2 = json.dumps(
         dict(
             components=[
-                dict(execName="/cpage", state=dict(), url="/cpage"),
-                dict(
-                    execName="/cpage/counter", state=dict(value=0), url="/cpage/counter"
-                ),
+                dict(execName="/cpage", state=dict()),
+                dict(execName="/cpage/counter", state=dict(value=0)),
             ],
             commands=[
                 dict(
@@ -186,28 +182,25 @@ def test_multi_counter(jmb, client):
         """</body></html>"""
     ).encode("utf-8")
     assert r.data == test_r_data
-   
+
     # increase first counter - ajax simulate
     r = client.post(
         "/cpage/counter.first",
         data=json.dumps(
             dict(
                 components=[
-                    dict(execName="/cpage", state=dict(), url="/cpage"),
+                    dict(execName="/cpage", state=dict()),
                     dict(
                         execName="/cpage/counter.first",
                         state=dict(increment=1, value=0),
-                        url="/cpage/counter.first",
                     ),
                     dict(
                         execName="/cpage/counter.second",
                         state=dict(increment=1, value=0),
-                        url="/cpage/counter.second",
                     ),
                     dict(
                         execName="/cpage/counter.third",
                         state=dict(increment=1, value=0),
-                        url="/cpage/counter.third",
                     ),
                 ],
                 commands=[
@@ -300,21 +293,18 @@ def test_multi_counter(jmb, client):
         data=json.dumps(
             dict(
                 components=[
-                    dict(execName="/cpage", state=dict(), url="/cpage"),
+                    dict(execName="/cpage", state=dict()),
                     dict(
                         execName="/cpage/counter.first",
                         state=dict(increment=1, value=1),
-                        url="/cpage/counter.first",
                     ),
                     dict(
                         execName="/cpage/counter.second",
                         state=dict(increment=1, value=2),
-                        url="/cpage/counter.second",
                     ),
                     dict(
                         execName="/cpage/counter.third",
                         state=dict(increment=1, value=3),
-                        url="/cpage/counter.third",
                     ),
                 ],
                 commands=[
@@ -395,23 +385,20 @@ def test_multi_counter_intercommunication_events(jmb, client):
         data=json.dumps(
             dict(
                 components=[
-                    dict(execName="/cpage", state=dict(), url="/cpage"),
+                    dict(execName="/cpage", state=dict()),
                     dict(
                         execName="/cpage/counter.first",
                         state=dict(
                             connected_counter_exec_name="../counter.second", value=0
                         ),
-                        url="/cpage/counter.first",
                     ),
                     dict(
                         execName="/cpage/counter.second",
                         state=dict(connected_counter_exec_name=None, value=0),
-                        url="/cpage/counter.second",
                     ),
                     dict(
                         execName="/cpage/counter.third",
                         state=dict(connected_counter_exec_name=None, value=0),
-                        url="/cpage/counter.third",
                     ),
                 ],
                 commands=[
@@ -462,23 +449,20 @@ def test_multi_counter_intercommunication_events(jmb, client):
         data=json.dumps(
             dict(
                 components=[
-                    dict(execName="/cpage", state=dict(), url="/cpage"),
+                    dict(execName="/cpage", state=dict()),
                     dict(
                         execName="/cpage/counter.first",
                         state=dict(
                             connected_counter_exec_name="../counter.second", value=0
                         ),
-                        url="/cpage/counter.first",
                     ),
                     dict(
                         execName="/cpage/counter.second",
                         state=dict(connected_counter_exec_name=None, value=0),
-                        url="/cpage/counter.second",
                     ),
                     dict(
                         execName="/cpage/counter.third",
                         state=dict(connected_counter_exec_name=None, value=0),
-                        url="/cpage/counter.third",
                     ),
                 ],
                 commands=[
@@ -548,7 +532,7 @@ def test_dynamic_add_remove_counters(jmb, client):
         @listener(event="_display", source="./*")
         def on_counter_render(self, event):
             if event.source.key not in self.state.counters:
-                self.state.counters = self.state.counters + (event.source.key, )
+                self.state.counters = self.state.counters + (event.source.key,)
 
         def display(self):
             return self.render_template_string(
