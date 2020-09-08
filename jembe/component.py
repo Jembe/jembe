@@ -264,6 +264,9 @@ class Component(metaclass=ComponentMeta):
                 for name, value in vars(self).items()
                 if not name.startswith("_")
             },
+            "key": self.key,
+            "exec_name": self.exec_name,
+            # command to render subcomponents
             "component": self._render_subcomponent_template,
         }
 

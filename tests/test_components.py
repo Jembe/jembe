@@ -525,7 +525,7 @@ def test_dynamic_add_remove_counters(jmb, client):
             # uses $jmb.set to increase and redisplay counter
             # puts logic in template which is not very good but it can be done
             return self.render_template_string(
-                """<div>Counter ({{self.key}}): {{value}}<button onclick="$jmb.set("value", {{value + 1}})">Increase</button></div>"""
+                """<div>Counter ({{key}}): {{value}}<button onclick="$jmb.set('value', {{value + 1}})">Increase</button></div>"""
             )
 
     @jmb.page("cpage", Component.Config(components={"counter": Counter}))
@@ -545,10 +545,10 @@ def test_dynamic_add_remove_counters(jmb, client):
                 l.remove(key)
                 self.state.counters = tuple(l)
 
-        @listener(event="_rendered", source="./*")
+        @listener(event="_display", source="./*")
         def on_counter_render(self, event):
             if event.source.key not in self.state.counters:
-                self.state.counters = self.state.counters + (event.source.key)
+                self.state.counters = self.state.counters + (event.source.key, )
 
         def display(self):
             return self.render_template_string(
@@ -561,7 +561,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                 "</body></html>"
             )
 
-    # TODO display page with no counters
+    # display page with no counters
     r = client.get("/cpage")
     assert r.status_code == 200
     assert r.data == (
@@ -572,19 +572,21 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         "</body></html>"
     ).encode("utf-8")
-    # TODO call to some counter with url should add that counter
+
+    # call to first counter with url should add that counter
     r = client.get("/cpage/counter.first")
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:state=\'{"counters":[]}\' jmb:url="/cpage"><head></head><body>"""
+        """<html jmb:name="/cpage" jmb:state=\'{"counters":["first"]}\' jmb:url="/cpage"><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><div jmb:name="/cpage/counter.first" jmb:state=\'{"value":0}\' jmb:url="/cpage.counter.first">Counter (first): 0<button onclick="$jmb.set("value", 1)">Increase</button></div>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
+        """<div><div jmb:name="/cpage/counter.first" jmb:state=\'{"value":0}\' jmb:url="/cpage/counter.first">Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
         "</body></html>"
     ).encode("utf-8")
+
     # TODO call add_counter three times in row
     # TODO increase some counter two times in row
     # TODO remove counter

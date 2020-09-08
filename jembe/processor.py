@@ -37,6 +37,11 @@ class Event:
         self.params = params
         self.to: Optional[str] = None
 
+    def __repr__(self):
+        return "Event: source={}, name={}, to={} params={}".format(
+            self.source.exec_name, self.name, self.to, self.params
+        )
+
 
 class SystemEvents(Enum):
     # before calling display action
@@ -287,15 +292,23 @@ class EmitCommand(Command):
                 listener,
             ) in component._config.component_listeners.items():
                 if (
-                    listener.event_name is None
-                    or listener.event_name == self.event_name
-                ) and self._glob_match_exec_name(
-                    # match emit.to with compoenent name
-                    self.component_exec_name,
-                    self._to,
-                    component.exec_name,
+                    (
+                        listener.event_name is None
+                        or listener.event_name == self.event_name
+                    )
+                    and self._glob_match_exec_name(
+                        # match emit.to with compoenent name
+                        self.component_exec_name,
+                        self._to,
+                        component.exec_name,
+                    )
+                    and self._glob_match_exec_name(
+                        # match for compoennt filter on listener end
+                        component.exec_name,
+                        listener.source,
+                        self.component_exec_name,
+                    )
                 ):
-                    # TODO add match for compoennt filter on listener end
                     self._execute_listener(component, listener_method_name, event)
 
     @classmethod
@@ -506,11 +519,13 @@ class Processor:
             # init components from data["components"]
             to_be_initialised = []
             for component_data in data["components"]:
-                self.commands.appendleft(InitialiseCommand(
-                    component_data["execName"],
-                    component_data["state"],
-                    exist_on_client=True
-                ))
+                self.commands.appendleft(
+                    InitialiseCommand(
+                        component_data["execName"],
+                        component_data["state"],
+                        exist_on_client=True,
+                    )
+                )
                 to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
             self._init_components_from_url_path(component_full_name, to_be_initialised)
@@ -520,23 +535,21 @@ class Processor:
                 self.commands.appendleft(command_factory(command_data))
         else:
             # regular http/s GET request
-            exec_names = self._init_components_from_url_path(component_full_name, list())
+            exec_names = self._init_components_from_url_path(
+                component_full_name, list()
+            )
 
             self.commands.appendleft(
-                CallCommand(
-                    exec_names[-1],
-                    ComponentConfig.DEFAULT_DISPLAY_ACTION
-                )
+                CallCommand(exec_names[-1], ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
             for exec_name in exec_names[:-1]:
                 self.commands.appendleft(
-                    CallCommand(
-                        exec_name,
-                        ComponentConfig.DEFAULT_DISPLAY_ACTION
-                    )
+                    CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
                 )
 
-    def _init_components_from_url_path(self, component_full_name: str, to_be_initialised:List[str]) -> List[str]:
+    def _init_components_from_url_path(
+        self, component_full_name: str, to_be_initialised: List[str]
+    ) -> List[str]:
         """ 
             inits components from request url_path 
             if component with same exec_name is not already initialised
@@ -576,9 +589,6 @@ class Processor:
         return exec_names
 
     def process_request(self) -> "Processor":
-        # execute all commands from self.commands stack
-        print()
-        print('Processing', self.request)
         self._execute_commands()
         # for all freshly rendered component who does not have parent renderers
         # eather at client (send via x-jembe.components) nor just created by
@@ -602,19 +612,20 @@ class Processor:
         return self
 
     def _execute_commands(self):
+        """executes all commands from self.commands que"""
         while self.commands:
             # import pdb; pdb.set_trace()
-            print(self.commands)
             command = self.commands.pop()
-            # emit_before_commands, emit_after_commands = SystemEvents.get_emit_commands(
-            #     command
-            # )
-            # for bcommand in emit_before_commands:
-            #     bcommand.mount(self).execute()
-            command.mount(self).execute()
-            # for c in emit_after_commands:
-            #     c.mount(self).execute()
+            emit_before_commands, emit_after_commands = SystemEvents.get_emit_commands(
+                command
+            )
+            for bcommand in emit_before_commands:
+                bcommand.mount(self).execute()
 
+            command.mount(self).execute()
+
+            for c in emit_after_commands:
+                c.mount(self).execute()
 
     def build_response(self) -> "Response":
         # TODO compose respons from components here if is not ajax request otherwise let javascript
