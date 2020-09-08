@@ -275,6 +275,6 @@ class Component(metaclass=ComponentMeta):
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()
         emmit_command = EmitCommand(self.exec_name, name, params)
-        processor.commands.appendleft(emmit_command)
+        processor.staging_commands.append(emmit_command)
         return emmit_command
 

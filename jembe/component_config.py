@@ -76,7 +76,8 @@ class UrlParamDef:
 
 
 def action(
-    method,
+    _method=None,
+    *,
     deferred=False,
     deferred_after: Optional[str] = None,
     deferred_before: Optional[str] = None,
@@ -96,18 +97,23 @@ def action(
     # This decorator don't anytthing except allow
     # componentconfig.set_compoenent_class to
     # recognise method as action
+    def decorator_action(method):
+        setattr(method, "_jembe_action", True)
+        setattr(method, "_jembe_action_deferred", deferred)
+        setattr(method, "_jembe_action_deferred_after", deferred_after)
+        setattr(method, "_jembe_action_deferred_before", deferred_before)
+        return method
 
-    setattr(method, "_jembe_action", True)
-    setattr(method, "_jembe_action_deferred", deferred)
-    setattr(method, "_jembe_action_deferred_after", deferred_after)
-    setattr(method, "_jembe_action_deferred_before", deferred_before)
-    return method
+    if _method is None:
+        return decorator_action
+    else:
+        return decorator_action(_method)
 
 
 def listener(
-    method,
-    event: Optional[str] = None,
-    source: Optional[Union[str, Sequence[str]]] = None,
+    _method = None,
+    *,
+    event: Optional[str] = None, source: Optional[Union[str, Sequence[str]]] = None,
 ):
     """
     decorator to mark method as action listener inside component
@@ -130,11 +136,15 @@ def listener(
     # This decorator don't anytthing except allow
     # componentconfig.set_compoenent_class to
     # recognise method as listener
-
-    setattr(method, "_jembe_listener", True)
-    setattr(method, "_jembe_listener_event_name", event)
-    setattr(method, "_jembe_listener_source", source)
-    return method
+    def decorator_listener(method):
+        setattr(method, "_jembe_listener", True)
+        setattr(method, "_jembe_listener_event_name", event)
+        setattr(method, "_jembe_listener_source", source)
+        return method
+    if _method is None:
+        return decorator_listener
+    else:
+        return decorator_listener(_method)
 
 
 class ComponentAction:

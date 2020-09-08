@@ -362,8 +362,7 @@ def test_multi_counter_intercommunication_events(jmb, client):
             if self.state.connected_counter_exec_name:
                 self.emit("increase").to(self.state.connected_counter_exec_name)
 
-        # @listener(event="increase")
-        @listener
+        @listener(event="increase")
         def on_event_increase(self, event):
             self.state.value += 1
 
@@ -545,7 +544,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                 l.remove(key)
                 self.state.counters = tuple(l)
 
-        @listener("_rendered", "./*")
+        @listener(event="_rendered", source="./*")
         def on_counter_render(self, event):
             if event.source.key not in self.state.counters:
                 self.state.counters = self.state.counters + (event.source.key)
