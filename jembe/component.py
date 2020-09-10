@@ -280,4 +280,3 @@ class Component(metaclass=ComponentMeta):
         emmit_command = EmitCommand(self.exec_name, name, params)
         processor.staging_commands.append(emmit_command)
         return emmit_command
-

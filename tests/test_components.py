@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List
 from jembe import Component
 from flask import json
-from jembe import action, listener
+from jembe import action, listener, config, redisplay
 
 
 def test_counter(jmb, client):
@@ -514,25 +514,26 @@ def test_dynamic_add_remove_counters(jmb, client):
 
     @jmb.page("cpage", Component.Config(components={"counter": Counter}))
     class Page(Component):
-        def __init__(self, counters: Tuple[str, ...] = ()):
+        def __init__(self, counters: Sequence[str] = ()):
+            self.state.counters = list(counters)
             super().__init__()
 
         @action
         def add_counter(self, key: str):
             if key and key not in self.state.counters:
-                self.state.counters = self.state.counters + (key,)
+                self.state.counters.append(key)
 
         @action
         def remove_counter(self, key: str):
             if key and key in self.state.counters:
-                l = list(self.state.counters)
-                l.remove(key)
-                self.state.counters = tuple(l)
+                self.state.counters.remove(key)
 
         @listener(event="_display", source="./*")
         def on_counter_render(self, event):
             if event.source.key not in self.state.counters:
-                self.state.counters = self.state.counters + (event.source.key,)
+                self.state.counters.append(event.source.key)
+                return True
+            return False
 
         def display(self):
             return self.render_template_string(
@@ -571,13 +572,332 @@ def test_dynamic_add_remove_counters(jmb, client):
         "</body></html>"
     ).encode("utf-8")
 
-    # TODO call add_counter three times in row
-    # TODO increase some counter two times in row
-    # TODO remove counter
+    # call add_counter three times in row
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[dict(execName="/cpage", state=dict()),],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage",
+                        actionName="add_counter",
+                        args=["first"],
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 2
+    assert json_response[0]["execName"] == "/cpage"
+    assert json_response[0]["dom"] == (
+        """<html><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        "</body></html>"
+    )
+    assert json_response[1]["execName"] == "/cpage/counter.first"
+    assert json_response[1]["dom"] == (
+        """<div>Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+    )
+
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/cpage", state=dict(counters=["first"])),
+                    dict(execName="/cpage/counter.first", state=dict(value=0)),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage",
+                        actionName="add_counter",
+                        args=["second"],
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 2
+    assert json_response[0]["execName"] == "/cpage"
+    assert json_response[0]["dom"] == (
+        """<html><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        "</body></html>"
+    )
+    assert json_response[1]["execName"] == "/cpage/counter.second"
+    assert json_response[1]["dom"] == (
+        """<div>Counter (second): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+    )
+    # increase and add counter
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/cpage", state=dict(counters=["first", "second"])),
+                    dict(execName="/cpage/counter.first", state=dict(value=0)),
+                    # dict(execName="/cpage/counter.second", state=dict(value=0)),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/cpage/counter.second",
+                        initParams=dict(value=1),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.second",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/cpage",
+                        actionName="add_counter",
+                        args=["third"],
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/cpage"
+    assert json_response[0]["dom"] == (
+        """<html><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><div jmb-placeholder="/cpage/counter.third"></div><button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
+        "</body></html>"
+    )
+    assert json_response[1]["execName"] == "/cpage/counter.second"
+    assert json_response[1]["dom"] == (
+        """<div>Counter (second): 1<button onclick="$jmb.set('value', 2)">Increase</button></div>"""
+    )
+    assert json_response[2]["execName"] == "/cpage/counter.third"
+    assert json_response[2]["dom"] == (
+        """<div>Counter (third): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+    )
+
+    # increase second counter
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(
+                        execName="/cpage",
+                        state=dict(counters=["first", "second", "third"]),
+                    ),
+                    dict(execName="/cpage/counter.first", state=dict(value=0)),
+                    # dict(execName="/cpage/counter.second", state=dict(value=2)),
+                    dict(execName="/cpage/counter.third", state=dict(value=0)),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/cpage/counter.second",
+                        initParams=dict(value=2),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.second",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/cpage/counter.second"
+    assert json_response[0]["dom"] == (
+        """<div>Counter (second): 2<button onclick="$jmb.set('value', 3)">Increase</button></div>"""
+    )
+
+    # remove counter
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(
+                        execName="/cpage",
+                        state=dict(counters=["first", "second", "third"]),
+                    ),
+                    dict(execName="/cpage/counter.first", state=dict(value=0)),
+                    dict(execName="/cpage/counter.second", state=dict(value=3)),
+                    dict(execName="/cpage/counter.third", state=dict(value=0)),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage",
+                        actionName="remove_counter",
+                        args=["third"],
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/cpage"
+    assert json_response[0]["dom"] == (
+        """<html><head></head><body>"""
+        """<input jmb:ref="key" name="key" value="">"""
+        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        "</body></html>"
+    )
 
 
-# TODO make dynamic counter with persisted data on server
+def test_initialising_listener(jmb, client):
+    """ page sets value of child counter on counter initialisation event.source.init_params.value = 10"""
 
+    class Counter(Component):
+        def __init__(self, value: int = 0):
+            super().__init__()
+
+        def display(self):
+            return self.render_template_string("<div>{{value}}</div>")
+
+    @jmb.page("cpage", Component.Config(components=dict(counter=Counter)))
+    class Page(Component):
+        @listener(event="_initialising", source="./counter")
+        def when_init_counter(self, event):
+            # TODO change to StateParam like dict
+            event.params["init_params"]["value"] = 10
+
+        def display(self):
+            return self.render_template_string(
+                "<html><head></head><body>" "{{component('counter')}}" "</body></html>"
+            )
+
+    html = (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body>"""
+        """<div jmb:name="/cpage/counter" jmb:state=\'{"value":10}\' jmb:url="/cpage/counter">10</div>"""
+        "</body></html>"
+    ).encode("utf-8")
+    r = client.get("/cpage")
+    assert r.status_code == 200
+    assert r.data == html
+
+    r = client.get("/cpage/counter")
+    assert r.status_code == 200
+    assert r.data == html
+
+
+def test_counter_data_on_server(jmb, client):
+    """make dynamic counter with persisted data on server"""
+    counters: Dict[int, int] = {1: 10, 2: 20} 
+ 
+    class Counter(Component):
+        def __init__(self, id: int, _value: Optional[int] = None):
+            self.value = _value if _value is not None else counters[self.state.id]
+            super().__init__()
+
+        @action
+        def increase(self):
+            self.value += 1
+            counters[self.state.id] = self.value
+
+        @redisplay(when_executed=True)
+        def display(self):
+            return self.render_template_string("<div>{{value}}</div>")
+
+    @jmb.page("cpage", Component.Config(components=dict(counter=Counter)))
+    class Page(Component):
+        @action
+        def add_counter(self, id: int, value: int):
+            counters[id] = value
+
+        @action
+        def remove_counter(self, id: int):
+            del counters[id]
+
+        def display(self):
+            self.counters = counters
+            return self.render_template_string(
+                "<html><head></head><body>"
+                """{% for id, value in counters.items() %}{{component("counter", id=id, _value=value).key(id)}}{% endfor %}"""
+                "</body></html>"
+            )
+
+    r = client.get("/cpage")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:state=\'{"id":1}\' jmb:url="/cpage/counter.1/1">10</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:state=\'{"id":2}\' jmb:url="/cpage/counter.2/2">20</div>"""
+        "</body></html>"
+    ).encode("utf-8")
+    # increase counter
+    r = client.post(
+        "/cpage",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/cpage", state=dict()),
+                    dict(execName="/cpage/counter.1", state=dict(id=1)),
+                    dict(execName="/cpage/counter.2", state=dict(id=2)),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/cpage/counter.1",
+                        actionName="increase",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+
+    assert counters[1] == 11
+
+    assert r.status_code == 200
+    ajax_data = json.loads(r.data)
+    assert len(ajax_data) ==1
+    assert ajax_data[0]["execName"] == "/cpage/counter.1"
+    assert ajax_data[0]["state"] == dict(id=1)
+    assert ajax_data[0]["dom"] == "<div>11</div>"
 
 # TODO test counter with configurable increment
 # TODO

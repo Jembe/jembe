@@ -111,9 +111,10 @@ def action(
 
 
 def listener(
-    _method = None,
+    _method=None,
     *,
-    event: Optional[str] = None, source: Optional[Union[str, Sequence[str]]] = None,
+    event: Optional[str] = None,
+    source: Optional[Union[str, Sequence[str]]] = None,
 ):
     """
     decorator to mark method as action listener inside component
@@ -141,10 +142,46 @@ def listener(
         setattr(method, "_jembe_listener_event_name", event)
         setattr(method, "_jembe_listener_source", source)
         return method
+
     if _method is None:
         return decorator_listener
     else:
         return decorator_listener(_method)
+
+def redisplay(_method=None, *, when_state_changed:Optional[bool]=None, when_executed:Optional[bool]=None, when_on_page:Optional[bool]=None):
+    """
+    Decorates display method in order to set redisplay ComponentConfig param.
+    
+    Made for easy use when configuring components
+    """
+    def decorator_action(method):
+        flags = set(ComponentConfig.REDISPLAY_DEFAULT_FLAGS)
+        def update_flags(state, flag):
+            if state == True:
+                flags.add(flag)
+            elif state == False:
+                flags.remove(flag)
+
+        update_flags(when_executed, CConfigRedisplayFlag.WHEN_DISPLAY_EXECUTED)
+        update_flags(when_state_changed, CConfigRedisplayFlag.WHEN_STATE_CHANGED)
+        update_flags(when_on_page, CConfigRedisplayFlag.WHEN_ON_PAGE)
+        setattr(method, "_jembe_redisplay", tuple(flags))
+        return method
+
+    if _method is None:
+        return decorator_action
+    else:
+        return decorator_action(_method)
+
+def config(component_config:"ComponentConfig"):
+    """
+    Decorates Component to chante its ComponentConfig init parameters
+    """
+    def decorator_class(component_class):
+        setattr(component_class, "_jembe_config", component_config._raw_init_params)
+        return component_class
+
+    return decorator_class
 
 
 class ComponentAction:
@@ -196,6 +233,12 @@ def componentConfigInitDecorator(init_method):
     return decoratedInit
 
 
+class CConfigRedisplayFlag(Enum):
+    WHEN_STATE_CHANGED = "wsc"
+    WHEN_DISPLAY_EXECUTED = "wde"
+    WHEN_ON_PAGE = "wop"
+
+
 class ComponentConfigMeta(ABCMeta):
     def __new__(cls, name, bases, attrs, **kwargs):
         # decorate __init__ to create _raw_init_params dict
@@ -217,15 +260,23 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     _raw_init_params: dict
 
+    WHEN_STATE_CHANGED = CConfigRedisplayFlag.WHEN_STATE_CHANGED
+    WHEN_DISPLAY_EXECUTED = CConfigRedisplayFlag.WHEN_DISPLAY_EXECUTED
+    WHEN_ON_PAGE = CConfigRedisplayFlag.WHEN_ON_PAGE
+
+    REDISPLAY_DEFAULT_FLAGS = (CConfigRedisplayFlag.WHEN_STATE_CHANGED,)
+
     def __init__(
         self,
         name: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[Dict[str, "ComponentRef",]] = None,
+        redisplay: Tuple["CConfigRedisplayFlag", ...] = (WHEN_STATE_CHANGED,),
     ):
         self.name = name
         self.components = components
         self._template = template
+        self._redisplay_temp = redisplay
 
         # intialise by Jembe app after registring route
         self.__endpoint: str
@@ -234,6 +285,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._component_class: Optional[Type["Component"]]
         self.component_actions: Dict[str, "ComponentAction"]  # [method_name]
         self.component_listeners: Dict[str, "ComponentListener"]  # [method_name]
+        self.redisplay: Tuple["CConfigRedisplayFlag",...]
 
         # initalise after setting parent
         self._parent: Optional["ComponentConfig"]
@@ -292,6 +344,17 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             self.component_listeners[method_name] = ComponentListener.from_method(
                 method
             )
+
+        # update redisplay if necessary
+        display_method = getattr(self._component_class, self.DEFAULT_DISPLAY_ACTION)
+        redisplay_settings = getattr(display_method, "_jembe_redisplay", ())
+        if self._redisplay_temp:
+            # if redisplay is set for config ignore settings on method
+            self.redisplay = self._redisplay_temp
+        elif redisplay_settings:
+            self.redisplay = redisplay_settings
+        else:
+            self.redisplay = self.REDISPLAY_DEFAULT_FLAGS 
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
