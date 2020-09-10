@@ -11,6 +11,12 @@ def test_redisplay_settings(jmb: Jembe):
         def display(self):
             return super().display()
 
+    config1 = Comp1.Config(name="c1",_component_class=Comp1)
+    config2 = Comp2.Config(name="c2", _component_class=Comp2)
+    assert config1.redisplay == config2.redisplay
+    assert config1.redisplay == (Component.Config.WHEN_ON_PAGE,)
+    assert config2.redisplay == (Component.Config.WHEN_ON_PAGE,)
+
     @jmb.page("p", Component.Config(components=dict(c1=Comp1, c2=Comp2)))
     class Page(Component):
         pass

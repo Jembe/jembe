@@ -21,7 +21,7 @@ from lxml import etree
 from lxml.html import Element
 from flask import json, escape, jsonify, Response
 from .errors import JembeError
-from .component_config import ComponentConfig
+from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -128,16 +128,29 @@ class CallCommand(Command):
         if (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
             and self.component.exec_name in self.processor.renderers
-            and self.processor.renderers[self.component.exec_name].state
-            == self.component.state
         ):
-            # if action is display and compoent already is displayed/rendered in same state
-            # no need to execute display again because it should return same result
-            return
+            # Calling display aciton
+            if (
+                RedisplayFlag.WHEN_ON_PAGE in self.component._config.redisplay
+                or RedisplayFlag.WHEN_DISPLAY_EXECUTED
+                in self.component._config.redisplay
+            ):
+                # continune with redisplay
+                pass
+            elif (
+                RedisplayFlag.WHEN_STATE_CHANGED in self.component._config.redisplay
+                and self.processor.renderers[self.component.exec_name].state
+                == self.component.state
+            ):
+                # if action is display and compoent already is displayed/rendered in same state
+                # no need to execute display again because it should return same result
+                return
 
+        # execute action
         action_result = getattr(self.component, self.action_name)(
             *self.args, **self.kwargs
         )
+        # process action result
         if action_result is None or (
             isinstance(action_result, bool) and action_result == True
         ):
@@ -426,9 +439,7 @@ class InitialiseCommand(Command):
         component_full_name = Component._exec_name_to_full_name(
             self.component_exec_name
         )
-        self._component_config = processor.jembe.components_configs[
-            component_full_name
-        ]
+        self._component_config = processor.jembe.components_configs[component_full_name]
         if self.component_exec_name in processor.components:
             # if state params are same continue
             # else raise jembeerror until find better solution
@@ -466,17 +477,23 @@ class InitialiseCommand(Command):
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
         return (
-            EmitCommand(
-                self.component_exec_name,
-                SystemEvents.INITIALISING.value,
-                dict(init_params=self.init_params, _config=self._component_config),
-            ),
-        ) if self._do_init else ()
+            (
+                EmitCommand(
+                    self.component_exec_name,
+                    SystemEvents.INITIALISING.value,
+                    dict(init_params=self.init_params, _config=self._component_config),
+                ),
+            )
+            if self._do_init
+            else ()
+        )
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
         return (
-            EmitCommand(self.component_exec_name, SystemEvents.INIT.value, dict(),),
-        ) if self._do_init else ()
+            (EmitCommand(self.component_exec_name, SystemEvents.INIT.value, dict(),),)
+            if self._do_init
+            else ()
+        )
 
     def __repr__(self):
         return "Command: {} init".format(self.component_exec_name)

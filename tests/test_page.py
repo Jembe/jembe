@@ -42,7 +42,7 @@ def test_simple_page_with_custom_template(jmb, client):
     jmb.add_page(
         "simple_page",
         SimplePage,
-        SimplePage.Config(template="simple_page_custom.jinja2"),
+        SimplePage.Config(template="simple_page_custom.html"),
     )
 
     r = client.get("/simple_page")
@@ -53,7 +53,7 @@ def test_simple_page_with_custom_template(jmb, client):
 def test_page_with_template(jmb, client):
     class Page(Component):
         class Config(Component.Config):
-            def __init__(self, template="simple_page_custom.jinja2", **params):
+            def __init__(self, template="simple_page_custom.html", **params):
                 super().__init__(template=template, **params)
 
     jmb.add_page("page", Page)
@@ -67,7 +67,7 @@ def test_page_with_decorator(jmb, client):
     class WelcomePage(Component):
         pass
 
-    @jmb.page("hello", Component.Config(template="simple_page.jinja2"))
+    @jmb.page("hello", Component.Config(template="simple_page.html"))
     class HelloPage(Component):
         pass
 

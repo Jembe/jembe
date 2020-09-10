@@ -112,17 +112,19 @@ class Jembe:
                     **{
                         **curent_ref[1]._raw_init_params,
                         "name": component_name,
+                        "_parent": parent_config,
+                        "_component_class": component,
                     }  # type:ignore
                 )
             else:
                 # create config with default params
                 component = curent_ref
-                component_config = component.Config(name=component_name)
+                component_config = component.Config(
+                    name=component_name,
+                    _parent=parent_config,
+                    _component_class=component,
+                )
 
-            # accosciate component with config and vice verse
-            # config will set its remaining params reading component classs description
-            component_config.component_class = component
-            component_config.parent = parent_config
             setattr(component, "_config", component_config)
 
             # fill components_configs

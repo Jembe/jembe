@@ -898,6 +898,17 @@ def test_counter_data_on_server(jmb, client):
     assert ajax_data[0]["execName"] == "/cpage/counter.1"
     assert ajax_data[0]["state"] == dict(id=1)
     assert ajax_data[0]["dom"] == "<div>11</div>"
+    # request get counter with wrong key should return valid result
+    r = client.get("/cpage/counter.1/2")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:state=\'{"id":1}\' jmb:url="/cpage/counter.1/1">11</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:state=\'{"id":2}\' jmb:url="/cpage/counter.2/2">20</div>"""
+        "</body></html>"
+    ).encode("utf-8")
 
 # TODO test counter with configurable increment
 # TODO

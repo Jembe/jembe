@@ -28,8 +28,8 @@ class Page(Component):
 
 
 App.add_page("welcome", Page)
-App.add_page("welcome", Page, Page.Config(template="welcome.jinja2"))
-App.add_page("static_page", Component, Component.Config(template="static_page.jinja2"))
+App.add_page("welcome", Page, Page.Config(template="welcome.html"))
+App.add_page("static_page", Component, Component.Config(template="static_page.html"))
 
 
 class PageWithTemplate(Component):
@@ -38,14 +38,14 @@ class PageWithTemplate(Component):
     """
 
     class Config(Component.Config):
-        def __init__(self, template="default_template.jinja2", **params):
+        def __init__(self, template="default_template.html", **params):
             super().__init__(template=template, **params)
 
 
 App.add_page("welcome2", PageWithTemplate)
 
 
-@page("welcome3", Component.Config(template="welcome2.jinja2"))
+@page("welcome3", Component.Config(template="welcome2.html"))
 class PageWithTemplate2(Component):
     pass
 
@@ -54,7 +54,7 @@ class PageMultipleTemplates(Component):
     @action
     def display(self):
         if session.user.is_superuser:
-            return self._render_template("superuser_page.jinja2")
+            return self._render_template("superuser_page.html")
         return self._render_template(self._config.template)
 
 
@@ -77,7 +77,7 @@ class BlogPostPage(Component):
     # def mount(self):
     #     self.blog_post = query(Blog).filter(name=self.init_params.blog_name).first()
 
-    # blogpostpage.jinja2:
+    # blogpostpage.html:
     # <div>{{blog_post.name}}</div><div>{{blog_post.content}}</div>
 
 

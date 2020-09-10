@@ -148,14 +148,23 @@ def listener(
     else:
         return decorator_listener(_method)
 
-def redisplay(_method=None, *, when_state_changed:Optional[bool]=None, when_executed:Optional[bool]=None, when_on_page:Optional[bool]=None):
+
+def redisplay(
+    _method=None,
+    *,
+    when_state_changed: Optional[bool] = None,
+    when_executed: Optional[bool] = None,
+    when_on_page: Optional[bool] = None,
+):
     """
     Decorates display method in order to set redisplay ComponentConfig param.
     
     Made for easy use when configuring components
     """
+
     def decorator_action(method):
         flags = set(ComponentConfig.REDISPLAY_DEFAULT_FLAGS)
+
         def update_flags(state, flag):
             if state == True:
                 flags.add(flag)
@@ -173,12 +182,18 @@ def redisplay(_method=None, *, when_state_changed:Optional[bool]=None, when_exec
     else:
         return decorator_action(_method)
 
-def config(component_config:"ComponentConfig"):
+
+def config(component_config: "ComponentConfig"):
     """
     Decorates Component to chante its ComponentConfig init parameters
     """
+
     def decorator_class(component_class):
-        setattr(component_class, "_jembe_config", component_config._raw_init_params)
+        setattr(
+            component_class,
+            "_jembe_config_init_params",
+            component_config._raw_init_params,
+        )
         return component_class
 
     return decorator_class
@@ -224,19 +239,31 @@ class ComponentListener:
         )
 
 
-def componentConfigInitDecorator(init_method):
-    def decoratedInit(self, *args, **kwargs):
-        """Saves named init params as self._raw_init_params"""
-        self._raw_init_params = kwargs.copy()
-        init_method(self, *args, **kwargs)
-
-    return decoratedInit
-
-
 class CConfigRedisplayFlag(Enum):
     WHEN_STATE_CHANGED = "wsc"
     WHEN_DISPLAY_EXECUTED = "wde"
     WHEN_ON_PAGE = "wop"
+
+
+def componentConfigInitDecorator(init_method):
+    def decoratedInit(self, *args, **kwargs):
+        """Saves named init params as self._raw_init_params and apply params from @config"""
+        # save original init_params as _raw_init_prams
+
+        # update init params default values form @config decorator
+        if "name" in kwargs and "_component_class" in kwargs:
+            # we need to initialise config 
+            _component_class:Type["Component"] = kwargs["_component_class"]
+            default_init_params = getattr(_component_class, "_jembe_config_init_params", dict())
+            init_params = default_init_params.copy()
+            init_params.update(kwargs.copy())
+            init_method(self, *args, **init_params)
+        else:
+            # Component config is used inside @config or @page decorator
+            # no need to proper initialise class
+            self._raw_init_params = kwargs.copy()
+
+    return decoratedInit
 
 
 class ComponentConfigMeta(ABCMeta):
@@ -271,7 +298,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         name: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[Dict[str, "ComponentRef",]] = None,
-        redisplay: Tuple["CConfigRedisplayFlag", ...] = (WHEN_STATE_CHANGED,),
+        redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+        _component_class: Optional[Type["Component"]] = None,
+        _parent: Optional["ComponentConfig"] = None,
     ):
         self.name = name
         self.components = components
@@ -285,7 +314,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._component_class: Optional[Type["Component"]]
         self.component_actions: Dict[str, "ComponentAction"]  # [method_name]
         self.component_listeners: Dict[str, "ComponentListener"]  # [method_name]
-        self.redisplay: Tuple["CConfigRedisplayFlag",...]
+        self.redisplay: Tuple["CConfigRedisplayFlag", ...]
 
         # initalise after setting parent
         self._parent: Optional["ComponentConfig"]
@@ -293,6 +322,10 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._url_params: Tuple["UrlParamDef", ...]
         self._key_url_param: "UrlParamDef"
         self.template: str
+
+        if _component_class and name:
+            self._set_component_class(_component_class)
+            self._set_parent(_parent)
 
     @property
     def endpoint(self) -> str:
@@ -313,11 +346,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             )
         return self._component_class
 
-    @component_class.setter
-    def component_class(self, component_class: Type["Component"]):
+    def _set_component_class(self, component_class: Type["Component"]):
         """
-        Called by Jembe app imidiatlly after __init__,  to set associated 
-        component class.
+        Called by __init__,  to set associated component class.
         Reads component class description and sets appropriate config params 
         like url_path state and init params, etc.
 
@@ -354,16 +385,15 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         elif redisplay_settings:
             self.redisplay = redisplay_settings
         else:
-            self.redisplay = self.REDISPLAY_DEFAULT_FLAGS 
+            self.redisplay = self.REDISPLAY_DEFAULT_FLAGS
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
         return self._parent
 
-    @parent.setter
-    def parent(self, parent: Optional["ComponentConfig"]):
+    def _set_parent(self, parent: Optional["ComponentConfig"]):
         """
-        Called by jembe app after init to set parent componet config
+        Called by __init__ to set parent componet config
         """
         self._parent = parent
         self._hiearchy_level = 0 if not parent else parent._hiearchy_level + 1
@@ -433,5 +463,5 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         return url_for(self.endpoint, **url_params)
 
     def _get_default_template_name(self) -> str:
-        return "{}.jinja2".format(self.full_name.strip("/"))
+        return "{}.html".format(self.full_name.strip("/"))
 

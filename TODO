@@ -1,4 +1,5 @@
 Public Dev Lunch:
+    ☐ Error handling and Restricted access
     ☐ update window.location on x-jembe request
     ☐ update window.location on regular http request if necessary
     ☐ Create page counter
@@ -7,7 +8,7 @@ Public Dev Lunch:
     ☐ Create blog post demo
     ☐ create list/view/list demo
     ☐ Suport for init_params for basic types
-    ☐ use .html templates instead of jinja2 in order to enable autoescaping
+    ✔ use .html templates instead of jinja2 in order to enable autoescaping @done(20-09-10 23:12)
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)
