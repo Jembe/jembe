@@ -1,5 +1,6 @@
 Public Dev Lunch:
     ☐ Error handling and Restricted access
+    ☐ Flash messages
     ☐ update window.location on x-jembe request
     ☐ update window.location on regular http request if necessary
     ☐ Create page counter

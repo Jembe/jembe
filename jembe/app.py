@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional, Union, Tuple, Type, List, Dict
 from flask import Blueprint, request
 from .processor import Processor
-from .errors import JembeError
+from .exceptions import JembeError
 from flask import g
 
 

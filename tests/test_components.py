@@ -1,7 +1,16 @@
 from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List
 from jembe import Component
 from flask import json
-from jembe import action, listener, config, redisplay
+from jembe import (
+    action,
+    listener,
+    config,
+    redisplay,
+    NotFound,
+    Forbidden,
+    Unauthorized,
+    BadRequest,
+)
 
 
 def test_counter(jmb, client):
@@ -822,8 +831,8 @@ def test_initialising_listener(jmb, client):
 
 def test_counter_data_on_server(jmb, client):
     """make dynamic counter with persisted data on server"""
-    counters: Dict[int, int] = {1: 10, 2: 20} 
- 
+    counters: Dict[int, int] = {1: 10, 2: 20}
+
     class Counter(Component):
         def __init__(self, id: int, _value: Optional[int] = None):
             self.value = _value if _value is not None else counters[self.state.id]
@@ -894,21 +903,130 @@ def test_counter_data_on_server(jmb, client):
 
     assert r.status_code == 200
     ajax_data = json.loads(r.data)
-    assert len(ajax_data) ==1
+    assert len(ajax_data) == 1
     assert ajax_data[0]["execName"] == "/cpage/counter.1"
     assert ajax_data[0]["state"] == dict(id=1)
     assert ajax_data[0]["dom"] == "<div>11</div>"
-    # request get counter with wrong key should return valid result
+
+    # request get counter with wrong key should return 404
     r = client.get("/cpage/counter.1/2")
+    assert r.status_code == 500
+
+
+def test_error_handlings(jmb, client):
+    counters = {1: 1, 2: 2}
+
+    class Counter(Component):
+        def __init__(self, counter_id: int):
+            self.value = counters[counter_id]
+
+        def display(self):
+            return self.render_template_string("<div>{{value}}</div>")
+
+    class CounterHandled(Counter):
+        def __init__(self, counter_id: int):
+            try:
+                super().__init__(counter_id)
+            except KeyError:
+                raise NotFound()
+
+    @jmb.page(
+        "cpage", Component.Config(components=dict(counter=Counter, ch=CounterHandled))
+    )
+    class Page(Component):
+        def __init__(self, display_counter: bool = False):
+            super().__init__()
+
+        @listener(event="_display", source="./counter")
+        def on_display_counter(self, event):
+            self.state.display_counter = True
+
+        def display(self):
+            if self.state.display_counter:
+                return self.render_template_string(
+                    """<html><head></head><body>"""
+                    """{{component("counter")}}"""
+                    """</body>"""
+                )
+            else:
+                self.counters = counters
+                return self.render_template_string(
+                    """<html><head></head><body>"""
+                    """{% for counter_id in counters %}<a href="#">{{counter_id}}</a>{% endfor %}"""
+                    """</body>"""
+                )
+
+    r = client.get("/cpage/ch/3")
+    assert r.status_code == 404
+    # r = client.get("/cpage/counter/3")
+    # assert r.status_code == 400
+
+
+def test_catch_errors(jmb, client):
+    class Counter(Component):
+        def __init__(self, counter_id: int):
+            raise Forbidden()
+
+    @jmb.page("cpage", Component.Config(components=dict(c=Counter)))
+    class Page(Component):
+        @listener(event="_exception", source="./*")
+        def on_exception(self, event):
+            if isinstance(event.exception, Forbidden):
+                event.handled = True
+
+        def display(self):
+            return super().render_template_string(
+                "<html><head></head><body></body></html>"
+            )
+
+    r = client.get("/cpage/c/3")
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body>"""
-        """<div jmb:name="/cpage/counter.1" jmb:state=\'{"id":1}\' jmb:url="/cpage/counter.1/1">11</div>"""
-        """<div jmb:name="/cpage/counter.2" jmb:state=\'{"id":2}\' jmb:url="/cpage/counter.2/2">20</div>"""
-        "</body></html>"
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/cpage"><head></head><body></body></html>"""
     ).encode("utf-8")
+
+
+def test_catch_errors_while_rendering(jmb, client):
+    class View(Component):
+        def __init__(self, record_id: int):
+            super().__init__()
+
+        def display(self):
+            return self.render_template_string("<div>{{record_id}}</div>")
+
+    class Edit(Component):
+        def __init__(self, record_id: int):
+            if record_id % 2 == 0:
+                raise Unauthorized()
+            super().__init__()
+
+        def display(self):
+            return self.render_template_string("<div>Edit {{record_id}}</div>")
+
+    @jmb.page("list", Component.Config(components=dict(e=Edit, v=View)))
+    class List(Component):
+        def display(self):
+            self.records = {1: 1, 2: 2}
+            return self.render_template_string(
+                "<html><body>"
+                "{% for record_id in records %}"
+                "<div>{% if component('e', record_id=record_id).is_accessible() %}edit {{record_id}}{% else %}view {{record_id}}{%endif%}</div>"
+                "{% endfor %}"
+                "</body></html>"
+            )
+
+    r = client.get("/list")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/list"><head></head><body>"""
+        "<div>edit 1</div><div>view 2</div>"
+        """</body></html>"""
+    ).encode("utf-8")
+
 
 # TODO test counter with configurable increment
 # TODO

@@ -1,6 +1,7 @@
 import os
 import pytest
 from jembe import Jembe
+from jembe.exceptions import JembeError
 
 from flask import Flask as _Flask
 
@@ -13,6 +14,10 @@ class Flask(_Flask):
 @pytest.fixture
 def app():
     app = Flask("flask_test", root_path=os.path.dirname(__file__))
+
+    @app.errorhandler(JembeError)
+    def handle_jembe_errror(error):
+        return "JembeError", 500
     yield app
 
 
@@ -27,9 +32,11 @@ def req_ctx(app):
     with app.test_request_context() as ctx:
         yield ctx
 
+
 @pytest.fixture
 def jmb(app):
     yield Jembe(app)
+
 
 @pytest.fixture
 def client(app):

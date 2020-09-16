@@ -14,7 +14,7 @@ from enum import Enum
 from itertools import accumulate
 from operator import add
 from inspect import signature, getmembers, isfunction
-from .errors import JembeError
+from .exceptions import JembeError
 from flask import url_for
 
 if TYPE_CHECKING:  # pragma: no cover

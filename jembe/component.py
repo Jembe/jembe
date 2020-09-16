@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple
 from copy import deepcopy
 from abc import ABCMeta
 from inspect import signature
-from .errors import JembeError
+from .exceptions import JembeError
 from flask import render_template, render_template_string, Markup
 from .component_config import ComponentConfig
 from .app import get_processor

@@ -20,7 +20,7 @@ from operator import add
 from lxml import etree
 from lxml.html import Element
 from flask import json, escape, jsonify, Response
-from .errors import JembeError
+from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
 
@@ -541,9 +541,9 @@ class Processor:
         self.staging_commands: Deque["Command"] = deque()
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
         self.renderers: Dict[str, "ComponentRender"] = dict()
-        self.__init_components(component_full_name)
+        self.__create_commands(component_full_name)
 
-    def __init_components(self, component_full_name: str):
+    def __create_commands(self, component_full_name: str):
         if self.is_x_jembe_request():
             # x-jembe ajax request
             data = json.loads(self.request.data)
@@ -559,14 +559,14 @@ class Processor:
                 )
                 to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
-            self._init_components_from_url_path(component_full_name, to_be_initialised)
+            self.__create_commands_from_url_path(component_full_name, to_be_initialised)
 
             # init commands
             for command_data in data["commands"]:
                 self.commands.appendleft(command_factory(command_data))
         else:
             # regular http/s GET request
-            exec_names = self._init_components_from_url_path(
+            exec_names = self.__create_commands_from_url_path(
                 component_full_name, list()
             )
 
@@ -578,7 +578,7 @@ class Processor:
                     CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
                 )
 
-    def _init_components_from_url_path(
+    def __create_commands_from_url_path(
         self, component_full_name: str, to_be_initialised: List[str]
     ) -> List[str]:
         """ 
@@ -641,6 +641,7 @@ class Processor:
                 CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
         self._execute_commands()
+            
         return self
 
     def _execute_commands(self):
