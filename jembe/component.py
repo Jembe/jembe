@@ -6,7 +6,7 @@ from .exceptions import JembeError
 from flask import render_template, render_template_string, Markup
 from .component_config import ComponentConfig
 from .app import get_processor
-from .processor import CallCommand, InitialiseCommand, EmitCommand
+from .processor import CallActionCommand, InitialiseCommand, EmitCommand
 
 if TYPE_CHECKING:  # pragma: no cover
     from .common import ComponentRef
@@ -72,11 +72,11 @@ class _SubComponentRenderer:
         component_exec_name = Component._build_exec_name(
             self.name, self._key, self.component.exec_name
         )
-        processor.staging_commands.append(InitialiseCommand(component_exec_name, self.kwargs))
-        processor.staging_commands.append(
-            CallCommand(
+        processor.add_command(InitialiseCommand(component_exec_name, self.kwargs), end=True)
+        processor.add_command(
+            CallActionCommand(
                 component_exec_name, self.action, self.action_args, self.action_kwargs
-            )
+            ), end=True
         )
         return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
 
@@ -278,5 +278,5 @@ class Component(metaclass=ComponentMeta):
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()
         emmit_command = EmitCommand(self.exec_name, name, params)
-        processor.staging_commands.append(emmit_command)
+        processor.add_command(emmit_command)
         return emmit_command

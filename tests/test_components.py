@@ -236,6 +236,7 @@ def test_multi_counter(jmb, client):
         """<a jmb:click="increase()">increase</a>"""
     )
     assert ajax_response_data[0]["url"] == "/cpage/counter.first"
+
     # increase second counter - ajax simulate without components
     # when calling from navigation for example
     # this call should never be fired without commands to intialise
@@ -962,7 +963,7 @@ def test_error_handlings(jmb, client):
     # assert r.status_code == 400
 
 
-def test_catch_errors(jmb, client):
+def test_catch_exception_by_parent_and_ignore_it(jmb, client):
     class Counter(Component):
         def __init__(self, counter_id: int):
             raise Forbidden()

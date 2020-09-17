@@ -73,18 +73,12 @@ class Command:
     def __init__(self, component_exec_name: str):
         self.component_exec_name = component_exec_name
 
-        self.component: "Component"
-
     def mount(self, processor: "Processor") -> "Command":
         self.processor = processor
         return self
 
     def execute(self):
         raise NotImplementedError()
-
-    def move_staged_commands_to_execution_queue(self):
-        while self.processor.staging_commands:
-            self.processor.commands.append(self.processor.staging_commands.pop())
 
     def __repr__(self):
         return "Command: {} Base".format(self.component_exec_name)
@@ -96,7 +90,7 @@ class Command:
         return ()
 
 
-class CallCommand(Command):
+class CallActionCommand(Command):
     def __init__(
         self,
         component_exec_name: str,
@@ -109,57 +103,49 @@ class CallCommand(Command):
         self.args = args if args is not None else tuple()
         self.kwargs = kwargs if kwargs is not None else dict()
 
-    def mount(self, processor: "Processor") -> "Command":
-        self.component = processor.components[self.component_exec_name]
-        return super().mount(processor)
-
     def execute(self):
-        self._execute_this_command()
-        self.move_staged_commands_to_execution_queue()
-
-    def _execute_this_command(self):
-        if self.action_name not in self.component._config.component_actions:
+        component = self.processor.components[self.component_exec_name]
+        cconfig = component._config
+        if self.action_name not in cconfig.component_actions:
             raise JembeError(
                 "Action {}.{} does not exist or is not marked as public action".format(
-                    self.component._config.full_name, self.action_name
+                    cconfig.full_name, self.action_name
                 )
             )
 
         if (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
-            and self.component.exec_name in self.processor.renderers
+            and self.component_exec_name in self.processor.renderers
         ):
             # Calling display aciton
             if (
-                RedisplayFlag.WHEN_ON_PAGE in self.component._config.redisplay
-                or RedisplayFlag.WHEN_DISPLAY_EXECUTED
-                in self.component._config.redisplay
+                RedisplayFlag.WHEN_ON_PAGE in cconfig.redisplay
+                or RedisplayFlag.WHEN_DISPLAY_EXECUTED in cconfig.redisplay
             ):
                 # continune with redisplay
                 pass
             elif (
-                RedisplayFlag.WHEN_STATE_CHANGED in self.component._config.redisplay
-                and self.processor.renderers[self.component.exec_name].state
-                == self.component.state
+                RedisplayFlag.WHEN_STATE_CHANGED in cconfig.redisplay
+                and self.processor.renderers[self.component_exec_name].state
+                == component.state
             ):
                 # if action is display and compoent already is displayed/rendered in same state
                 # no need to execute display again because it should return same result
                 return
 
         # execute action
-        action_result = getattr(self.component, self.action_name)(
-            *self.args, **self.kwargs
-        )
+        action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
         # process action result
         if action_result is None or (
             isinstance(action_result, bool) and action_result == True
         ):
             # after executing action that returns True or None
             # component should be rendered by executing display
-            self.processor.staging_commands.appendleft(
-                CallCommand(
-                    self.component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
-                )
+            self.processor.add_command(
+                CallActionCommand(
+                    self.component_exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                ),
+                end=True,
             )
         elif isinstance(action_result, bool) or action_result == False:
             # Do nothing
@@ -169,11 +155,8 @@ class CallCommand(Command):
         ):
             # save component display responses in memory
             # Add component html to processor rendererd
-            self.processor.renderers[self.component.exec_name] = ComponentRender(
-                True,
-                self.component.state.deepcopy(),
-                self.component.url,
-                action_result,
+            self.processor.renderers[self.component_exec_name] = ComponentRender(
+                True, component.state.deepcopy(), component.url, action_result,
             )
         elif (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -183,7 +166,7 @@ class CallCommand(Command):
             raise JembeError(
                 "{} action of {} shuld return html string not {}".format(
                     ComponentConfig.DEFAULT_DISPLAY_ACTION,
-                    self.component._config.full_name,
+                    cconfig.full_name,
                     action_result,
                 )
             )
@@ -195,7 +178,7 @@ class CallCommand(Command):
         else:
             raise JembeError(
                 "Invalid action result type: {}.{} {}".format(
-                    self.component._config.full_name, self.action_name, action_result,
+                    cconfig.full_name, self.action_name, action_result,
                 )
             )
 
@@ -236,7 +219,52 @@ class CallCommand(Command):
         return commands
 
     def __repr__(self):
-        return "Command: {} call({})".format(self.component_exec_name, self.action_name)
+        return "CallAction({}, {})".format(self.component_exec_name, self.action_name)
+
+
+class CallListenerCommand(Command):
+    def __init__(self, component_exec_name: str, listener_name: str, event: "Event"):
+        super().__init__(component_exec_name)
+        self.listener_name = listener_name
+        self.event = event
+
+    def execute(self):
+        component = self.processor.components[self.component_exec_name]
+        cconfig = component._config
+        if self.listener_name not in cconfig.component_listeners:
+            raise JembeError(
+                "Listener {}.{} does not exist".format(
+                    cconfig.full_name, self.listener_name
+                )
+            )
+
+        # execute listener
+        listener_result = getattr(component, self.listener_name)(self.event)
+        if listener_result is None or (
+            isinstance(listener_result, bool) and listener_result == True
+        ):
+            # after executing listener that returns True or None
+            # component should be rendered by executing display
+            self.processor.add_command(
+                CallActionCommand(
+                    component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                ),
+                end=True,
+            )
+        elif isinstance(listener_result, bool) or listener_result == False:
+            # Do nothing
+            pass
+        else:
+            raise JembeError(
+                "Invalid listener result type: {}.{} {}".format(
+                    cconfig.full_name, self.listener_name, listener_result,
+                )
+            )
+
+    def __repr__(self):
+        return "CallListener({},{})".format(
+            self.component_exec_name, self.listener_name
+        )
 
 
 class EmitCommand(Command):
@@ -245,9 +273,6 @@ class EmitCommand(Command):
         self.event_name = event_name
         self.params = params
         self._to: Optional[str] = None
-
-    def mount(self, processor: "Processor") -> "Command":
-        return super().mount(processor)
 
     def to(self, to: Optional[str]):
         """
@@ -276,11 +301,11 @@ class EmitCommand(Command):
         listeners
         """
         event = Event(
-            self.component_exec_name,
-            self.processor.components.get(self.component_exec_name, None),
-            self.event_name,
-            self._to,
-            self.params,
+            source_exec_name=self.component_exec_name,
+            source=self.processor.components.get(self.component_exec_name, None),
+            event_name=self.event_name,
+            to=self._to,
+            params=self.params,
         )
         # ignore emit.to, emit.event_name and listener.event_name, listener.source
         for exec_name, component in self.processor.components.items():
@@ -306,7 +331,11 @@ class EmitCommand(Command):
                         self.component_exec_name,
                     )
                 ):
-                    self._execute_listener(component, listener_method_name, event)
+                    self.processor.add_command(
+                        CallListenerCommand(
+                            component.exec_name, listener_method_name, event
+                        )
+                    )
 
     @classmethod
     def _glob_match_exec_name(
@@ -394,32 +423,8 @@ class EmitCommand(Command):
             )
             return re.fullmatch(re_pattern, component_exec_name) is not None
 
-    def _execute_listener(
-        self, component: "Component", listener_method_name: str, event: "Event"
-    ):
-        listener_result = getattr(component, listener_method_name)(event)
-        if listener_result is None or (
-            isinstance(listener_result, bool) and listener_result == True
-        ):
-            # after executing listener that returns True or None
-            # component should be rendered by executing display
-            self.processor.staging_commands.appendleft(
-                CallCommand(component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
-            )
-        elif isinstance(listener_result, bool) or listener_result == False:
-            # Do nothing
-            pass
-        else:
-            raise JembeError(
-                "Invalid listener result type: {}.{} {}".format(
-                    component._config.full_name, listener_method_name, listener_result,
-                )
-            )
-
-        self.move_staged_commands_to_execution_queue()
-
     def __repr__(self):
-        return "Command: {} emit({}).to({}) ".format(
+        return "Emit({}, {}, {})".format(
             self.component_exec_name, self.event_name, self._to
         )
 
@@ -431,19 +436,24 @@ class InitialiseCommand(Command):
         super().__init__(component_exec_name)
         self.init_params = init_params
         self.exist_on_client = exist_on_client
+
         self._do_init = True
+        self._cconfig: "ComponentConfig"
 
     def mount(self, processor):
         from .component import Component
 
+        super().mount(processor)
+
         component_full_name = Component._exec_name_to_full_name(
             self.component_exec_name
         )
-        self._component_config = processor.jembe.components_configs[component_full_name]
-        if self.component_exec_name in processor.components:
+        self._cconfig = self.processor.jembe.components_configs[component_full_name]
+
+        if self.component_exec_name in self.processor.components:
             # if state params are same continue
             # else raise jembeerror until find better solution
-            component = processor.components[self.component_exec_name]
+            component = self.processor.components[self.component_exec_name]
             for key, value in component.state.items():
                 if key in self.init_params and value != self.init_params[key]:
                     raise JembeError(
@@ -452,28 +462,20 @@ class InitialiseCommand(Command):
                         )
                     )
             self._do_init = False
-        return super().mount(processor)
+        return self
 
     def execute(self):
         # create new component if component with identical exec_name
         # does not exist
         if self._do_init:
-            component = self._init_component()
+            component = self._cconfig.component_class(**self.init_params)  # type:ignore
+            component.exec_name = self.component_exec_name
+            self.processor.components[component.exec_name] = component
 
             if self.exist_on_client:
                 self.processor.renderers[component.exec_name] = ComponentRender(
                     False, component.state.deepcopy(), component.url, None
                 )
-
-    def _init_component(self) -> "Component":
-        component = self._component_config.component_class(
-            **self.init_params
-        )  # type:ignore
-        component.exec_name = self.component_exec_name
-        self.processor.components[component.exec_name] = component
-
-        self.move_staged_commands_to_execution_queue()
-        return component
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
         return (
@@ -481,7 +483,7 @@ class InitialiseCommand(Command):
                 EmitCommand(
                     self.component_exec_name,
                     SystemEvents.INITIALISING.value,
-                    dict(init_params=self.init_params, _config=self._component_config),
+                    dict(init_params=self.init_params, _config=self._cconfig),
                 ),
             )
             if self._do_init
@@ -496,12 +498,12 @@ class InitialiseCommand(Command):
         )
 
     def __repr__(self):
-        return "Command: {} init".format(self.component_exec_name)
+        return "Init({})".format(self.component_exec_name)
 
 
 def command_factory(command_data: dict) -> "Command":
     if command_data["type"] == "call":
-        return CallCommand(
+        return CallActionCommand(
             command_data["componentExecName"],
             command_data["actionName"],
             command_data["args"],
@@ -536,12 +538,54 @@ class Processor:
         self.request = request
 
         self.components: Dict[str, "Component"] = dict()
-        self.commands: Deque["Command"] = deque()
-        # commands that needs to be added to commands que
-        self.staging_commands: Deque["Command"] = deque()
+        self._commands: Deque["Command"] = deque()
+        # commands created while executing some command and that needs to be
+        # added to commands at the end of command execution
+        self._staging_commands: Deque["Command"] = deque()
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
         self.renderers: Dict[str, "ComponentRender"] = dict()
+
         self.__create_commands(component_full_name)
+        self.move_staging_commands_to_execution_que()
+
+    def add_command(self, command: "Command", end=False):
+        """
+        Adds new command into staginig commands que.
+        if end is True command is added at the end of que (last to execute)
+        
+        Staging que exist in order to allow commands generated by while
+        execution one command to be internally ordered by appending at
+        the beginig or the end of staging que
+
+        It also addes all before and after commands in staging que
+        """
+        command.mount(self)
+        before_emit_commands = command.get_before_emit_commands()
+        after_emit_commands = command.get_after_emit_commands()
+
+        if end:
+            # adds to the end of que .. last to execute
+            for before_cmd in before_emit_commands:
+                self._staging_commands.appendleft(before_cmd.mount(self))
+
+            self._staging_commands.appendleft(command)
+
+            for after_cmd in after_emit_commands:
+                self._staging_commands.appendleft(after_cmd.mount(self))
+        else:
+            # adds at the begingin of que .. first to execute
+            for after_cmd in reversed(after_emit_commands):
+                self._staging_commands.append(after_cmd.mount(self))
+
+            self._staging_commands.append(command)
+
+            for before_cmd in reversed(before_emit_commands):
+                self._staging_commands.append(before_cmd.mount(self))
+
+    def move_staging_commands_to_execution_que(self):
+        """Moves commands from staging que to execution que"""
+        while self._staging_commands:
+            self._commands.append(self._staging_commands.popleft())
 
     def __create_commands(self, component_full_name: str):
         if self.is_x_jembe_request():
@@ -550,12 +594,13 @@ class Processor:
             # init components from data["components"]
             to_be_initialised = []
             for component_data in data["components"]:
-                self.commands.appendleft(
+                self.add_command(
                     InitialiseCommand(
                         component_data["execName"],
                         component_data["state"],
                         exist_on_client=True,
-                    )
+                    ),
+                    end=True,
                 )
                 to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
@@ -563,19 +608,25 @@ class Processor:
 
             # init commands
             for command_data in data["commands"]:
-                self.commands.appendleft(command_factory(command_data))
+                self.add_command(command_factory(command_data), end=True)
         else:
             # regular http/s GET request
             exec_names = self.__create_commands_from_url_path(
                 component_full_name, list()
             )
 
-            self.commands.appendleft(
-                CallCommand(exec_names[-1], ComponentConfig.DEFAULT_DISPLAY_ACTION)
+            self.add_command(
+                CallActionCommand(
+                    exec_names[-1], ComponentConfig.DEFAULT_DISPLAY_ACTION
+                ),
+                end=True,
             )
             for exec_name in exec_names[:-1]:
-                self.commands.appendleft(
-                    CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
+                self.add_command(
+                    CallActionCommand(
+                        exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                    ),
+                    end=True,
                 )
 
     def __create_commands_from_url_path(
@@ -614,13 +665,12 @@ class Processor:
                     up.name: self.request.view_args[up.identifier]
                     for up in cconfig._url_params
                 }
-                self.commands.appendleft(InitialiseCommand(exec_name, init_params))
+                self.add_command(InitialiseCommand(exec_name, init_params), end=True)
             exec_names.append(exec_name)
 
         return exec_names
 
     def process_request(self) -> "Processor":
-        # print("Processing", self.request)
         self._execute_commands()
         # for all freshly rendered component who does not have parent renderers
         # eather at client (send via x-jembe.components) nor just created by
@@ -637,27 +687,22 @@ class Processor:
             missing_render_exec_names,
             key=lambda exec_name: self.components[exec_name]._config._hiearchy_level,
         ):
-            self.commands.append(
-                CallCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
+            self.add_command(
+                CallActionCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
+        self.move_staging_commands_to_execution_que()
+
         self._execute_commands()
-            
+
         return self
 
     def _execute_commands(self):
-        """executes all commands from self.commands que"""
-        while self.commands:
-            # print(self.commands)
-            # import pdb; pdb.set_trace()
-            command = self.commands.pop()
-            command.mount(self)
-            for before_emit_command in command.get_before_emit_commands():
-                before_emit_command.mount(self).execute()
-
+        """executes all commands from self._commands que"""
+        while self._commands:
+            # print(self._commands)
+            command = self._commands.pop()
             command.execute()
-
-            for after_emit_command in command.get_after_emit_commands():
-                after_emit_command.mount(self).execute()
+            self.move_staging_commands_to_execution_que()
 
     def build_response(self) -> "Response":
         # TODO compose respons from components here if is not ajax request otherwise let javascript
