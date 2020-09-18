@@ -970,7 +970,7 @@ def test_catch_exception_by_parent_and_ignore_it(jmb, client):
 
     @jmb.page("cpage", Component.Config(components=dict(c=Counter)))
     class Page(Component):
-        @listener(event="_exception", source="./*")
+        @listener(event="_exception", source="./**")
         def on_exception(self, event):
             if isinstance(event.exception, Forbidden):
                 event.handled = True

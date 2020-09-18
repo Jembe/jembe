@@ -50,6 +50,17 @@ class Event:
         return "Event: source={}, name={}, to={} params={}".format(
             self.source_exec_name, self.name, self.to, self.params
         )
+    
+    # can access parameters like attribures if name does not colide
+    def __getattr__(self, name):
+        if name in self.params.keys():
+            return self.params[name]
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name, value):
+        if "params" in self.__dict__ and name in self.params:
+            self.params[name] = value
+        return super().__setattr__(name, value)
 
 
 class SystemEvents(Enum):
@@ -65,6 +76,8 @@ class SystemEvents(Enum):
     CALLING = "_calling"
     # after component action (including display action) has beend executed
     CALL = "_call"
+    # after exception is raised by command
+    EXCEPTION = "_exception"
 
 
 class Command:
@@ -274,7 +287,9 @@ class EmitCommand(Command):
         self.params = params
         self._to: Optional[str] = None
 
-    def to(self, to: Optional[str]):
+        self.event: "Event"
+
+    def to(self, to: Optional[str]) -> "EmitCommand":
         """
         emit_event_to is glob like string for finding component.
 
@@ -293,6 +308,7 @@ class EmitCommand(Command):
             - etc.
         """
         self._to = to
+        return self
 
     def execute(self):
         """
@@ -300,14 +316,15 @@ class EmitCommand(Command):
         whose source is matched to self.component.exec_name and calls matching 
         listeners
         """
-        event = Event(
+        self.event = Event(
             source_exec_name=self.component_exec_name,
             source=self.processor.components.get(self.component_exec_name, None),
             event_name=self.event_name,
             to=self._to,
             params=self.params,
         )
-        # ignore emit.to, emit.event_name and listener.event_name, listener.source
+        # TODO if event_name is _exception order self.processor.components.items from top to bottom 
+        # and include only parent componets from self.compoent
         for exec_name, component in self.processor.components.items():
             for (
                 listener_method_name,
@@ -333,7 +350,7 @@ class EmitCommand(Command):
                 ):
                     self.processor.add_command(
                         CallListenerCommand(
-                            component.exec_name, listener_method_name, event
+                            component.exec_name, listener_method_name, self.event
                         )
                     )
 
@@ -528,9 +545,8 @@ class ComponentRender(NamedTuple):
 class Processor:
     """
     1. Will use deapest component.url from all components on the page as window.location
-    2. When any component action or listener returns template string default 
-        action (display) will not be called instead returned template string
-        will be used to render compononet 
+    2. When any component action or listener returns False default action 
+       (display) will not be called 
     """
 
     def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
@@ -561,7 +577,6 @@ class Processor:
         """
         command.mount(self)
         before_emit_commands = command.get_before_emit_commands()
-        after_emit_commands = command.get_after_emit_commands()
 
         if end:
             # adds to the end of que .. last to execute
@@ -570,13 +585,8 @@ class Processor:
 
             self._staging_commands.appendleft(command)
 
-            for after_cmd in after_emit_commands:
-                self._staging_commands.appendleft(after_cmd.mount(self))
         else:
             # adds at the begingin of que .. first to execute
-            for after_cmd in reversed(after_emit_commands):
-                self._staging_commands.append(after_cmd.mount(self))
-
             self._staging_commands.append(command)
 
             for before_cmd in reversed(before_emit_commands):
@@ -701,8 +711,79 @@ class Processor:
         while self._commands:
             # print(self._commands)
             command = self._commands.pop()
+            try:
+                command.execute()
+                self.move_staging_commands_to_execution_que()
+            except JembeError as jmberror:
+                # JembeError are exceptions raised by jembe
+                # and thay indicate bad usage of framework and
+                # thay should not be raised in production
+                raise jmberror
+            except Exception as exc:
+                self._handle_exception_in_command(command, exc)
+            else:
+                # If execution of command is successfull then
+                # add after commands into command que
+                for after_cmd in reversed(command.get_after_emit_commands()):
+                    self.add_command(after_cmd.mount(self))
+                self.move_staging_commands_to_execution_que()
+
+    def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
+        """
+        Exception that ocure while executing command (call action, display, listener invocation etc)
+        are handled in following way.
+
+        Event('_exception', source=command.component_exec_name, params=dict(exception=exc, handled=False)) is created 
+        and emited to all its parent components from top to bottom. 
+        This is only time when ordering for receiving messages is guaranted, so that root components can know if 
+        exception is already handled by its children.
+
+        Parent component can use regular listener to catch event do whatever thay want. @listener('_exception')
+        If any of parrent compoennt mark event as handled event.params["handled"] = True exception will not be raised again.
+
+        If there is not listener for _exception event in parent compoent or exception event is not handled. Processor
+        will rerise exception and it will be handled like regular flask exception.
+        """
+        # Clear all commands becouse we can't know what and how other command will be affected 
+        # by this exception so exception handler is responsible to emit appropriate messages or
+        # call other child components
+        # other solution can be to remove all commands on compoennt that coused exception but that
+        # can be very complex to know in runtime what commands should be recredated ...
+        
+        # mayby commnads can be marked as dependent when created so that when exception in
+        # init command is executed all display command shuld be marked as ignored
+        # if exception is ocured in some action dependent display should be marked as ignored
+        # etc....
+        self._commands.clear() # this radical TODO change it
+        self._staging_commands.clear()
+
+        emit_command = EmitCommand(
+            command.component_exec_name,
+            SystemEvents.EXCEPTION.value,
+            dict(exception=exc, handled=False),
+        ).to("/**/.")
+        emit_command.mount(self)
+        emit_command.execute()
+        # self._staging_commands is fill with calllistener comands
+        # move it to exception_commands que that will be used
+        # to process exception
+        exception_commands:Deque["Command"] = deque()
+        while self._staging_commands:
+            exception_commands.append(self._staging_commands.popleft())
+        # executes commands from exception_commands que and 
+        # all new generated commands will be saved in now empty
+        # staging_commands que
+        while exception_commands:
+            # simple loop no catchin exception when handlin exception
+            # commands from exception commands dont have after command
+            command = exception_commands.pop()
             command.execute()
             self.move_staging_commands_to_execution_que()
+
+        if not emit_command.event.params["handled"]:
+            raise emit_command.event.params["exception"]
+
+        # if exception is handled dont raise exception
 
     def build_response(self) -> "Response":
         # TODO compose respons from components here if is not ajax request otherwise let javascript
