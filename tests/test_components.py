@@ -1013,7 +1013,7 @@ def test_catch_errors_while_rendering(jmb, client):
             return self.render_template_string(
                 "<html><body>"
                 "{% for record_id in records %}"
-                "<div>{% if component('e', record_id=record_id).is_accessible() %}edit {{record_id}}{% else %}view {{record_id}}{%endif%}</div>"
+                "<div>{% if component('e', record_id=record_id).key(record_id).is_accessible() %}edit {{record_id}}{% else %}view {{record_id}}{%endif%}</div>"
                 "{% endfor %}"
                 "</body></html>"
             )
@@ -1023,9 +1023,59 @@ def test_catch_errors_while_rendering(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:state="{}" jmb:url="/list"><head></head><body>"""
+        """<html jmb:name="/list" jmb:state="{}" jmb:url="/list"><body>"""
         "<div>edit 1</div><div>view 2</div>"
         """</body></html>"""
+    ).encode("utf-8")
+
+
+def test_inject_init_params_to_component(jmb, client):
+    """
+    inject params are used to inject cross functional params into component.
+    This params usually defines enviroment in which component is exected and
+    are not related nor handled by parent compoenents or url params.
+
+    Inject params are usualu user_id, userObject of current user usually stored
+    in session. Current user language or similar that is stored in session/cookie
+    or pased as header to every request.
+
+    Component will inject this paramas. If injected params are explicitly set
+    they will be ignored in production but in development will raise JembeError.
+
+    injected params are not send to client
+    """
+
+    class User:
+        def __init__(self, id: int, name: str):
+            if id is None:
+                raise ValueError
+            self.id = id
+            self.name = name
+
+    @jmb.page("page")
+    class Page(Component):
+        def __init__(
+            self, user_id: Optional[int] = None, _user: Optional["User"] = None
+        ):
+            if user_id is None:
+                raise Unauthorized()
+            self.user = _user if _user else User(user_id, "Jembe {}".format(user_id))
+            super().__init__()
+
+        def inject(self):
+            """ usualy call some services or flask session, g, request to prepare params to inject"""
+            return dict(user_id=1)
+
+        def display(self):
+            return self.render_template_string(
+                "<html><body>{{user.id}} {{user.name}}</body></html>"
+            )
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/page" jmb:state="{}" jmb:url="/page"><body>1 Jembe 1</body></html>"""
     ).encode("utf-8")
 
 

@@ -65,14 +65,33 @@ class _SubComponentRenderer:
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
-
-    def __call__(self) -> str:
-        """Do render"""
+    
+    def is_accessible(self) -> bool:
         processor = get_processor()
         component_exec_name = Component._build_exec_name(
             self.name, self._key, self.component.exec_name
         )
+        initialise_command = InitialiseCommand(component_exec_name, self.kwargs)
+        return processor.execute_initialise_command_successfully(initialise_command)
+        
+
+    def __call__(self) -> str:
+        """
+        Do render
+
+        Component initialisation must be executed in place in order to know
+        will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
+        so that we can decide how to render template
+        """
+        processor = get_processor()
+        component_exec_name = Component._build_exec_name(
+            self.name, self._key, self.component.exec_name
+        )
+
         processor.add_command(InitialiseCommand(component_exec_name, self.kwargs), end=True)
+        # call action command is put in que to be executed latter
+        # if this command raises exception parent should chach it and call display 
+        # with appropriate template
         processor.add_command(
             CallActionCommand(
                 component_exec_name, self.action, self.action_args, self.action_kwargs

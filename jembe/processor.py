@@ -714,30 +714,93 @@ class Processor:
         """executes all commands from self._commands que"""
         while self._commands:
             # print(self._commands)
-            command = self._commands.pop()
-            # command is over component that raised exception on initialise and
-            # it is not new initialise command, so we skip its execution
-            if command.component_exec_name not in self._raised_exception_on_initialise or (
-                isinstance(command, InitialiseCommand)
-                and command.init_params
-                != self._raised_exception_on_initialise[command.component_exec_name]
-            ):
-                try:
-                    command.execute()
-                    self._move_staging_commands_to_execution_que()
-                except JembeError as jmberror:
-                    # JembeError are exceptions raised by jembe
-                    # and thay indicate bad usage of framework and
-                    # thay should not be raised in production
-                    raise jmberror
-                except Exception as exc:
-                    self._handle_exception_in_command(command, exc)
-                else:
-                    # If execution of command is successfull then
-                    # add after commands into command que
-                    for after_cmd in reversed(command.get_after_emit_commands()):
-                        self.add_command(after_cmd.mount(self))
-                    self._move_staging_commands_to_execution_que()
+            self._execute_command(self._commands.pop())
+
+    def _execute_command(self, command: "Command"):
+        # command is over component that raised exception on initialise and
+        # it is not new initialise command, so we skip its execution
+        if command.component_exec_name not in self._raised_exception_on_initialise or (
+            isinstance(command, InitialiseCommand)
+            and command.init_params
+            != self._raised_exception_on_initialise[command.component_exec_name]
+        ):
+            try:
+                command.execute()
+                self._move_staging_commands_to_execution_que()
+            except JembeError as jmberror:
+                # JembeError are exceptions raised by jembe
+                # and thay indicate bad usage of framework and
+                # thay should not be raised in production
+                raise jmberror
+            except Exception as exc:
+                self._handle_exception_in_command(command, exc)
+            else:
+                # If execution of command is successfull then
+                # add after commands into command que
+                for after_cmd in reversed(command.get_after_emit_commands()):
+                    self.add_command(after_cmd.mount(self))
+                # self._move_staging_commands_to_execution_que()
+
+    def execute_initialise_command_successfully(
+        self, command: "InitialiseCommand"
+    ) -> bool:
+        """
+        Directly out of commands que execute initialise command
+        in order to check will it raise Exception
+
+        if initialise is successfull all before and after commands should be executed.
+        """
+
+        if command.component_exec_name in self._raised_exception_on_initialise and (
+            command.init_params
+            == self._raised_exception_on_initialise[command.component_exec_name]
+        ):
+            return False
+        backup_current_staging_commands = self._staging_commands.copy()
+        self._staging_commands.clear()
+
+        local_que: Deque["Command"] = deque()
+        local_que.append(command.mount(self))
+        for emit_cmd in command.get_before_emit_commands():
+            local_que.append(emit_cmd.mount(self))
+
+        while local_que:
+            # execute command without handling exception
+            cmd: "Command" = local_que.pop()
+            try:
+                cmd.execute()
+                while self._staging_commands:
+                    local_que.append(self._staging_commands.popleft())
+
+            except JembeError as jmberror:
+                # JembeError are exceptions raised by jembe
+                # and thay indicate bad usage of framework
+                raise jmberror
+            except Exception as exc:
+                if (
+                    cmd.component_exec_name == command.component_exec_name
+                    and isinstance(cmd, InitialiseCommand)
+                ):
+                    self._raised_exception_on_initialise[
+                        cmd.component_exec_name
+                    ] = deepcopy(cmd.init_params)
+                    # initalise command is not run properly
+                    # becouse this is check we are not running
+                    # exception listeners
+                    self._staging_commands = backup_current_staging_commands.copy()
+                    return False
+                # Before or after command raised exception
+                # this should not happend and that indicated bug so
+                # just reraise exception
+                raise exc
+            else:
+                # If execution of command is successfull then
+                # add after commands into command que
+                for after_cmd in reversed(cmd.get_after_emit_commands()):
+                    local_que.append(after_cmd.mount(self))
+
+        self._staging_commands = backup_current_staging_commands.copy()
+        return True
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
         """

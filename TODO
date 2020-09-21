@@ -1,5 +1,6 @@
 Public Dev Lunch:
-    ☐ Error handling and Restricted access
+    ✔ Error handling and Restricted access @done(20-09-21 10:55)
+    ☐ inject params
     ☐ Flash messages
     ☐ update window.location on x-jembe request
     ☐ update window.location on regular http request if necessary
