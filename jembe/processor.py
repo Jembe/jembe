@@ -13,6 +13,7 @@ from typing import (
     NamedTuple,
 )
 import re
+from copy import deepcopy
 from enum import Enum
 from collections import deque, namedtuple
 from itertools import accumulate, chain
@@ -50,7 +51,7 @@ class Event:
         return "Event: source={}, name={}, to={} params={}".format(
             self.source_exec_name, self.name, self.to, self.params
         )
-    
+
     # can access parameters like attribures if name does not colide
     def __getattr__(self, name):
         if name in self.params.keys():
@@ -323,7 +324,7 @@ class EmitCommand(Command):
             to=self._to,
             params=self.params,
         )
-        # TODO if event_name is _exception order self.processor.components.items from top to bottom 
+        # TODO if event_name is _exception order self.processor.components.items from top to bottom
         # and include only parent componets from self.compoent
         for exec_name, component in self.processor.components.items():
             for (
@@ -560,9 +561,12 @@ class Processor:
         self._staging_commands: Deque["Command"] = deque()
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
         self.renderers: Dict[str, "ComponentRender"] = dict()
+        # component that raised exception on initialise
+        # any subsequent command on this component should be ignored
+        self._raised_exception_on_initialise: Dict[str, dict] = dict()
 
         self.__create_commands(component_full_name)
-        self.move_staging_commands_to_execution_que()
+        self._move_staging_commands_to_execution_que()
 
     def add_command(self, command: "Command", end=False):
         """
@@ -592,13 +596,13 @@ class Processor:
             for before_cmd in reversed(before_emit_commands):
                 self._staging_commands.append(before_cmd.mount(self))
 
-    def move_staging_commands_to_execution_que(self):
+    def _move_staging_commands_to_execution_que(self):
         """Moves commands from staging que to execution que"""
         while self._staging_commands:
             self._commands.append(self._staging_commands.popleft())
 
     def __create_commands(self, component_full_name: str):
-        if self.is_x_jembe_request():
+        if self._is_x_jembe_request():
             # x-jembe ajax request
             data = json.loads(self.request.data)
             # init components from data["components"]
@@ -700,7 +704,7 @@ class Processor:
             self.add_command(
                 CallActionCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
-        self.move_staging_commands_to_execution_que()
+        self._move_staging_commands_to_execution_que()
 
         self._execute_commands()
 
@@ -711,22 +715,29 @@ class Processor:
         while self._commands:
             # print(self._commands)
             command = self._commands.pop()
-            try:
-                command.execute()
-                self.move_staging_commands_to_execution_que()
-            except JembeError as jmberror:
-                # JembeError are exceptions raised by jembe
-                # and thay indicate bad usage of framework and
-                # thay should not be raised in production
-                raise jmberror
-            except Exception as exc:
-                self._handle_exception_in_command(command, exc)
-            else:
-                # If execution of command is successfull then
-                # add after commands into command que
-                for after_cmd in reversed(command.get_after_emit_commands()):
-                    self.add_command(after_cmd.mount(self))
-                self.move_staging_commands_to_execution_que()
+            # command is over component that raised exception on initialise and
+            # it is not new initialise command, so we skip its execution
+            if command.component_exec_name not in self._raised_exception_on_initialise or (
+                isinstance(command, InitialiseCommand)
+                and command.init_params
+                != self._raised_exception_on_initialise[command.component_exec_name]
+            ):
+                try:
+                    command.execute()
+                    self._move_staging_commands_to_execution_que()
+                except JembeError as jmberror:
+                    # JembeError are exceptions raised by jembe
+                    # and thay indicate bad usage of framework and
+                    # thay should not be raised in production
+                    raise jmberror
+                except Exception as exc:
+                    self._handle_exception_in_command(command, exc)
+                else:
+                    # If execution of command is successfull then
+                    # add after commands into command que
+                    for after_cmd in reversed(command.get_after_emit_commands()):
+                        self.add_command(after_cmd.mount(self))
+                    self._move_staging_commands_to_execution_que()
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
         """
@@ -744,19 +755,11 @@ class Processor:
         If there is not listener for _exception event in parent compoent or exception event is not handled. Processor
         will rerise exception and it will be handled like regular flask exception.
         """
-        # Clear all commands becouse we can't know what and how other command will be affected 
-        # by this exception so exception handler is responsible to emit appropriate messages or
-        # call other child components
-        # other solution can be to remove all commands on compoennt that coused exception but that
-        # can be very complex to know in runtime what commands should be recredated ...
-        
-        # mayby commnads can be marked as dependent when created so that when exception in
-        # init command is executed all display command shuld be marked as ignored
-        # if exception is ocured in some action dependent display should be marked as ignored
-        # etc....
-        self._commands.clear() # this radical TODO change it
+
+        # Clear all staging commands becouse command has raised exception
         self._staging_commands.clear()
 
+        # Create emit command to emit exception to component parents
         emit_command = EmitCommand(
             command.component_exec_name,
             SystemEvents.EXCEPTION.value,
@@ -767,30 +770,36 @@ class Processor:
         # self._staging_commands is fill with calllistener comands
         # move it to exception_commands que that will be used
         # to process exception
-        exception_commands:Deque["Command"] = deque()
+        exception_commands: Deque["Command"] = deque()
         while self._staging_commands:
             exception_commands.append(self._staging_commands.popleft())
-        # executes commands from exception_commands que and 
+        # executes commands from exception_commands que and
         # all new generated commands will be saved in now empty
         # staging_commands que
         while exception_commands:
             # simple loop no catchin exception when handlin exception
             # commands from exception commands dont have after command
-            command = exception_commands.pop()
-            command.execute()
-            self.move_staging_commands_to_execution_que()
+            cmd = exception_commands.pop()
+            cmd.execute()
+            self._move_staging_commands_to_execution_que()
 
         if not emit_command.event.params["handled"]:
+            # if exception is not handled by parent components
+            # rerise exception
             raise emit_command.event.params["exception"]
 
         # if exception is handled dont raise exception
+        if isinstance(command, InitialiseCommand):
+            self._raised_exception_on_initialise[
+                command.component_exec_name
+            ] = deepcopy(command.init_params)
 
     def build_response(self) -> "Response":
         # TODO compose respons from components here if is not ajax request otherwise let javascript
         # TODO dont display execute action in ajax that is already on client in proper state
         # TODO handle AJAX request
         # compose full page
-        if self.is_x_jembe_request():
+        if self._is_x_jembe_request():
             ajax_responses = []
             for exec_name, (fresh, state, url, html) in self.renderers.items():
                 if fresh:
@@ -867,6 +876,6 @@ class Processor:
                     div.append(child)
             return doc[0]
 
-    def is_x_jembe_request(self) -> bool:
+    def _is_x_jembe_request(self) -> bool:
         return bool(self.request.headers.get(self.jembe.X_JEMBE, False))
 
