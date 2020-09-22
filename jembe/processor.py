@@ -170,7 +170,7 @@ class CallActionCommand(Command):
             # save component display responses in memory
             # Add component html to processor rendererd
             self.processor.renderers[self.component_exec_name] = ComponentRender(
-                True, component.state.deepcopy(), component.url, action_result,
+                True, component.state.deepcopy(), component.url, component._config.changes_url, action_result,
             )
         elif (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -492,7 +492,7 @@ class InitialiseCommand(Command):
 
             if self.exist_on_client:
                 self.processor.renderers[component.exec_name] = ComponentRender(
-                    False, component.state.deepcopy(), component.url, None
+                    False, component.state.deepcopy(), component.url, component._config.changes_url, None
                 )
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
@@ -540,7 +540,9 @@ class ComponentRender(NamedTuple):
     fresh: bool
     state: "ComponentState"
     url: Optional[str]
+    changes_url: bool
     html: Optional[str]
+
 
 
 class Processor:
@@ -861,17 +863,17 @@ class Processor:
         # compose full page
         if self._is_x_jembe_request():
             ajax_responses = []
-            for exec_name, (fresh, state, url, html) in self.renderers.items():
+            for exec_name, (fresh, state, url, changes_url, html) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
-                        dict(execName=exec_name, state=state.tojsondict(), dom=html, url=url)
+                        dict(execName=exec_name, state=state.tojsondict(), dom=html, url=url, changes_url=changes_url)
                     )
             return jsonify(ajax_responses)
         else:
             # for page with components build united response
             c_etrees = {
-                exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url)
-                for exec_name, (fresh, state, url, html) in self.renderers.items()
+                exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url, changes_url)
+                for exec_name, (fresh, state, url, changes_url, html) in self.renderers.items()
                 if fresh and state is not None and url is not None and html is not None
             }
             unused_exec_names = sorted(
@@ -899,7 +901,7 @@ class Processor:
             return etree.tostring(response_etree, method="html")
 
     def _lxml_add_dom_attrs(
-        self, html: str, exec_name: str, state: "ComponentState", url: str
+        self, html: str, exec_name: str, state: "ComponentState", url: str, changes_url:bool
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
@@ -915,8 +917,18 @@ class Processor:
                 separators=(",", ":"),
                 sort_keys=True,
             )
-            elem.set("jmb:state", json_state)
-            elem.set("jmb:url", url)
+            elem.set("jmb:data", json.dumps(dict(
+                    state=state.tojsondict(),
+                    url=url,
+                    changes_url=changes_url
+                ),
+                separators=(",", ":"),
+                sort_keys=True,
+                )
+            )
+            # elem.set("jmb:state", json_state)
+            # elem.set("jmb:url", url)
+            # elem.set("jmb:changes_url", changes_url)
 
         if not html:
             html = "<div></div>"

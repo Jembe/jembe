@@ -299,6 +299,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         template: Optional[str] = None,
         components: Optional[Dict[str, "ComponentRef",]] = None,
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+        changes_url: bool = True,
         _component_class: Optional[Type["Component"]] = None,
         _parent: Optional["ComponentConfig"] = None,
     ):
@@ -306,6 +307,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self.components = components
         self._template = template
         self._redisplay_temp = redisplay
+        self.changes_url = changes_url
 
         # intialise by Jembe app after registring route
         self.__endpoint: str

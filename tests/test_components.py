@@ -1070,6 +1070,7 @@ def test_inject_init_params_to_component(jmb, client):
             return self.render_template_string(
                 "<html><body>{{user.id}} {{user.name}}</body></html>"
             )
+
     r = client.get("/page")
     assert r.status_code == 200
     assert r.data == (
@@ -1083,8 +1084,7 @@ def test_inject_init_params_to_component(jmb, client):
         "/page",
         data=json.dumps(
             dict(
-                components=[
-                ],
+                components=[],
                 commands=[
                     dict(
                         type="init",
@@ -1107,10 +1107,95 @@ def test_inject_init_params_to_component(jmb, client):
     assert r.status_code == 200
     assert len(json_response) == 1
     assert json_response[0]["execName"] == "/page"
-    assert json_response[0]["dom"] == (
-        "<html><body>1 Jembe 1</body></html>"
-    )
+    assert json_response[0]["dom"] == ("<html><body>1 Jembe 1</body></html>")
     assert json_response[0]["state"] == dict()
+
+
+def test_update_window_location(jmb, client):
+    """
+    When rendering components via x-jembe ajax request/response cycle
+    deepest-latest component url should be used as window.location and it should
+    be set via javascript part of framework. 
+    Component can opt-out from window.location settings which will make
+    that compoennt and all its children url not be used when determing 
+    window.location. This can be usefull for supporting compoentns on page like
+    navigation etc.
+
+    When displaying page via regular http get request, just use requested url as
+    window.location (no need to change it), becaouse all subsequent request should
+    use x-jembe request and all will be fine.
+    """
+
+    class S2(Component):
+        def display(self):
+            return self.render_template_string("<div>S2</div>")
+
+    @config(Component.Config(components=dict(s2=S2)))
+    class S1(Component):
+        def display(self):
+            return self.render_template_string("<div>S1{{component('s2')}}</div>")
+
+    class C1(Component):
+        def display(self):
+            return self.render_template_string("<div>C1</div>")
+
+    class C2(Component):
+        def display(self):
+            return self.render_template_string("<div>C2</div>")
+
+    @jmb.page(
+        "page",
+        Component.Config(
+            components=dict(s1=(S1, S1.Config(changes_url=False)), c1=C1, c2=C2)
+        ),
+    )
+    class Page(Component):
+        def display(self):
+            return self.render_template_string(
+                "<html><body>{{component('s1')}}{{component('c1')}}{{component('c2')}}</body></html>"
+            )
+    r = client.post(
+        "/page",
+        data=json.dumps(
+            dict(
+                components=[],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/page",
+                        initParams=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/page",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 5
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["url"] == "/page"
+    assert json_response[0]["changes_url"] == True
+    assert json_response[1]["execName"] == "/page/s1"
+    assert json_response[1]["url"] == "/page/s1"
+    assert json_response[1]["changes_url"] == False
+    assert json_response[2]["execName"] == "/page/s1/s2"
+    assert json_response[2]["url"] == "/page/s1/s2"
+    assert json_response[2]["changes_url"] == False
+    assert json_response[3]["execName"] == "/page/c1"
+    assert json_response[3]["url"] == "/page/c1"
+    assert json_response[3]["changes_url"] == True
+    assert json_response[4]["execName"] == "/page/c2"
+    assert json_response[4]["url"] == "/page/c2"
+    assert json_response[4]["changes_url"] == True
+
 
 
 # TODO test counter with configurable increment
