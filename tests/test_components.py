@@ -1064,7 +1064,7 @@ def test_inject_init_params_to_component(jmb, client):
 
         def inject(self):
             """ usualy call some services or flask session, g, request to prepare params to inject"""
-            return dict(user_id=1)
+            return dict(user_id=1, _user=User(1, "Jembe {}".format(1)))
 
         def display(self):
             return self.render_template_string(
@@ -1077,6 +1077,40 @@ def test_inject_init_params_to_component(jmb, client):
         "\n"
         """<html jmb:name="/page" jmb:state="{}" jmb:url="/page"><body>1 Jembe 1</body></html>"""
     ).encode("utf-8")
+
+    # ignore injected params
+    r = client.post(
+        "/page",
+        data=json.dumps(
+            dict(
+                components=[
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/page",
+                        initParams=dict(user_id=5),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/page",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["dom"] == (
+        "<html><body>1 Jembe 1</body></html>"
+    )
+    assert json_response[0]["state"] == dict()
 
 
 # TODO test counter with configurable increment

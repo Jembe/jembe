@@ -858,20 +858,17 @@ class Processor:
             ] = deepcopy(command.init_params)
 
     def build_response(self) -> "Response":
-        # TODO compose respons from components here if is not ajax request otherwise let javascript
-        # TODO dont display execute action in ajax that is already on client in proper state
-        # TODO handle AJAX request
         # compose full page
         if self._is_x_jembe_request():
             ajax_responses = []
             for exec_name, (fresh, state, url, html) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
-                        dict(execName=exec_name, state=state, dom=html, url=url)
+                        dict(execName=exec_name, state=state.tojsondict(), dom=html, url=url)
                     )
             return jsonify(ajax_responses)
         else:
-            # TODO for page with components build united response
+            # for page with components build united response
             c_etrees = {
                 exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url)
                 for exec_name, (fresh, state, url, html) in self.renderers.items()
@@ -913,7 +910,11 @@ class Processor:
 
         def set_jmb_attrs(elem):
             elem.set("jmb:name", exec_name)
-            json_state = json.dumps(state, separators=(",", ":"), sort_keys=True)
+            json_state = json.dumps(
+                state.tojsondict(),
+                separators=(",", ":"),
+                sort_keys=True,
+            )
             elem.set("jmb:state", json_state)
             elem.set("jmb:url", url)
 

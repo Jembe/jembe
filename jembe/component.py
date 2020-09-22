@@ -3,7 +3,7 @@ from copy import deepcopy
 from abc import ABCMeta
 from inspect import signature
 from .exceptions import JembeError
-from flask import render_template, render_template_string, Markup
+from flask import render_template, render_template_string, Markup, current_app
 from .component_config import ComponentConfig
 from .app import get_processor
 from .processor import CallActionCommand, InitialiseCommand, EmitCommand
@@ -26,6 +26,9 @@ class ComponentState(dict):
     Appon initialising component_state params can't be added or deleted from 
     that state but values of the existing params can change
     """
+    def __init__(self, *args, **kwargs):
+        self._injected_params_names:List[str] = []
+        super().__init__(*args, **kwargs)
 
     def __setitem__(self, key, value):
         if not key in self.keys():
@@ -41,9 +44,12 @@ class ComponentState(dict):
         return super().__getattribute__(name)
 
     def __setattr__(self, name, value):
-        if name not in self.keys():
-            raise JembeError("Can't set arbitrary attribute to component state")
-        self[name] = value
+        if name == "_injected_params_names":
+            super().__setattr__(name, value)
+        else:
+            if name not in self.keys():
+                raise JembeError("Can't set arbitrary attribute to component state")
+            self[name] = value
         # return super().__setattr__(name, value)
 
     def __eq__(self, value):
@@ -53,7 +59,11 @@ class ComponentState(dict):
         c = ComponentState(**self)
         for key, value in self.items():
             c[key] = deepcopy(value)
+        c._injected_params_names = deepcopy(self._injected_params_names)
         return c
+
+    def tojsondict(self):
+        return {k:v for k, v in self.items() if k not in self._injected_params_names}
 
 
 class _SubComponentRenderer:
@@ -65,7 +75,7 @@ class _SubComponentRenderer:
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
-    
+
     def is_accessible(self) -> bool:
         processor = get_processor()
         component_exec_name = Component._build_exec_name(
@@ -73,7 +83,6 @@ class _SubComponentRenderer:
         )
         initialise_command = InitialiseCommand(component_exec_name, self.kwargs)
         return processor.execute_initialise_command_successfully(initialise_command)
-        
 
     def __call__(self) -> str:
         """
@@ -88,14 +97,17 @@ class _SubComponentRenderer:
             self.name, self._key, self.component.exec_name
         )
 
-        processor.add_command(InitialiseCommand(component_exec_name, self.kwargs), end=True)
+        processor.add_command(
+            InitialiseCommand(component_exec_name, self.kwargs), end=True
+        )
         # call action command is put in que to be executed latter
-        # if this command raises exception parent should chach it and call display 
+        # if this command raises exception parent should chach it and call display
         # with appropriate template
         processor.add_command(
             CallActionCommand(
                 component_exec_name, self.action, self.action_args, self.action_kwargs
-            ), end=True
+            ),
+            end=True,
         )
         return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
 
@@ -115,7 +127,24 @@ class _SubComponentRenderer:
 
 def componentInitDecorator(init_method):
     def decoratedInit(self, *args, **kwargs):
-        """Saves states params in component state """
+        """
+        Inject params from inject method and saves states params in component state
+        """
+        # Inject params from inject method
+        # if signature(init_method) == self._jembe_init_signature:
+        if not hasattr(self, "_jembe_injected_params_names"):
+            params_to_inject = self.inject()
+            self._jembe_injected_params_names = list(params_to_inject.keys())
+            for name, value in params_to_inject.items():
+                if current_app.debug and name in kwargs:
+                    current_app.logger.warning(
+                        "Injecting already set param {} in component {}".format(
+                            name, self._config.full_name
+                        )
+                    )
+                kwargs[name] = value
+
+        # Saves states params in component state
         if not hasattr(self, "state"):
             # only top most class in hieararchy sets componentState
             self.state = ComponentState(
@@ -126,6 +155,7 @@ def componentInitDecorator(init_method):
                     for spn in self._jembe_state_param_names
                 }
             )
+            self.state._injected_params_names = self._jembe_injected_params_names
         init_method(self, *args, **kwargs)
 
     return decoratedInit
@@ -153,6 +183,7 @@ class Component(metaclass=ComponentMeta):
     state: "ComponentState"
     _jembe_init_signature: "Signature"
     _jembe_state_param_names: Tuple[str, ...]
+    _jembe_injected_params_names: List[str]
     _config: "Config"
 
     class Config(ComponentConfig):
@@ -226,6 +257,27 @@ class Component(metaclass=ComponentMeta):
         components and url_path of this component
         """
         return self._config.build_url(self.exec_name)
+
+    def inject(self) -> Dict[str, Any]:
+        """
+        inject params are used to inject cross functional params into component.
+        This params usually defines enviroment in which component is exected and
+        are not related nor handled by parent compoenents or url params.
+
+        Typical examples of inject params are user_id, userObject of current user usually stored
+        in session. Current user language or similar that is stored in session/cookie
+        or passed as header param to every request.
+
+        Component will inject this paramas into its __init__ method, it will ignore
+        existing values of params set by default, manually or via parent component. 
+        If for some reason injected params are explicitly set they will be ignored in 
+        production but in development warrning will be displayed. 
+
+        inject can set any type of init param except for url param (params without default value).
+        if some param is injected it value will not be send to client nor acepted from x-jembe
+        http request.
+        """
+        return dict()
 
     def display(self) -> Union[str, None, "Response"]:
         return self.render_template()
