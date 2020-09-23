@@ -306,6 +306,7 @@ class EmitCommand(Command):
             - ../component[.[*|<key>]]          -> emit to sibling 
             - /**/.                             -> emit to parent at any level
             - /**/component[.[*|<key>]]/**/.    -> emit to parent at any level named
+            - //                                -> emit to my root page TODO
             - etc.
         """
         self._to = to

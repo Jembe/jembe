@@ -81,7 +81,7 @@ def test_wiki(jmb, client):
         def display(self):
             self.page = wikidb.get(self.state.page_path)
             self.children = wikidb.get_children(self.state.page_path)
-            self.emit("set_page_title", title=self.page.title).to_page()
+            self.emit("set_page_title", title=self.page.title)
             return self.render_template_string(
                 """<div><h1>{{page.title}}</h1>"""
                 """<div>{% for c in children %}<a onclick="$jmb.set(page_path={{c.path}})">{{c.title}}</a><br>{% endfor %}</div></div>"""
@@ -111,14 +111,12 @@ def test_wiki(jmb, client):
         @action
         def save(self):
             self.page.title = self.state.form.title
-            self.emit("saved")
+            self.emit("save")
             # don't redisplay
             return False
 
         def display(self):
-            self.emit(
-                "set_page_title", title="Edit: {}".format(self.page.title)
-            ).to_root_page()
+            self.emit("set_page_title", title="Edit: {}".format(self.page.title))
             return self.render_template_string(
                 "<h1>Edit: {{page.title}}</h1>"
                 """<label>Title: <input type="text" value="{{form.title}}" onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
@@ -176,8 +174,8 @@ def test_wiki(jmb, client):
         def display(self):
             self.page_title = wikidb.get(self.state.page_path).title
             self.emit(
-                "set_page_title", title="Add under {}".format(self.page_title),
-            ).to_root_page()
+                "set_page_title", title="Add under {}".format(self.page_title)
+            )
             return self.render_template_string(
                 "<h1>Add under {{page_title}}</h1>"
                 """<label>Name: <input type="text" value="{{form.name}}" onchange="$jmb.set('form.name', this.value).deffer()"></label>"""
@@ -186,31 +184,46 @@ def test_wiki(jmb, client):
                 """<button type="button" onclick="$jmb.emit('cancel').to('..')">Cancel</button>"""
             )
 
-    @jmb.page("wiki", Component.Config(components=dict(view=View, edit=Edit, add=Add)))
-    class Wiki(Component):
-        def __init__(self, mode: str = "view", title: str = "Wiki"):
-            self.goto: Optional[str] = None
+    @config(Component.Config(changes_url=False))
+    class PageTitle(Component):
+        def __init__(self, title: str = ""):
             super().__init__()
 
-        @listener(event="_display", source="./*")
-        def on_display_child(self, event):
-            self.state.mode = event.source._config.name
-
-        @listener(event="set_page_title", source="./**")
+        @listener(event="set_page_title")
         def on_set_page_title(self, event):
             self.state.title = event.params.title
             return False
 
+        @action(deferred=True)
+        def display(self):
+            return self.render_template_string("<title>{{title}}</title>")
+
+    @jmb.page(
+        "wiki",
+        Component.Config(
+            components=dict(page_title=PageTitle, view=View, edit=Edit, add=Add)
+        ),
+    )
+    class Wiki(Component):
+        def __init__(self, mode: str = "view"):
+            self.goto: Optional[str] = None
+            super().__init__()
+
+        @listener(event="_display", source=["./view", "./edit", "./add"])
+        def on_display_child(self, event):
+            self.state.mode = event.source._config.name
+
         @listener(event=["cancel", "save"], source=["./edit", "./add"])
         def on_cancel_edit_or_add(self, event):
-            self.state.mode = "view"
             self.goto = event.source.state.page_path
+            self.state.mode = "view"
 
         def display(self):
             return self.render_template_string(
-                "<html><head><title>{{title}}</title></head>"
+                "<html><head>{{component('page_title')}}</head>"
                 "<body>{{component(mode, page_path=goto) if goto else component(mode)}}</body></html>"
             )
+
     # TODO initial display
     # TODO try edit root before loggedin
     # login
