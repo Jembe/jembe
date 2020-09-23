@@ -25,6 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .processor import Processor
     from flask import Request
 
+UrlPath = Type[str]
 
 class UrlConvertor(Enum):
     STR0 = "string(minlength=0)"
@@ -63,7 +64,8 @@ class UrlParamDef:
             convertor = UrlConvertor.FLOAT
         elif p.annotation.__name__ == "UUID":
             convertor = UrlConvertor.UUID
-        # TODO convertor PATH
+        elif p.annotation.__name__ == "UrlPath":
+            convertor = UrlConvertor.PATH
         return UrlParamDef(p.name, convertor, calc_url_param_identifier(p.name, level))
 
     @property
