@@ -64,6 +64,7 @@ def test_wiki(jmb, client):
     @dataclass
     class WikiEditForm:
         title: str
+        error: Optional[str] = None
 
     @dataclass
     class WikiAddForm:
@@ -110,15 +111,18 @@ def test_wiki(jmb, client):
 
         @action
         def save(self):
-            self.page.title = self.state.form.title
-            self.emit("save")
-            # don't redisplay
-            return False
+            is_form_valid = bool(self.state.form.title)
+            if is_form_valid:
+                self.page.title = self.state.form.title
+                self.emit("save")
+                return False  # don't redisplay
+            self.state.form.error = "Title is required"
 
         def display(self):
             self.emit("set_page_title", title="Edit: {}".format(self.page.title))
             return self.render_template_string(
                 "<h1>Edit: {{page.title}}</h1>"
+                """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
                 """<label>Title: <input type="text" value="{{form.title}}" onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
                 """<button type="button" onclick="$jmb.call('save')">Save</button>"""
                 """<button type="button" onclick="$jmb.emit('cancel').to('..')">Cancel</button>"""
@@ -165,19 +169,15 @@ def test_wiki(jmb, client):
                 wikidb.add(wpage)
                 self.state.page_path = wpage.path
                 self.emit("save")
-                # don't redisplay
-                return False
-
-            # redisplay form
+                return False # don't redisplay
             self.state.form.error = "Name and title are required"
 
         def display(self):
             self.page_title = wikidb.get(self.state.page_path).title
-            self.emit(
-                "set_page_title", title="Add under {}".format(self.page_title)
-            )
+            self.emit("set_page_title", title="Add under {}".format(self.page_title))
             return self.render_template_string(
                 "<h1>Add under {{page_title}}</h1>"
+                """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
                 """<label>Name: <input type="text" value="{{form.name}}" onchange="$jmb.set('form.name', this.value).deffer()"></label>"""
                 """<label>Title: <input type="text" value="{{form.title}}" onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
                 """<button type="button" onclick="$jmb.call('save')">Save</button>"""
@@ -186,7 +186,7 @@ def test_wiki(jmb, client):
 
     @config(Component.Config(changes_url=False))
     class PageTitle(Component):
-        def __init__(self, title: str = ""):
+        def __init__(self, title: str = "Wiki"):
             super().__init__()
 
         @listener(event="set_page_title")
@@ -235,3 +235,5 @@ def test_wiki(jmb, client):
     # TODO add page under existing page
     # TODO edit page under existing page
     # TODO get wiki page via direct http get
+
+    # TODO add back link, navigation menu etc in demo app
