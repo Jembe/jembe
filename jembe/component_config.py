@@ -11,6 +11,7 @@ from typing import (
 )
 from abc import ABCMeta
 from enum import Enum
+from copy import deepcopy
 from itertools import accumulate
 from operator import add
 from inspect import signature, getmembers, isfunction
@@ -252,15 +253,20 @@ def componentConfigInitDecorator(init_method):
 
         # update init params default values form @config decorator
         if "name" in kwargs and "_component_class" in kwargs:
-            # we need to initialise config 
-            _component_class:Type["Component"] = kwargs["_component_class"]
-            default_init_params = getattr(_component_class, "_jembe_config_init_params", dict())
+            # we need to initialise config
+            _component_class: Type["Component"] = kwargs["_component_class"]
+            # get init params set by @config decorator
+            default_init_params = getattr(
+                _component_class, "_jembe_config_init_params", dict()
+            )
             init_params = default_init_params.copy()
             init_params.update(kwargs.copy())
             init_method(self, *args, **init_params)
         else:
             # Component config is used inside @config or @page decorator
             # no need to proper initialise class
+            # just set _raw_init_params that will be picked up by @config or @page
+            # decorator and used to set _jembe_config_init_params
             self._raw_init_params = kwargs.copy()
 
     return decoratedInit
@@ -304,10 +310,18 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         _parent: Optional["ComponentConfig"] = None,
     ):
         self.name = name
-        self.components = components
+        self.components: Dict[
+            str, "ComponentRef"
+        ] = components if components else dict()
         self._template = template
         self._redisplay_temp = redisplay
         self.changes_url = changes_url
+
+        if not self.changes_url:
+            # set changes_url to False to all its children components
+            self.update_components_config(
+                self.components, None, dict(changes_url=False)
+            )
 
         # intialise by Jembe app after registring route
         self.__endpoint: str
@@ -466,4 +480,34 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     def _get_default_template_name(self) -> str:
         return "{}.html".format(self.full_name.strip("/"))
+
+    @classmethod
+    def update_components_config(
+        cls,
+        components: Optional[Dict[str, "ComponentRef"]],
+        name: Optional[str],
+        params: Dict,
+    ):
+        """
+        For use inside __init__ to change sub components config init params
+        regardless if component is referenced with or without componentconfig part.
+
+        name: name of the component config to change if name is None apply params to all components
+        params: dict with new params to set
+        """
+        if components is None:
+            return
+
+        def _update_cref(cref: "ComponentRef", params: Dict):
+            component = cref[0] if isinstance(cref, tuple) else cref
+            try:
+                component._jembe_config_init_params.update(params)
+            except AttributeError:
+                component._jembe_config_init_params = deepcopy(params)
+
+        if name is None:
+            for name in components.keys():
+                _update_cref(components[name], params)
+        else:
+            _update_cref(components[name], params)
 

@@ -184,6 +184,7 @@ class Component(metaclass=ComponentMeta):
     _jembe_init_signature: "Signature"
     _jembe_state_param_names: Tuple[str, ...]
     _jembe_injected_params_names: List[str]
+    _jembe_config_init_params: Dict[str, Any]
     _config: "Config"
 
     class Config(ComponentConfig):
