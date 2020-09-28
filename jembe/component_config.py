@@ -8,6 +8,7 @@ from typing import (
     Any,
     Union,
     Sequence,
+    NewType,
 )
 from abc import ABCMeta
 from enum import Enum
@@ -25,7 +26,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .processor import Processor
     from flask import Request
 
-UrlPath = Type[str]
+UrlPath = NewType("UrlPath", str)
+
 
 class UrlConvertor(Enum):
     STR0 = "string(minlength=0)"
@@ -53,20 +55,22 @@ class UrlParamDef:
 
     @classmethod
     def from_inspect_parameter(
-        cls, p: "inspect.Parameter", level: int
+        cls, param: "inspect.Parameter", level: int
     ) -> "UrlParamDef":
         convertor = UrlConvertor.STR
-        if p.annotation.__name__ == "int":
+        if param.annotation.__name__ == "int":
             convertor = UrlConvertor.INT
-        elif p.annotation.__name__ == "str":
+        elif param.annotation.__name__ == "str":
             convertor = UrlConvertor.STR
-        elif p.annotation.__name__ == "float":
+        elif param.annotation.__name__ == "float":
             convertor = UrlConvertor.FLOAT
-        elif p.annotation.__name__ == "UUID":
+        elif param.annotation.__name__ == "UUID":
             convertor = UrlConvertor.UUID
-        elif p.annotation.__name__ == "UrlPath":
+        elif param.annotation.__name__ == "UrlPath":
             convertor = UrlConvertor.PATH
-        return UrlParamDef(p.name, convertor, calc_url_param_identifier(p.name, level))
+        return UrlParamDef(
+            param.name, convertor, calc_url_param_identifier(param.name, level)
+        )
 
     @property
     def url_pattern(self) -> str:
@@ -82,8 +86,8 @@ def action(
     _method=None,
     *,
     deferred=False,
-    deferred_after: Optional[str] = None,
-    deferred_before: Optional[str] = None,
+    # deferred_after: Optional[str] = None,
+    # deferred_before: Optional[str] = None,
 ):
     """
     decorator to mark method as public action inside component
@@ -103,8 +107,8 @@ def action(
     def decorator_action(method):
         setattr(method, "_jembe_action", True)
         setattr(method, "_jembe_action_deferred", deferred)
-        setattr(method, "_jembe_action_deferred_after", deferred_after)
-        setattr(method, "_jembe_action_deferred_before", deferred_before)
+        # setattr(method, "_jembe_action_deferred_after", deferred_after)
+        # setattr(method, "_jembe_action_deferred_before", deferred_before)
         return method
 
     if _method is None:
@@ -207,21 +211,21 @@ class ComponentAction:
         self,
         name: str,
         deferred: bool = False,
-        deferred_after: Optional[str] = None,
-        deferred_before: Optional[str] = None,
+        # deferred_after: Optional[str] = None,
+        # deferred_before: Optional[str] = None,
     ):
         self.name = name
         self.deferred = deferred
-        self.deferred_after = deferred_after
-        self.deferred_before = deferred_before
+        # self.deferred_after = deferred_after
+        # self.deferred_before = deferred_before
 
     @classmethod
     def from_method(cls, method) -> "ComponentAction":
         return cls(
             method.__name__,
             getattr(method, "_jembe_action_deferred", False),
-            getattr(method, "_jembe_action_deferred_after", None),
-            getattr(method, "_jembe_action_deferred_before", None),
+            # getattr(method, "_jembe_action_deferred_after", None),
+            # getattr(method, "_jembe_action_deferred_before", None),
         )
 
 

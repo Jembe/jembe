@@ -103,6 +103,12 @@ class Command:
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
         return ()
 
+    @property
+    def component_full_name(self):
+        from .component import Component
+
+        return Component._exec_name_to_full_name(self.component_exec_name)
+
 
 class CallActionCommand(Command):
     def __init__(
@@ -170,7 +176,11 @@ class CallActionCommand(Command):
             # save component display responses in memory
             # Add component html to processor rendererd
             self.processor.renderers[self.component_exec_name] = ComponentRender(
-                True, component.state.deepcopy(), component.url, component._config.changes_url, action_result,
+                True,
+                component.state.deepcopy(),
+                component.url,
+                component._config.changes_url,
+                action_result,
             )
         elif (
             self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -287,6 +297,8 @@ class EmitCommand(Command):
         self.event_name = event_name
         self.params = params
         self._to: Optional[str] = None
+
+        self.primary_execution = True
 
         self.event: "Event"
 
@@ -447,6 +459,37 @@ class EmitCommand(Command):
             self.component_exec_name, self.event_name, self._to
         )
 
+    def reemit_over(
+        self, reemit_component_exec_name: str
+    ) -> List["CallListenerCommand"]:
+        reemit_component = self.processor.components[reemit_component_exec_name]
+        commands = list()
+        for (
+            listener_method_name,
+            listener,
+        ) in reemit_component._config.component_listeners.items():
+            if (
+                (listener.event_name is None or listener.event_name == self.event_name)
+                and self._glob_match_exec_name(
+                    # match emit.to with compoenent name
+                    self.component_exec_name,
+                    self._to,
+                    reemit_component.exec_name,
+                )
+                and self._glob_match_exec_name(
+                    # match for compoennt filter on listener end
+                    reemit_component.exec_name,
+                    listener.source,
+                    self.component_exec_name,
+                )
+            ):
+                commands.append(
+                    CallListenerCommand(
+                        reemit_component.exec_name, listener_method_name, self.event
+                    )
+                )
+        return commands
+
 
 class InitialiseCommand(Command):
     def __init__(
@@ -493,7 +536,11 @@ class InitialiseCommand(Command):
 
             if self.exist_on_client:
                 self.processor.renderers[component.exec_name] = ComponentRender(
-                    False, component.state.deepcopy(), component.url, component._config.changes_url, None
+                    False,
+                    component.state.deepcopy(),
+                    component.url,
+                    component._config.changes_url,
+                    None,
                 )
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
@@ -545,7 +592,6 @@ class ComponentRender(NamedTuple):
     html: Optional[str]
 
 
-
 class Processor:
     """
     1. Will use deapest component.url from all components on the page as window.location
@@ -559,9 +605,13 @@ class Processor:
 
         self.components: Dict[str, "Component"] = dict()
         self._commands: Deque["Command"] = deque()
+        # already emited and processed event commands
+        # that will be executed over newelly initialised component
+        self._emited_event_commands: Deque["EmitCommand"] = deque()
         # commands created while executing some command and that needs to be
         # added to commands at the end of command execution
         self._staging_commands: Deque["Command"] = deque()
+        self._staging_deferred_commands: Deque["Command"] = deque()
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
         self.renderers: Dict[str, "ComponentRender"] = dict()
         # component that raised exception on initialise
@@ -582,25 +632,54 @@ class Processor:
 
         It also addes all before and after commands in staging que
         """
-        command.mount(self)
-        before_emit_commands = command.get_before_emit_commands()
 
-        if end:
-            # adds to the end of que .. last to execute
-            for before_cmd in before_emit_commands:
-                self._staging_commands.appendleft(before_cmd.mount(self))
+        def _do_add_command(que, command, end):
+            """ Adds command with before and after command to stack"""
+            command.mount(self)
+            before_emit_commands = command.get_before_emit_commands()
 
-            self._staging_commands.appendleft(command)
+            if end:
+                # adds to the end of que .. last to execute
+                for before_cmd in before_emit_commands:
+                    que.appendleft(before_cmd.mount(self))
 
+                que.appendleft(command)
+
+            else:
+                # adds at the begingin of que .. first to execute
+                que.append(command)
+
+                for before_cmd in reversed(before_emit_commands):
+                    que.append(before_cmd.mount(self))
+
+        # Check if command should be deffered
+        is_deferred_command = False
+        if isinstance(command, CallActionCommand):
+            try:
+                cconfig = self.jembe.components_configs[command.component_full_name]
+            except AttributeError:
+                raise JembeError(
+                    "Component {} does not exist".format(command.component_full_name)
+                )
+            try:
+                caction = cconfig.component_actions[command.action_name]
+            except AttributeError:
+                raise JembeError(
+                    "Action {} is not defined for component {}".format(
+                        command.action_name, command.component_full_name
+                    )
+                )
+            is_deferred_command = caction.deferred
+
+        if is_deferred_command:
+            _do_add_command(self._staging_deferred_commands, command, end)
         else:
-            # adds at the begingin of que .. first to execute
-            self._staging_commands.append(command)
-
-            for before_cmd in reversed(before_emit_commands):
-                self._staging_commands.append(before_cmd.mount(self))
+            _do_add_command(self._staging_commands, command, end)
 
     def _move_staging_commands_to_execution_que(self):
         """Moves commands from staging que to execution que"""
+        while self._staging_deferred_commands:
+            self._commands.append(self._staging_deferred_commands.popleft())
         while self._staging_commands:
             self._commands.append(self._staging_commands.popleft())
 
@@ -721,7 +800,7 @@ class Processor:
 
     def _execute_command(self, command: "Command"):
         # command is over component that raised exception on initialise and
-        # it is not new initialise command, so we skip its execution
+        # it is not new initialise command over that commponent, so we skip its execution
         if command.component_exec_name not in self._raised_exception_on_initialise or (
             isinstance(command, InitialiseCommand)
             and command.init_params
@@ -742,7 +821,22 @@ class Processor:
                 # add after commands into command que
                 for after_cmd in reversed(command.get_after_emit_commands()):
                     self.add_command(after_cmd.mount(self))
-                # self._move_staging_commands_to_execution_que()
+
+                if isinstance(command, EmitCommand) and command.primary_execution:
+                    # If command is emit command we need to save it
+                    # so we can execute it over newly initialised components
+                    self._emited_event_commands.append(command)
+                elif (
+                    isinstance(command, InitialiseCommand)
+                    and self._emited_event_commands
+                ):
+                    # we need to reemit commands to this component
+                    for emited_command in self._emited_event_commands:
+                        reemit_commands = emited_command.reemit_over(
+                            command.component_exec_name
+                        )
+                        for remit_cmd in reemit_commands:
+                            self.add_command(remit_cmd, end=True)
 
     def execute_initialise_command_successfully(
         self, command: "InitialiseCommand"
@@ -864,17 +958,34 @@ class Processor:
         # compose full page
         if self._is_x_jembe_request():
             ajax_responses = []
-            for exec_name, (fresh, state, url, changes_url, html) in self.renderers.items():
+            for (
+                exec_name,
+                (fresh, state, url, changes_url, html),
+            ) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
-                        dict(execName=exec_name, state=state.tojsondict(), dom=html, url=url, changes_url=changes_url)
+                        dict(
+                            execName=exec_name,
+                            state=state.tojsondict(),
+                            dom=html,
+                            url=url,
+                            changes_url=changes_url,
+                        )
                     )
             return jsonify(ajax_responses)
         else:
             # for page with components build united response
             c_etrees = {
-                exec_name: self._lxml_add_dom_attrs(html, exec_name, state, url, changes_url)
-                for exec_name, (fresh, state, url, changes_url, html) in self.renderers.items()
+                exec_name: self._lxml_add_dom_attrs(
+                    html, exec_name, state, url, changes_url
+                )
+                for exec_name, (
+                    fresh,
+                    state,
+                    url,
+                    changes_url,
+                    html,
+                ) in self.renderers.items()
                 if fresh and state is not None and url is not None and html is not None
             }
             unused_exec_names = sorted(
@@ -892,17 +1003,40 @@ class Processor:
                 # TODO compose response including all components not just page
                 # find all placeholders in response_tree and replace them with
                 # appropriate etrees
-                for placeholder in response_etree.xpath(".//div[@jmb-placeholder]"):
+                for placeholder in response_etree.xpath(
+                    ".//jmb-placeholder[@exec-name]"
+                ):
                     can_find_placeholder = True
-                    exec_name = placeholder.attrib["jmb-placeholder"]
-                    c_etree = c_etrees[exec_name]
-                    unused_exec_names.pop(unused_exec_names.index(exec_name))
-                    placeholder.addnext(c_etree)
+                    exec_name = placeholder.attrib["exec-name"]
+                    try:
+                        c_etree = c_etrees[exec_name]
+                        unused_exec_names.pop(unused_exec_names.index(exec_name))
+                        placeholder.addnext(c_etree)
+                        placeholder.getparent().remove(placeholder)
+                    except KeyError:
+                        # exec_name referenced by this placeholder does not exist
+                        # so we will just remove placeholder
+                        # This situation can ocure when handling exceptions
+                        # of child components but not changing display html
+                        # so we can assume that developer just want to ignore
+                        # exception and dont display component that coused exception
+                        placeholder.getparent().remove(placeholder)
+            # Remove empty placeholder if thay are left in response
+            # because above logic will not find all empty placeholders
+            if response_etree is not None:
+                for placeholder in response_etree.xpath(
+                    ".//jmb-placeholder[@exec-name]"
+                ):
                     placeholder.getparent().remove(placeholder)
             return etree.tostring(response_etree, method="html")
 
     def _lxml_add_dom_attrs(
-        self, html: str, exec_name: str, state: "ComponentState", url: str, changes_url:bool
+        self,
+        html: str,
+        exec_name: str,
+        state: "ComponentState",
+        url: str,
+        changes_url: bool,
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
@@ -914,18 +1048,15 @@ class Processor:
         def set_jmb_attrs(elem):
             elem.set("jmb:name", exec_name)
             json_state = json.dumps(
-                state.tojsondict(),
-                separators=(",", ":"),
-                sort_keys=True,
+                state.tojsondict(), separators=(",", ":"), sort_keys=True,
             )
-            elem.set("jmb:data", json.dumps(dict(
-                    state=state.tojsondict(),
-                    url=url,
-                    changes_url=changes_url
+            elem.set(
+                "jmb:data",
+                json.dumps(
+                    dict(state=state.tojsondict(), url=url, changes_url=changes_url),
+                    separators=(",", ":"),
+                    sort_keys=True,
                 ),
-                separators=(",", ":"),
-                sort_keys=True,
-                )
             )
             # elem.set("jmb:state", json_state)
             # elem.set("jmb:url", url)

@@ -35,9 +35,9 @@ def test_wiki(jmb, client):
     # database
     class WikiDb:
         def __init__(self):
-            self.pages: Dict[str, "WikiPage"] = [
-                WikiPage(name="root", title="Root", parent=None)
-            ]
+            self.pages: Dict[str, "WikiPage"] = dict(
+                root=WikiPage(name="root", title="Root", parent=None)
+            )
 
         def exist(self, page_path: str) -> bool:
             return page_path in self.pages
@@ -49,7 +49,7 @@ def test_wiki(jmb, client):
             return self.pages[page_path]
 
         def get_children(self, page_path: str):
-            return [page for page in self.pages if page.parent == page_path]
+            return [page for page in self.pages.values() if page.parent == page_path]
 
         def get_root_page(self):
             return self.pages["root"]
@@ -75,9 +75,9 @@ def test_wiki(jmb, client):
     # components
     class View(Component):
         def __init__(self, page_path: UrlPath):
-            super.__init__()
-            if not wikidb.exist(page_path):
+            if not wikidb.exist(self.state.page_path):
                 raise NotFound()
+            super().__init__()
 
         def display(self):
             self.page = wikidb.get(self.state.page_path)
@@ -169,7 +169,7 @@ def test_wiki(jmb, client):
                 wikidb.add(wpage)
                 self.state.page_path = wpage.path
                 self.emit("save")
-                return False # don't redisplay
+                return False  # don't redisplay
             self.state.form.error = "Name and title are required"
 
         def display(self):
@@ -191,7 +191,7 @@ def test_wiki(jmb, client):
 
         @listener(event="set_page_title")
         def on_set_page_title(self, event):
-            self.state.title = event.params.title
+            self.state.title = event.title
             return False
 
         @action(deferred=True)
@@ -209,22 +209,44 @@ def test_wiki(jmb, client):
             self.goto: Optional[str] = None
             super().__init__()
 
-        @listener(event="_display", source=["./view", "./edit", "./add"])
+        # @listener(event="_display", source=["./view", "./edit", "./add"])
+        @listener(event="_display", source="./view")
         def on_display_child(self, event):
             self.state.mode = event.source._config.name
-
-        @listener(event=["cancel", "save"], source=["./edit", "./add"])
-        def on_cancel_edit_or_add(self, event):
             self.goto = event.source.state.page_path
-            self.state.mode = "view"
+
+        # @listener(event=["cancel", "save"], source=["./edit", "./add"])
+        # def on_cancel_edit_or_add(self, event):
+        #     self.goto = event.source.state.page_path
+        #     self.state.mode = "view"
 
         def display(self):
+            if self.goto is None:
+                self.goto = wikidb.get_root_page().path
+
             return self.render_template_string(
                 "<html><head>{{component('page_title')}}</head>"
-                "<body>{{component(mode, page_path=goto) if goto else component(mode)}}</body></html>"
+                "<body>{{component(mode, page_path=goto)}}</body></html>"
             )
 
     # TODO initial display
+    r = client.get("/wiki")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/wiki" jmb:data=\'{"changes_url":true,"state":{"mode":"view"},"url":"/wiki"}\'>"""
+        """<head><title jmb:name="/wiki/page_title" jmb:data=\'{"changes_url":false,"state":{"title":"Root"},"url":"/wiki/page_title"}\'>Root</title></head>"""
+        """<body>"""
+        """<div jmb:name="/wiki/view" jmb:data=\'{"changes_url":true,"state":{"page_path":"root"},"url":"/wiki/view/root"}\'>"""
+        """<h1>Root</h1>"""
+        """<div></div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    # TODO staging deffered command not working when handlig exception make test case and fix it
+        # Create add_staging_command and move_staging_commands methods to handle this if necessary
+
     # TODO try edit root before loggedin
     # login
     # TODO change root title - invalid title

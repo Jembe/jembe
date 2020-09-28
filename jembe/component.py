@@ -109,7 +109,7 @@ class _SubComponentRenderer:
             ),
             end=True,
         )
-        return '<div jmb-placeholder="{}"></div>'.format(component_exec_name)
+        return '<jmb-placeholder exec-name="{}"/>'.format(component_exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key
@@ -156,6 +156,7 @@ def componentInitDecorator(init_method):
                 }
             )
             self.state._injected_params_names = self._jembe_injected_params_names
+        # TODO raise Jembe error if not all required params are present
         init_method(self, *args, **kwargs)
 
     return decoratedInit

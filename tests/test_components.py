@@ -103,7 +103,7 @@ def test_counter(jmb, client):
     assert r.status_code == 200
 
     ajax_response_data = json.loads(r.data)
-    counter1_page_html = """<html><head></head><body><div jmb-placeholder="/cpage/counter"></div></body></html>"""
+    counter1_page_html = """<html><head></head><body><jmb-placeholder exec-name="/cpage/counter"/></body></html>"""
     assert len(ajax_response_data) == 1
     assert ajax_response_data[0]["execName"] == "/cpage/counter"
     assert ajax_response_data[0]["state"] == {"value": 1}
@@ -275,9 +275,9 @@ def test_multi_counter(jmb, client):
     assert ajax_response_data[1]["state"] == dict()
     assert ajax_response_data[1]["dom"] == (
         """<html><head></head><body>"""
-        """<div jmb-placeholder="/cpage/counter.first"></div>"""
-        """<div jmb-placeholder="/cpage/counter.second"></div>"""
-        """<div jmb-placeholder="/cpage/counter.third"></div>"""
+        """<jmb-placeholder exec-name="/cpage/counter.first"/>"""
+        """<jmb-placeholder exec-name="/cpage/counter.second"/>"""
+        """<jmb-placeholder exec-name="/cpage/counter.third"/>"""
         """</body></html>"""
     )
     assert ajax_response_data[1]["url"] == "/cpage"
@@ -609,7 +609,7 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.first"
@@ -646,8 +646,8 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
@@ -697,9 +697,9 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
-        """<div><div jmb-placeholder="/cpage/counter.third"></div><button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.third"/><button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
@@ -786,8 +786,8 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><div jmb-placeholder="/cpage/counter.first"></div><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><div jmb-placeholder="/cpage/counter.second"></div><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
 
@@ -1029,6 +1029,128 @@ def test_catch_errors_while_rendering(jmb, client):
     ).encode("utf-8")
 
 
+def test_error_handling_leaves_empty_placeholder(client, jmb):
+    class A(Component):
+        def display(self):
+            raise ValueError()
+
+    @jmb.page("page", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        @listener(event="_exception", source="./a")
+        def on_error_in_a(self, event):
+            event.handled = True
+
+        def display(self):
+            return self.render_template_string(
+                "<html><body>{{component('a')}}</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body></body></html>"""
+    ).encode("utf-8")
+
+
+def test_error_handling_leaves_empty_placeholder_deep(client, jmb):
+    class B(Component):
+        def display(self):
+            raise ValueError()
+
+    @config(Component.Config(components=dict(b=B)))
+    class A(Component):
+        @listener(event="_exception", source="./b")
+        def on_error_in_b(self, event):
+            event.handled = True
+
+        def display(self):
+            return self.render_template_string("<div>{{component('b')}}</div>")
+
+    @jmb.page("page", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        def display(self):
+            return self.render_template_string(
+                "<html><body>{{component('a')}}</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"changes_url":true,"state":{},"url":"/page/a"}\'></div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+
+def test_error_handling_with_listener_on_display_with_deferred_action(client, jmb):
+    class B(Component):
+        def display(self):
+            raise (ValueError())
+
+    class C(Component):
+        def __init__(self):
+            self.error_counter = 0
+            super().__init__()
+
+        @listener(event="update_error_counter")
+        def on_error(self, event):
+            self.error_counter += 1
+
+        @action(deferred=True)
+        def display(self):
+            return self.render_template_string("<div>errors {{error_counter}}</div>")
+
+    @config(Component.Config(components=dict(b=B)))
+    class A(Component):
+        def __init__(self, b_has_error:bool=False):
+            # self.b_has_error = False
+            super().__init__()
+
+        @listener(event="_exception", source="./b")
+        def on_error_in_b(self, event):
+            event.handled = True
+            self.state.b_has_error = True
+
+        def display(self):
+            if self.state.b_has_error:
+                self.emit("update_error_counter")
+                return self.render_template_string("<div>b has error</div>")
+            else:
+                return self.render_template_string("<div>{{component('b')}}</div>")
+
+    @jmb.page("page", Component.Config(components=dict(a=A, c=C)))
+    class Page(Component):
+        def display(self):
+            return self.render_template_string(
+                "<html><body>{{component('c')}}{{component('a')}}</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/c" jmb:data=\'{"changes_url":true,"state":{},"url":"/page/c"}\'>errors 1</div>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"changes_url":true,"state":{"b_has_error":true},"url":"/page/a"}\'>b has error</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r2 = client.get("/page/c")
+    assert r2.status_code == 200
+    assert r2.data == r.data
+    r2 = client.get("/page/a")
+    assert r2.status_code == 200
+    assert r2.data == r.data
+    r2 = client.get("/page/a/b")
+    assert r2.status_code == 200
+    assert r2.data == r.data
+
+
+# def test_error_handling_of_itself
 def test_inject_init_params_to_component(jmb, client):
     """
     inject params are used to inject cross functional params into component.
