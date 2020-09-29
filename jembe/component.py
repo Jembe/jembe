@@ -3,7 +3,7 @@ from copy import deepcopy
 from abc import ABCMeta
 from inspect import signature
 from .exceptions import JembeError
-from flask import render_template, render_template_string, Markup, current_app
+from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
 from .app import get_processor
 from .processor import CallActionCommand, InitialiseCommand, EmitCommand
@@ -26,8 +26,9 @@ class ComponentState(dict):
     Appon initialising component_state params can't be added or deleted from 
     that state but values of the existing params can change
     """
+
     def __init__(self, *args, **kwargs):
-        self._injected_params_names:List[str] = []
+        self._injected_params_names: List[str] = []
         super().__init__(*args, **kwargs)
 
     def __setitem__(self, key, value):
@@ -63,7 +64,7 @@ class ComponentState(dict):
         return c
 
     def tojsondict(self):
-        return {k:v for k, v in self.items() if k not in self._injected_params_names}
+        return {k: v for k, v in self.items() if k not in self._injected_params_names}
 
 
 class _SubComponentRenderer:
@@ -105,7 +106,7 @@ class _SubComponentRenderer:
         # with appropriate template
         processor.add_command(
             CallActionCommand(
-                component_exec_name, self.action, self.action_args, self.action_kwargs
+                component_exec_name, self.action, self.action_args, self.action_kwargs,
             ),
             end=True,
         )

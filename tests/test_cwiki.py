@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List
+from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict
 from flask import json
 from jembe import (
     Component,
@@ -104,7 +104,7 @@ def test_wiki(jmb, client):
             if form is None:
                 self.state.form = WikiEditForm(title=self.page.title)
 
-            super.__init__()
+            super().__init__()
 
         def inject(self):
             return dict(user=session.get("user", None))
@@ -133,7 +133,7 @@ def test_wiki(jmb, client):
             try:
                 return self._page
             except AttributeError:
-                self._page = wikidb.get(self.state.page_path)
+                self._page: "WikiPage" = wikidb.get(self.state.page_path)
                 return self._page
 
     class Add(Component):
@@ -152,7 +152,7 @@ def test_wiki(jmb, client):
             if form is None:
                 self.state.form = WikiAddForm(name="", title="")
 
-            super.__init__()
+            super().__init__()
 
         def inject(self):
             return dict(user=session.get("user", None))
@@ -245,7 +245,7 @@ def test_wiki(jmb, client):
         """</body></html>"""
     ).encode("utf-8")
     # TODO staging deffered command not working when handlig exception make test case and fix it
-        # Create add_staging_command and move_staging_commands methods to handle this if necessary
+    # Create add_staging_command and move_staging_commands methods to handle this if necessary
 
     # TODO try edit root before loggedin
     # login

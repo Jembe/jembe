@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List
+from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict
 from jembe import Component
 from flask import json
 from jembe import (

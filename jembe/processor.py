@@ -1,26 +1,24 @@
 from typing import (
     TYPE_CHECKING,
+    TypeVar,
     Dict,
-    cast,
-    Type,
     List,
     Optional,
-    Union,
     Sequence,
-    Tuple,
     Deque,
     Any,
     NamedTuple,
 )
+from abc import ABC, abstractmethod
 import re
 from copy import deepcopy
 from enum import Enum
-from collections import deque, namedtuple
+from collections import deque
 from itertools import accumulate, chain
 from operator import add
 from lxml import etree
 from lxml.html import Element
-from flask import json, escape, jsonify, Response
+from flask import json, jsonify, Response
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
@@ -81,16 +79,26 @@ class SystemEvents(Enum):
     EXCEPTION = "_exception"
 
 
-class Command:
+TCommand = TypeVar("TCommand", bound="Command")
+
+
+class Command(ABC):
     jembe: "Jembe"
 
     def __init__(self, component_exec_name: str):
         self.component_exec_name = component_exec_name
+        self.processor: "Processor"
+        self.is_mounted = False
 
-    def mount(self, processor: "Processor") -> "Command":
+    def mount(self: TCommand, processor: "Processor") -> TCommand:
+        if self.is_mounted:
+            raise JembeError("Command {} is already mounted".format(self.__repr__()))
+
+        self.is_mounted = True
         self.processor = processor
         return self
 
+    @abstractmethod
     def execute(self):
         raise NotImplementedError()
 
@@ -212,7 +220,7 @@ class CallActionCommand(Command):
                 self.component_exec_name,
                 SystemEvents.CALLING.value,
                 dict(action=self.action_name),
-            ),
+            ).mount(self.processor),
         ]
         if self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION:
             commands.append(
@@ -220,7 +228,7 @@ class CallActionCommand(Command):
                     self.component_exec_name,
                     SystemEvents.DISPLAYING.value,
                     dict(action=self.action_name),
-                )
+                ).mount(self.processor)
             )
         return commands
 
@@ -230,7 +238,7 @@ class CallActionCommand(Command):
                 self.component_exec_name,
                 SystemEvents.CALL.value,
                 dict(action=self.action_name),
-            ),
+            ).mount(self.processor),
         ]
         if self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION:
             commands.append(
@@ -238,7 +246,7 @@ class CallActionCommand(Command):
                     self.component_exec_name,
                     SystemEvents.DISPLAY.value,
                     dict(action=self.action_name),
-                )
+                ).mount(self.processor)
             )
         return commands
 
@@ -247,7 +255,9 @@ class CallActionCommand(Command):
 
 
 class CallListenerCommand(Command):
-    def __init__(self, component_exec_name: str, listener_name: str, event: "Event"):
+    def __init__(
+        self, component_exec_name: str, listener_name: str, event: "Event",
+    ):
         super().__init__(component_exec_name)
         self.listener_name = listener_name
         self.event = event
@@ -292,7 +302,10 @@ class CallListenerCommand(Command):
 
 
 class EmitCommand(Command):
-    def __init__(self, component_exec_name: str, event_name: str, params: dict):
+    # TODO match listner extract as method
+    def __init__(
+        self, component_exec_name: str, event_name: str, params: dict,
+    ):
         super().__init__(component_exec_name)
         self.event_name = event_name
         self.params = params
@@ -367,6 +380,9 @@ class EmitCommand(Command):
                             component.exec_name, listener_method_name, self.event
                         )
                     )
+
+        if self.primary_execution:
+            self.processor._emited_event_commands.append(self)
 
     @classmethod
     def _glob_match_exec_name(
@@ -485,7 +501,7 @@ class EmitCommand(Command):
             ):
                 commands.append(
                     CallListenerCommand(
-                        reemit_component.exec_name, listener_method_name, self.event
+                        reemit_component.exec_name, listener_method_name, self.event,
                     )
                 )
         return commands
@@ -493,43 +509,49 @@ class EmitCommand(Command):
 
 class InitialiseCommand(Command):
     def __init__(
-        self, component_exec_name: str, init_params: dict, exist_on_client: bool = False
+        self,
+        component_exec_name: str,
+        init_params: dict,
+        exist_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
         self.init_params = init_params
         self.exist_on_client = exist_on_client
 
-        self._do_init = True
         self._cconfig: "ComponentConfig"
 
-    def mount(self, processor):
-        from .component import Component
+    @property
+    def _must_do_init(self):
+        try:
+            return self.__must_do_init
+        except AttributeError:
+            self.__must_do_init = True
 
-        super().mount(processor)
+            from .component import Component
 
-        component_full_name = Component._exec_name_to_full_name(
-            self.component_exec_name
-        )
-        self._cconfig = self.processor.jembe.components_configs[component_full_name]
+            component_full_name = Component._exec_name_to_full_name(
+                self.component_exec_name
+            )
+            self._cconfig = self.processor.jembe.components_configs[component_full_name]
 
-        if self.component_exec_name in self.processor.components:
-            # if state params are same continue
-            # else raise jembeerror until find better solution
-            component = self.processor.components[self.component_exec_name]
-            for key, value in component.state.items():
-                if key in self.init_params and value != self.init_params[key]:
-                    raise JembeError(
-                        "Rendering component with different state params from existing compoenent {}".format(
-                            component
+            if self.component_exec_name in self.processor.components:
+                # if state params are same continue
+                # else raise jembeerror until find better solution
+                component = self.processor.components[self.component_exec_name]
+                for key, value in component.state.items():
+                    if key in self.init_params and value != self.init_params[key]:
+                        raise JembeError(
+                            "Rendering component with different state params from existing compoenent {}".format(
+                                component
+                            )
                         )
-                    )
-            self._do_init = False
-        return self
+                self.__must_do_init = False
+            return self.__must_do_init
 
     def execute(self):
         # create new component if component with identical exec_name
         # does not exist
-        if self._do_init:
+        if self._must_do_init:
             component = self._cconfig.component_class(**self.init_params)  # type:ignore
             component.exec_name = self.component_exec_name
             self.processor.components[component.exec_name] = component
@@ -543,6 +565,15 @@ class InitialiseCommand(Command):
                     None,
                 )
 
+            if self.processor._emited_event_commands:
+                # we need to reemit commands to this component
+                for emited_command in self.processor._emited_event_commands:
+                    reemit_commands = emited_command.reemit_over(
+                        self.component_exec_name
+                    )
+                    for remit_cmd in reemit_commands:
+                        self.processor.add_command(remit_cmd, end=True)
+
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
         return (
             (
@@ -550,16 +581,20 @@ class InitialiseCommand(Command):
                     self.component_exec_name,
                     SystemEvents.INITIALISING.value,
                     dict(init_params=self.init_params, _config=self._cconfig),
-                ),
+                ).mount(self.processor),
             )
-            if self._do_init
+            if self._must_do_init
             else ()
         )
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
         return (
-            (EmitCommand(self.component_exec_name, SystemEvents.INIT.value, dict(),),)
-            if self._do_init
+            (
+                EmitCommand(
+                    self.component_exec_name, SystemEvents.INIT.value, dict(),
+                ).mount(self.processor),
+            )
+            if self._must_do_init
             else ()
         )
 
@@ -592,36 +627,14 @@ class ComponentRender(NamedTuple):
     html: Optional[str]
 
 
-class Processor:
-    """
-    1. Will use deapest component.url from all components on the page as window.location
-    2. When any component action or listener returns False default action 
-       (display) will not be called 
-    """
+class CommandsQue:
+    def __init__(self, jembe: "Jembe") -> None:
+        self.commands: Deque["Command"] = deque()
+        self.deferred_commands: Deque["Command"] = deque()
 
-    def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
         self.jembe = jembe
-        self.request = request
 
-        self.components: Dict[str, "Component"] = dict()
-        self._commands: Deque["Command"] = deque()
-        # already emited and processed event commands
-        # that will be executed over newelly initialised component
-        self._emited_event_commands: Deque["EmitCommand"] = deque()
-        # commands created while executing some command and that needs to be
-        # added to commands at the end of command execution
-        self._staging_commands: Deque["Command"] = deque()
-        self._staging_deferred_commands: Deque["Command"] = deque()
-        # component renderers is dict[exec_name] = (componentState, url, rendered_str)
-        self.renderers: Dict[str, "ComponentRender"] = dict()
-        # component that raised exception on initialise
-        # any subsequent command on this component should be ignored
-        self._raised_exception_on_initialise: Dict[str, dict] = dict()
-
-        self.__create_commands(component_full_name)
-        self._move_staging_commands_to_execution_que()
-
-    def add_command(self, command: "Command", end=False):
+    def add_command(self, command: "Command", end=False) -> None:
         """
         Adds new command into staginig commands que.
         if end is True command is added at the end of que (last to execute)
@@ -632,16 +645,17 @@ class Processor:
 
         It also addes all before and after commands in staging que
         """
+        if not command.is_mounted:
+            raise JembeError("Cann't add unmounted command to commands que")
 
         def _do_add_command(que, command, end):
             """ Adds command with before and after command to stack"""
-            command.mount(self)
             before_emit_commands = command.get_before_emit_commands()
 
             if end:
                 # adds to the end of que .. last to execute
                 for before_cmd in before_emit_commands:
-                    que.appendleft(before_cmd.mount(self))
+                    que.appendleft(before_cmd)
 
                 que.appendleft(command)
 
@@ -650,7 +664,7 @@ class Processor:
                 que.append(command)
 
                 for before_cmd in reversed(before_emit_commands):
-                    que.append(before_cmd.mount(self))
+                    que.append(before_cmd)
 
         # Check if command should be deffered
         is_deferred_command = False
@@ -672,16 +686,54 @@ class Processor:
             is_deferred_command = caction.deferred
 
         if is_deferred_command:
-            _do_add_command(self._staging_deferred_commands, command, end)
+            _do_add_command(self.deferred_commands, command, end)
         else:
-            _do_add_command(self._staging_commands, command, end)
+            _do_add_command(self.commands, command, end)
 
-    def _move_staging_commands_to_execution_que(self):
+    def move_commands_to(self, que: Deque["Command"]) -> None:
         """Moves commands from staging que to execution que"""
-        while self._staging_deferred_commands:
-            self._commands.append(self._staging_deferred_commands.popleft())
-        while self._staging_commands:
-            self._commands.append(self._staging_commands.popleft())
+        while self.deferred_commands:
+            que.append(self.deferred_commands.popleft())
+        while self.commands:
+            que.append(self.commands.popleft())
+
+    def clear(self) -> None:
+        self.commands.clear()
+        self.deferred_commands.clear()
+
+
+class Processor:
+    """
+    1. Will use deapest component.url from all components on the page as window.location
+    2. When any component action or listener returns False default action 
+       (display) will not be called 
+    """
+
+    def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
+        self.jembe = jembe
+        self.request = request
+
+        self.components: Dict[str, "Component"] = dict()
+        self._commands: Deque["Command"] = deque()
+        # already emited and processed event commands
+        # that will be executed over newelly initialised component
+        self._emited_event_commands: Deque["EmitCommand"] = deque()
+        # commands created while executing some command and that needs to be
+        # added to commands at the end of command execution
+        self._staging_commands = CommandsQue(self.jembe)
+        # component renderers is dict[exec_name] = (componentState, url, rendered_str)
+        self.renderers: Dict[str, "ComponentRender"] = dict()
+        # component that raised exception on initialise
+        # any subsequent command on this component should be ignored
+        self._raised_exception_on_initialise: Dict[str, dict] = dict()
+
+        self.__create_commands(component_full_name)
+        self._staging_commands.move_commands_to(self._commands)
+
+    def add_command(self, command: "Command", end=False) -> None:
+        self._staging_commands.add_command(
+            command if command.is_mounted else command.mount(self), end
+        )
 
     def __create_commands(self, component_full_name: str):
         if self._is_x_jembe_request():
@@ -786,7 +838,7 @@ class Processor:
             self.add_command(
                 CallActionCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
             )
-        self._move_staging_commands_to_execution_que()
+        self._staging_commands.move_commands_to(self._commands)
 
         self._execute_commands()
 
@@ -808,7 +860,7 @@ class Processor:
         ):
             try:
                 command.execute()
-                self._move_staging_commands_to_execution_que()
+                self._staging_commands.move_commands_to(self._commands)
             except JembeError as jmberror:
                 # JembeError are exceptions raised by jembe
                 # and thay indicate bad usage of framework and
@@ -820,23 +872,7 @@ class Processor:
                 # If execution of command is successfull then
                 # add after commands into command que
                 for after_cmd in reversed(command.get_after_emit_commands()):
-                    self.add_command(after_cmd.mount(self))
-
-                if isinstance(command, EmitCommand) and command.primary_execution:
-                    # If command is emit command we need to save it
-                    # so we can execute it over newly initialised components
-                    self._emited_event_commands.append(command)
-                elif (
-                    isinstance(command, InitialiseCommand)
-                    and self._emited_event_commands
-                ):
-                    # we need to reemit commands to this component
-                    for emited_command in self._emited_event_commands:
-                        reemit_commands = emited_command.reemit_over(
-                            command.component_exec_name
-                        )
-                        for remit_cmd in reemit_commands:
-                            self.add_command(remit_cmd, end=True)
+                    self.add_command(after_cmd)
 
     def execute_initialise_command_successfully(
         self, command: "InitialiseCommand"
@@ -853,22 +889,21 @@ class Processor:
             == self._raised_exception_on_initialise[command.component_exec_name]
         ):
             return False
-        backup_current_staging_commands = self._staging_commands.copy()
-        self._staging_commands.clear()
+
+        backup_current_staging_commands = self._staging_commands
+        self._staging_commands = CommandsQue(self.jembe)
 
         local_que: Deque["Command"] = deque()
-        local_que.append(command.mount(self))
+        local_que.append(command if command.is_mounted else command.mount(self))
         for emit_cmd in command.get_before_emit_commands():
-            local_que.append(emit_cmd.mount(self))
+            local_que.append(emit_cmd)
 
         while local_que:
             # execute command without handling exception
             cmd: "Command" = local_que.pop()
             try:
                 cmd.execute()
-                while self._staging_commands:
-                    local_que.append(self._staging_commands.popleft())
-
+                self._staging_commands.move_commands_to(local_que)
             except JembeError as jmberror:
                 # JembeError are exceptions raised by jembe
                 # and thay indicate bad usage of framework
@@ -884,19 +919,21 @@ class Processor:
                     # initalise command is not run properly
                     # becouse this is check we are not running
                     # exception listeners
-                    self._staging_commands = backup_current_staging_commands.copy()
+
+                    # restore _staging_commands
+                    self._staging_commands = backup_current_staging_commands
                     return False
                 # Before or after command raised exception
                 # this should not happend and that indicated bug so
                 # just reraise exception
                 raise exc
             else:
-                # If execution of command is successfull then
+                # If execution of init command is successfull then
                 # add after commands into command que
                 for after_cmd in reversed(cmd.get_after_emit_commands()):
-                    local_que.append(after_cmd.mount(self))
+                    local_que.append(after_cmd)
 
-        self._staging_commands = backup_current_staging_commands.copy()
+        self._staging_commands = backup_current_staging_commands
         return True
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
@@ -920,19 +957,21 @@ class Processor:
         self._staging_commands.clear()
 
         # Create emit command to emit exception to component parents
-        emit_command = EmitCommand(
-            command.component_exec_name,
-            SystemEvents.EXCEPTION.value,
-            dict(exception=exc, handled=False),
-        ).to("/**/.")
-        emit_command.mount(self)
+        emit_command = (
+            EmitCommand(
+                command.component_exec_name,
+                SystemEvents.EXCEPTION.value,
+                dict(exception=exc, handled=False),
+            )
+            .to("/**/.")
+            .mount(self)
+        )
         emit_command.execute()
-        # self._staging_commands is fill with calllistener comands
+        # self._staging_commands is fill with calllistener commands
         # move it to exception_commands que that will be used
         # to process exception
         exception_commands: Deque["Command"] = deque()
-        while self._staging_commands:
-            exception_commands.append(self._staging_commands.popleft())
+        self._staging_commands.move_commands_to(exception_commands)
         # executes commands from exception_commands que and
         # all new generated commands will be saved in now empty
         # staging_commands que
@@ -940,8 +979,9 @@ class Processor:
             # simple loop no catchin exception when handlin exception
             # commands from exception commands dont have after command
             cmd = exception_commands.pop()
+            # if exception is raised during handling exception ... dont try to catch it :)
             cmd.execute()
-            self._move_staging_commands_to_execution_que()
+            self._staging_commands.move_commands_to(exception_commands)
 
         if not emit_command.event.params["handled"]:
             # if exception is not handled by parent components
@@ -950,6 +990,9 @@ class Processor:
 
         # if exception is handled dont raise exception
         if isinstance(command, InitialiseCommand):
+            # save initialises command that raised exception with params
+            # so we can skip executing other commants on this component
+            # (save to skip execution because we handled exception)
             self._raised_exception_on_initialise[
                 command.component_exec_name
             ] = deepcopy(command.init_params)
