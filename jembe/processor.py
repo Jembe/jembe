@@ -1,4 +1,6 @@
 from typing import (
+    Tuple,
+    Union,
     TYPE_CHECKING,
     TypeVar,
     Dict,
@@ -27,6 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .app import Jembe
     from flask import Request
     from .component import Component, ComponentState
+    from .component_config import ComponentListener
 
 
 class Event:
@@ -309,13 +312,13 @@ class EmitCommand(Command):
         super().__init__(component_exec_name)
         self.event_name = event_name
         self.params = params
-        self._to: Optional[str] = None
+        self._to: Tuple[str, ...] = ()
 
         self.primary_execution = True
 
         self.event: "Event"
 
-    def to(self, to: Optional[str]) -> "EmitCommand":
+    def to(self, to: Optional[Union[str, Sequence[str]]]) -> "EmitCommand":
         """
         emit_event_to is glob like string for finding component.
 
@@ -334,7 +337,12 @@ class EmitCommand(Command):
             - //                                -> emit to my root page TODO
             - etc.
         """
-        self._to = to
+        if to is None:
+            pass
+        elif isinstance(to, str):
+            self._to = (to,)
+        else:
+            self._to = tuple(to)
         return self
 
     def execute(self):
@@ -357,23 +365,12 @@ class EmitCommand(Command):
                 listener_method_name,
                 listener,
             ) in component._config.component_listeners.items():
-                if (
-                    (
-                        listener.event_name is None
-                        or listener.event_name == self.event_name
-                    )
-                    and self._glob_match_exec_name(
-                        # match emit.to with compoenent name
-                        self.component_exec_name,
-                        self._to,
-                        component.exec_name,
-                    )
-                    and self._glob_match_exec_name(
-                        # match for compoennt filter on listener end
-                        component.exec_name,
-                        listener.source,
-                        self.component_exec_name,
-                    )
+                if self._is_match(
+                    source_exec_name=self.component_exec_name,
+                    event_name=self.event_name,
+                    source_to=self._to,
+                    destination_exec_name=component.exec_name,
+                    destination_listener=listener,
                 ):
                     self.processor.add_command(
                         CallListenerCommand(
@@ -408,6 +405,7 @@ class EmitCommand(Command):
             - ../component[.[*|<key>]]          -> match to sibling 
             - /**/.                             -> match to parent at any level
             - /**/component[.[*|<key>]]/**/.    -> match to parent at any level named
+            - //                                -> process event from root page
             - etc.
         """
 
@@ -484,20 +482,12 @@ class EmitCommand(Command):
             listener_method_name,
             listener,
         ) in reemit_component._config.component_listeners.items():
-            if (
-                (listener.event_name is None or listener.event_name == self.event_name)
-                and self._glob_match_exec_name(
-                    # match emit.to with compoenent name
-                    self.component_exec_name,
-                    self._to,
-                    reemit_component.exec_name,
-                )
-                and self._glob_match_exec_name(
-                    # match for compoennt filter on listener end
-                    reemit_component.exec_name,
-                    listener.source,
-                    self.component_exec_name,
-                )
+            if self._is_match(
+                source_exec_name=self.component_exec_name,
+                event_name=self.event_name,
+                source_to=self._to,
+                destination_exec_name=reemit_component_exec_name,
+                destination_listener=listener,
             ):
                 commands.append(
                     CallListenerCommand(
@@ -505,6 +495,51 @@ class EmitCommand(Command):
                     )
                 )
         return commands
+
+    @classmethod
+    def _is_match(
+        cls,
+        source_exec_name: str,
+        event_name: str,
+        source_to: Tuple[str, ...],
+        destination_exec_name: str,
+        destination_listener: "ComponentListener",
+    ) -> bool:
+        def __is_match(
+            _source_to: str,
+            listener_event_name: Optional[str],
+            listener_source: Optional[str],
+        ) -> bool:
+            return (
+                (listener_event_name is None or listener_event_name == event_name)
+                and cls._glob_match_exec_name(
+                    # match emit.to with compoenent name
+                    source_exec_name,
+                    _source_to,
+                    destination_exec_name,
+                )
+                and cls._glob_match_exec_name(
+                    # match for compoennt filter on listener end
+                    destination_exec_name,
+                    listener_source,
+                    source_exec_name,
+                )
+            )
+
+        sources_to: tuple = tuple((None,)) if not source_to else source_to
+        listener_events: tuple = tuple(
+            (None,)
+        ) if not destination_listener.event_names else destination_listener.event_names
+        listener_sources: tuple = tuple(
+            (None,)
+        ) if not destination_listener.sources else destination_listener.sources
+
+        for s_to in sources_to:
+            for dl_event in listener_events:
+                for dl_source in listener_sources:
+                    if __is_match(s_to, dl_event, dl_source):
+                        return True
+        return False
 
 
 class InitialiseCommand(Command):
@@ -1043,7 +1078,7 @@ class Processor:
                 can_find_placeholder = False
                 if response_etree is None:
                     response_etree = c_etrees[unused_exec_names.pop(0)]
-                # TODO compose response including all components not just page
+                # compose response including all components not just page
                 # find all placeholders in response_tree and replace them with
                 # appropriate etrees
                 for placeholder in response_etree.xpath(

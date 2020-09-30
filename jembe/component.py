@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple
 from copy import deepcopy
 from abc import ABCMeta
-from inspect import signature
+from inspect import signature, getmembers
 from .exceptions import JembeError
 from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
@@ -338,8 +338,12 @@ class Component(metaclass=ComponentMeta):
                 for name, value in vars(self).items()
                 if not name.startswith("_")
             },
-            "key": self.key,
-            "exec_name": self.exec_name,
+            # add properties not starting with underscore
+            # exec_name, key, url and all user defined properties
+            **{
+                property_name: getattr(self, property_name) 
+                for property_name, property in getmembers(self.__class__, lambda o: isinstance(o, property))
+            },
             # command to render subcomponents
             "component": self._render_subcomponent_template,
         }

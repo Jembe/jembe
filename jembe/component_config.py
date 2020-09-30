@@ -120,7 +120,7 @@ def action(
 def listener(
     _method=None,
     *,
-    event: Optional[str] = None,
+    event: Optional[Union[str, Sequence[str]]] = None,
     source: Optional[Union[str, Sequence[str]]] = None,
 ):
     """
@@ -139,6 +139,7 @@ def listener(
         - ../component[.[*|<key>]]          -> process event from sibling 
         - /**/.                             -> process event from parent at any level
         - /**/component[.[*|<key>]]/**/.    -> process event from parent at any level named
+        - //                                -> process event from root page
         - etc.
     """
     # This decorator don't anytthing except allow
@@ -231,17 +232,34 @@ class ComponentAction:
 
 class ComponentListener:
     def __init__(
-        self, method_name: str, event_name: Optional[str], source: Tuple[str, ...] = (),
+        self,
+        method_name: str,
+        event_name: Union[str, Sequence[str]],
+        source: Union[str, Sequence[str]] = (),
     ):
-        self.method_name = method_name
-        self.event_name = event_name
-        self.source = source
+        self.method_name: str = method_name
+
+        self.event_names: Tuple[str, ...] = ()
+        if event_name is None:
+            pass
+        elif isinstance(event_name, str):
+            self.event_names = (event_name,)
+        else:
+            self.event_names = tuple(event_name)
+
+        self.sources: Tuple[str, ...] = ()
+        if source is None:
+            pass
+        elif isinstance(source, str):
+            self.sources = (source,)
+        else:
+            self.sources = tuple(source)
 
     @classmethod
     def from_method(cls, method) -> "ComponentListener":
         return cls(
             method.__name__,
-            getattr(method, "_jembe_listener_event_name", None),
+            getattr(method, "_jembe_listener_event_name", ()),
             getattr(method, "_jembe_listener_source", ()),
         )
 
