@@ -358,8 +358,7 @@ class EmitCommand(Command):
             to=self._to,
             params=self.params,
         )
-        # TODO if event_name is _exception order self.processor.components.items from top to bottom
-        # and include only parent componets from self.compoent
+        execute_over:List[Tuple["Component", str]] = []
         for exec_name, component in self.processor.components.items():
             for (
                 listener_method_name,
@@ -372,11 +371,16 @@ class EmitCommand(Command):
                     destination_exec_name=component.exec_name,
                     destination_listener=listener,
                 ):
-                    self.processor.add_command(
-                        CallListenerCommand(
-                            component.exec_name, listener_method_name, self.event
-                        )
-                    )
+                    execute_over.append((component, listener_method_name))
+        
+        # order components from top to bottom
+        execute_over.sort(key=lambda t:t[0]._config._hiearchy_level, reverse=True)
+        for comp, listener_method_name in execute_over:
+            self.processor.add_command(
+                CallListenerCommand(
+                    comp.exec_name, listener_method_name, self.event
+                )
+            )
 
         if self.primary_execution:
             self.processor._emited_event_commands.append(self)
