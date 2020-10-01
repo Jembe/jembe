@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple
+import pdb
+from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple, get_args
 from copy import deepcopy
 from abc import ABCMeta
 from inspect import signature, getmembers
@@ -7,12 +8,11 @@ from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
 from .app import get_processor
 from .processor import CallActionCommand, InitialiseCommand, EmitCommand
+from .common import exec_name_to_full_name
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .common import ComponentRef
     from flask import Response
     from inspect import Signature
-    from .processor import Processor
 
 
 class ComponentState(dict):
@@ -63,8 +63,12 @@ class ComponentState(dict):
         c._injected_params_names = deepcopy(self._injected_params_names)
         return c
 
-    def tojsondict(self):
-        return {k: v for k, v in self.items() if k not in self._injected_params_names}
+    def tojsondict(self, cconfig: "ComponentConfig"):
+        return {
+            k: cconfig.component_class.encode_param(cconfig, k, v)
+            for k, v in self.items()
+            if k not in self._injected_params_names
+        }
 
 
 class _SubComponentRenderer:
@@ -213,7 +217,7 @@ class Component(metaclass=ComponentMeta):
     @exec_name.setter
     def exec_name(self, exec_name: str):
         # verify exec_name with _config.full_name
-        if self._exec_name_to_full_name(exec_name) != self._config.full_name:
+        if exec_name_to_full_name(exec_name) != self._config.full_name:
             raise JembeError(
                 "Invalid exec_name {} for {}".format(exec_name, self._config.full_name)
             )
@@ -233,25 +237,12 @@ class Component(metaclass=ComponentMeta):
         # TODO set __exec_name
 
     @classmethod
-    def _exec_name_to_full_name(cls, exec_name: str) -> str:
-        """
-        Removes component keys from exec name to get full_name.
-
-        keys in exec_name are separated by . (dot)
-        """
-        return "/".join(ck.split(".")[0] for ck in exec_name.split("/"))
-
-    @classmethod
     def _build_exec_name(
         cls, name: str, key: str = "", parent_exec_name: str = ""
     ) -> str:
         """Build component exec name"""
         local_exec_name = name if not key else "{}.{}".format(name, key)
         return "/".join((parent_exec_name, local_exec_name))
-
-    @classmethod
-    def _is_page_exec_name(cls, exec_name: str) -> bool:
-        return len(exec_name.strip("/").split("/")) == 1
 
     @property
     def url(self) -> Optional[str]:
@@ -260,6 +251,46 @@ class Component(metaclass=ComponentMeta):
         components and url_path of this component
         """
         return self._config.build_url(self.exec_name)
+
+    @classmethod
+    def encode_param(
+        cls, cconfig: "ComponentConfig", param_name: str, param_value: Any
+    ) -> Any:
+        """
+        Encode state param for sending to client (encoded param will be  transformed to json).
+
+        Encoded value (return value) should be build using only following types:
+
+        - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None
+
+        """
+        return param_value
+
+    @classmethod
+    def decode_param(
+        cls, cconfig: "ComponentConfig", param_name: str, param_value: Any
+    ) -> Any:
+        """
+        Decode state param received via json call to be uset to initialise in __init__.
+        param_value is decoded from json received from client.
+
+        Default implemntation suports:
+            - decoding object instances by calling __init__ with named params if 
+              that param is supplied, and setting instance attributes for all other 
+              dict keys received from client that can not be passed to __init__
+        """
+        def _is_object_instance(param_name):
+            return param_name =='form'
+        if param_value is not None and _is_object_instance(param_name):
+            # decode param of object type
+            param_type_hints = get_args(cls._jembe_init_signature.parameters[param_name].annotation)
+            print('deocode form', param_type_hints)
+            param_class = param_type_hints[0]
+            return param_class(**param_value)
+            # return param_value 
+        
+        return param_value
+
 
     def inject(self) -> Dict[str, Any]:
         """
@@ -341,8 +372,10 @@ class Component(metaclass=ComponentMeta):
             # add properties not starting with underscore
             # exec_name, key, url and all user defined properties
             **{
-                property_name: getattr(self, property_name) 
-                for property_name, property in getmembers(self.__class__, lambda o: isinstance(o, property))
+                property_name: getattr(self, property_name)
+                for property_name, property in getmembers(
+                    self.__class__, lambda o: isinstance(o, property)
+                )
             },
             # command to render subcomponents
             "component": self._render_subcomponent_template,

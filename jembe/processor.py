@@ -21,6 +21,7 @@ from operator import add
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
+from .common import exec_name_to_full_name, is_page_exec_name
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
@@ -116,9 +117,7 @@ class Command(ABC):
 
     @property
     def component_full_name(self):
-        from .component import Component
-
-        return Component._exec_name_to_full_name(self.component_exec_name)
+        return exec_name_to_full_name(self.component_exec_name)
 
 
 class CallActionCommand(Command):
@@ -358,7 +357,7 @@ class EmitCommand(Command):
             to=self._to,
             params=self.params,
         )
-        execute_over:List[Tuple["Component", str]] = []
+        execute_over: List[Tuple["Component", str]] = []
         for exec_name, component in self.processor.components.items():
             for (
                 listener_method_name,
@@ -372,14 +371,12 @@ class EmitCommand(Command):
                     destination_listener=listener,
                 ):
                     execute_over.append((component, listener_method_name))
-        
+
         # order components from top to bottom
-        execute_over.sort(key=lambda t:t[0]._config._hiearchy_level, reverse=True)
+        execute_over.sort(key=lambda t: t[0]._config._hiearchy_level, reverse=True)
         for comp, listener_method_name in execute_over:
             self.processor.add_command(
-                CallListenerCommand(
-                    comp.exec_name, listener_method_name, self.event
-                )
+                CallListenerCommand(comp.exec_name, listener_method_name, self.event)
             )
 
         if self.primary_execution:
@@ -566,11 +563,7 @@ class InitialiseCommand(Command):
         except AttributeError:
             self.__must_do_init = True
 
-            from .component import Component
-
-            component_full_name = Component._exec_name_to_full_name(
-                self.component_exec_name
-            )
+            component_full_name = exec_name_to_full_name(self.component_exec_name)
             self._cconfig = self.processor.jembe.components_configs[component_full_name]
 
             if self.component_exec_name in self.processor.components:
@@ -639,21 +632,6 @@ class InitialiseCommand(Command):
 
     def __repr__(self):
         return "Init({})".format(self.component_exec_name)
-
-
-def command_factory(command_data: dict) -> "Command":
-    if command_data["type"] == "call":
-        return CallActionCommand(
-            command_data["componentExecName"],
-            command_data["actionName"],
-            command_data["args"],
-            command_data["kwargs"],
-        )
-    elif command_data["type"] == "init":
-        return InitialiseCommand(
-            command_data["componentExecName"], command_data["initParams"],
-        )
-    raise NotImplementedError()
 
 
 class ComponentRender(NamedTuple):
@@ -774,6 +752,48 @@ class Processor:
             command if command.is_mounted else command.mount(self), end
         )
 
+    def _decode_init_params(self, exec_name: str, init_params: dict) -> dict:
+        cconfig = self.jembe.components_configs[exec_name_to_full_name(exec_name)]
+        decoded_params = dict()
+        for param_name, param_value in init_params.items():
+            decoded_params[param_name] = cconfig.component_class.decode_param(
+                cconfig, param_name, param_value
+            )
+        return decoded_params
+
+    def _x_jembe_command_factory(
+        self, command_data: dict, is_component: bool = False
+    ) -> "Command":
+        """Process data received by json and build commands
+        
+            is_component - mark that command_data is received in components section of x-jembe request
+                        describing current compoents and their state displayed to the user
+        """
+
+        if is_component:
+            return InitialiseCommand(
+                command_data["execName"],
+                self._decode_init_params(
+                    command_data["execName"], command_data["state"]
+                ),
+                exist_on_client=True,
+            )
+        elif command_data["type"] == "init":
+            return InitialiseCommand(
+                command_data["componentExecName"],
+                self._decode_init_params(
+                    command_data["componentExecName"], command_data["initParams"]
+                ),
+            )
+        elif command_data["type"] == "call":
+            return CallActionCommand(
+                command_data["componentExecName"],
+                command_data["actionName"],
+                command_data["args"],
+                command_data["kwargs"],
+            )
+        raise NotImplementedError()
+
     def __create_commands(self, component_full_name: str):
         if self._is_x_jembe_request():
             # x-jembe ajax request
@@ -782,12 +802,7 @@ class Processor:
             to_be_initialised = []
             for component_data in data["components"]:
                 self.add_command(
-                    InitialiseCommand(
-                        component_data["execName"],
-                        component_data["state"],
-                        exist_on_client=True,
-                    ),
-                    end=True,
+                    self._x_jembe_command_factory(component_data, is_component=True), end=True,
                 )
                 to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
@@ -795,7 +810,7 @@ class Processor:
 
             # init commands
             for command_data in data["commands"]:
-                self.add_command(command_factory(command_data), end=True)
+                self.add_command(self._x_jembe_command_factory(command_data), end=True)
         else:
             # regular http/s GET request
             exec_names = self.__create_commands_from_url_path(
@@ -852,7 +867,16 @@ class Processor:
                     up.name: self.request.view_args[up.identifier]
                     for up in cconfig._url_params
                 }
-                self.add_command(InitialiseCommand(exec_name, init_params), end=True)
+                self.add_command(
+                    self._x_jembe_command_factory(
+                        dict(
+                            type="init",
+                            componentExecName=exec_name,
+                            initParams=init_params,
+                        )
+                    ),
+                    end=True,
+                )
             exec_names.append(exec_name)
 
         return exec_names
@@ -1048,7 +1072,11 @@ class Processor:
                     ajax_responses.append(
                         dict(
                             execName=exec_name,
-                            state=state.tojsondict(),
+                            state=state.tojsondict(
+                                self.jembe.components_configs[
+                                    exec_name_to_full_name(exec_name)
+                                ]
+                            ),
                             dom=html,
                             url=url,
                             changes_url=changes_url,
@@ -1125,29 +1153,30 @@ class Processor:
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
-        from .component import Component
 
         def set_jmb_attrs(elem):
             elem.set("jmb:name", exec_name)
-            json_state = json.dumps(
-                state.tojsondict(), separators=(",", ":"), sort_keys=True,
-            )
             elem.set(
                 "jmb:data",
                 json.dumps(
-                    dict(state=state.tojsondict(), url=url, changes_url=changes_url),
+                    dict(
+                        state=state.tojsondict(
+                            self.jembe.components_configs[
+                                exec_name_to_full_name(exec_name)
+                            ]
+                        ),
+                        url=url,
+                        changes_url=changes_url,
+                    ),
                     separators=(",", ":"),
                     sort_keys=True,
                 ),
             )
-            # elem.set("jmb:state", json_state)
-            # elem.set("jmb:url", url)
-            # elem.set("jmb:changes_url", changes_url)
 
         if not html:
             html = "<div></div>"
         root = etree.HTML(html)
-        if Component._is_page_exec_name(exec_name):
+        if is_page_exec_name(exec_name):
             # exec_name is fom page component, component with no parent
             doc = root.getroottree()
             set_jmb_attrs(root)

@@ -5,3 +5,14 @@ if TYPE_CHECKING: # pragma: no cover
 
 ComponentRef = Union[Type["Component"], Tuple[Type["Component"], "ComponentConfig"]]
 
+def exec_name_to_full_name(exec_name:str)->str:
+    """
+    Removes component keys from exec name to get full_name.
+
+    keys in exec_name are separated by . (dot)
+    """
+    return "/".join(ck.split(".")[0] for ck in exec_name.split("/"))
+
+def is_page_exec_name(exec_name: str) -> bool:
+    """Is Exec name name of the page"""
+    return len(exec_name.strip("/").split("/")) == 1

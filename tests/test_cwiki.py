@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict
+from typing import TYPE_CHECKING, Optional 
 from flask import json
 from jembe import (
     Component,
@@ -92,7 +92,7 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional["WikiEditForm"] = None,
+            form: Optional[WikiEditForm] = None,
             user: Optional["User"] = None,
         ):
             if not wikidb.exist(page_path):
@@ -105,6 +105,7 @@ def test_wiki(jmb, client):
                 self.state.form = WikiEditForm(title=self.page.title)
 
             super().__init__()
+
 
         def inject(self):
             return dict(user=session.get("user", None))
@@ -141,7 +142,7 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional["WikiAddForm"] = None,
+            form: Optional[WikiAddForm] = None,
             user: Optional["User"] = None,
         ):
             if not wikidb.exist(page_path):
