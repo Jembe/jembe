@@ -1,8 +1,18 @@
-import pdb
-from typing import TYPE_CHECKING, Optional, Union, Dict, Any, List, Tuple, get_args
+from typing import (
+    TYPE_CHECKING,
+    ForwardRef,
+    Optional,
+    Union,
+    Dict,
+    Any,
+    List,
+    Tuple,
+    get_args,
+    Type,
+)
 from copy import deepcopy
 from abc import ABCMeta
-from inspect import signature, getmembers
+from inspect import isclass, isfunction, signature, getmembers
 from .exceptions import JembeError
 from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
@@ -63,9 +73,9 @@ class ComponentState(dict):
         c._injected_params_names = deepcopy(self._injected_params_names)
         return c
 
-    def tojsondict(self, cconfig: "ComponentConfig"):
+    def tojsondict(self, component_class: Type["Component"]):
         return {
-            k: cconfig.component_class.encode_param(cconfig, k, v)
+            k: component_class.encode_param(k, v)
             for k, v in self.items()
             if k not in self._injected_params_names
         }
@@ -253,9 +263,7 @@ class Component(metaclass=ComponentMeta):
         return self._config.build_url(self.exec_name)
 
     @classmethod
-    def encode_param(
-        cls, cconfig: "ComponentConfig", param_name: str, param_value: Any
-    ) -> Any:
+    def encode_param(cls, param_name: str, param_value: Any) -> Any:
         """
         Encode state param for sending to client (encoded param will be  transformed to json).
 
@@ -267,30 +275,70 @@ class Component(metaclass=ComponentMeta):
         return param_value
 
     @classmethod
-    def decode_param(
-        cls, cconfig: "ComponentConfig", param_name: str, param_value: Any
-    ) -> Any:
+    def decode_param(cls, param_name: str, param_value: Any) -> Any:
         """
         Decode state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
 
         Default implemntation suports:
-            - decoding object instances by calling __init__ with named params if 
-              that param is supplied, and setting instance attributes for all other 
-              dict keys received from client that can not be passed to __init__
+            - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None, via
+              default json decode.
+            - if any other type hint (or no hint) is set for state param and we are running in 
+              debug mode exception will be raised (No exception will be raised in production
+              because hint checking can be expensive)
         """
-        def _is_object_instance(param_name):
-            return param_name =='form'
-        if param_value is not None and _is_object_instance(param_name):
-            # decode param of object type
-            param_type_hints = get_args(cls._jembe_init_signature.parameters[param_name].annotation)
-            print('deocode form', param_type_hints)
-            param_class = param_type_hints[0]
-            return param_class(**param_value)
-            # return param_value 
-        
-        return param_value
 
+        def _supported_hint(param_hint):
+            # TODO Grrr not good hint checking, need to learn more before making it good
+            valid_annotations = ("str", "int", "NoneType")
+            if isinstance(param_hint.annotation, ForwardRef):
+                return False
+            elif isfunction(param_hint.annotation):
+                # should handle annoation with new type
+                # or raise exception
+                return param_hint.annotation.__supertype__.__name__ in valid_annotations
+            elif isclass(param_hint.annotation):
+                return param_hint.annotation.__name__ in valid_annotations
+            else:
+                hint_args = get_args(param_hint.annotation)
+                if not hint_args:
+                    raise NotImplementedError()
+                for arg in hint_args:
+                    if isinstance(arg, ForwardRef):
+                        return False
+                    elif isfunction(arg):
+                        return (
+                            param_hint.annotation.__supertype__.__name__
+                            in valid_annotations
+                        )
+                    elif isclass(arg) and not arg.__name__ in valid_annotations:
+                        return False
+            return True
+
+        if current_app.debug or current_app.testing:
+            if param_name in cls._jembe_init_signature.parameters:
+                # check if param hint is supported
+                param_hint = cls._jembe_init_signature.parameters[param_name]
+                if not _supported_hint(param_hint):
+                    raise JembeError(
+                        "State param {} of {} with hint {} is not supported for json encode/decode "
+                        "nor custom encoding/decoding logic is defined in encode_param/decode_param."
+                        "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
+                        "init- & float-derivated Enums, bool, Optional".format(
+                            param_name, cls._config.full_name, param_hint
+                        )
+                    )
+            else:
+                raise JembeError(
+                    "State param {} of {} does not have supported json encode/decode type hint "
+                    "nor custom encoding/decoding logic is defined in encode_param/decode_param."
+                    "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
+                    "init- & float-derivated Enums, bool, Optional".format(
+                        param_name, cls._config.full_name
+                    )
+                )
+
+        return param_value
 
     def inject(self) -> Dict[str, Any]:
         """

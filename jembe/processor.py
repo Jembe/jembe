@@ -1,5 +1,6 @@
 from typing import (
     Tuple,
+    Type,
     Union,
     TYPE_CHECKING,
     TypeVar,
@@ -753,11 +754,14 @@ class Processor:
         )
 
     def _decode_init_params(self, exec_name: str, init_params: dict) -> dict:
-        cconfig = self.jembe.components_configs[exec_name_to_full_name(exec_name)]
+        component_class = self.jembe.components_configs[
+            exec_name_to_full_name(exec_name)
+        ].component_class
+
         decoded_params = dict()
         for param_name, param_value in init_params.items():
-            decoded_params[param_name] = cconfig.component_class.decode_param(
-                cconfig, param_name, param_value
+            decoded_params[param_name] = component_class.decode_param(
+                param_name, param_value
             )
         return decoded_params
 
@@ -802,7 +806,8 @@ class Processor:
             to_be_initialised = []
             for component_data in data["components"]:
                 self.add_command(
-                    self._x_jembe_command_factory(component_data, is_component=True), end=True,
+                    self._x_jembe_command_factory(component_data, is_component=True),
+                    end=True,
                 )
                 to_be_initialised.append(component_data["execName"])
             # init components from url_path if thay doesnot exist in data["compoenents"]
@@ -1075,7 +1080,7 @@ class Processor:
                             state=state.tojsondict(
                                 self.jembe.components_configs[
                                     exec_name_to_full_name(exec_name)
-                                ]
+                                ].component_class
                             ),
                             dom=html,
                             url=url,
@@ -1163,7 +1168,7 @@ class Processor:
                         state=state.tojsondict(
                             self.jembe.components_configs[
                                 exec_name_to_full_name(exec_name)
-                            ]
+                            ].component_class
                         ),
                         url=url,
                         changes_url=changes_url,

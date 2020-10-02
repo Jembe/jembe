@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Optional 
+import pdb
+from typing import Any, Dict, TYPE_CHECKING, Optional
 from flask import json
 from jembe import (
     Component,
@@ -11,7 +12,7 @@ from jembe import (
     Unauthorized,
     UrlPath,
 )
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def test_wiki(jmb, client):
@@ -64,13 +65,13 @@ def test_wiki(jmb, client):
     @dataclass
     class WikiEditForm:
         title: str
-        error: Optional[str] = None
+        error: Optional[str] = field(default=None, init=False)
 
     @dataclass
     class WikiAddForm:
         name: str
         title: str
-        error: Optional[str] = None
+        error: Optional[str] = field(default=None, init=False)
 
     # components
     class View(Component):
@@ -92,7 +93,7 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional[WikiEditForm] = None,
+            form: Optional["WikiEditForm"] = None,
             user: Optional["User"] = None,
         ):
             if not wikidb.exist(page_path):
@@ -106,13 +107,21 @@ def test_wiki(jmb, client):
 
             super().__init__()
 
+        @classmethod
+        def decode_param(cls, param_name: str, param_value: Any) -> Any:
+            if param_name == "form":
+                if param_value is None:
+                    return None
+                return WikiEditForm(title=param_value.get("title", ""))
+            else:
+                return super().decode_param(param_name, param_value)
 
         def inject(self):
             return dict(user=session.get("user", None))
 
         @action
         def save(self):
-            # TODO state.form is dict it should be casted to WikiEditForm from jsonobject on initialise 
+            # TODO state.form is dict it should be casted to WikiEditForm from jsonobject on initialise
             is_form_valid = bool(self.state.form.title)
             if is_form_valid:
                 self.page.title = self.state.form.title
@@ -142,7 +151,7 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional[WikiAddForm] = None,
+            form: Optional["WikiAddForm"] = None,
             user: Optional["User"] = None,
         ):
             if not wikidb.exist(page_path):
@@ -155,6 +164,17 @@ def test_wiki(jmb, client):
                 self.state.form = WikiAddForm(name="", title="")
 
             super().__init__()
+
+        @classmethod
+        def decode_param(cls, param_name: str, param_value: Any) -> Any:
+            if param_name == "form":
+                if param_value is None:
+                    return None
+                return WikiAddForm(
+                    name=param_value.get("name", ""), title=param_value.get("title", "")
+                )
+            else:
+                return super().decode_param(param_name, param_value)
 
         def inject(self):
             return dict(user=session.get("user", None))
@@ -231,6 +251,7 @@ def test_wiki(jmb, client):
             )
 
     # initial display
+    ######################################
     r = client.get("/wiki")
     assert r.status_code == 200
     assert r.data == (
@@ -247,6 +268,7 @@ def test_wiki(jmb, client):
     ).encode("utf-8")
 
     # try edit root before loggedin
+    ######################################
     r = client.post(
         "/wiki",
         data=json.dumps(
@@ -277,9 +299,11 @@ def test_wiki(jmb, client):
     assert r.status_code == 401
 
     # login
+    ######################################
     session["user"] = User("admin")
 
     # display edit
+    ######################################
     r = client.post(
         "/wiki",
         data=json.dumps(
@@ -330,6 +354,7 @@ def test_wiki(jmb, client):
     )
 
     # change root title - to invalid title
+    ######################################
     r = client.post(
         "/wiki",
         data=json.dumps(
@@ -342,7 +367,9 @@ def test_wiki(jmb, client):
                     dict(
                         type="init",
                         componentExecName="/wiki/edit",
-                        initParams=dict(form=dict(error=None, title=""), page_path="root"),
+                        initParams=dict(
+                            form=dict(error=None, title=""), page_path="root"
+                        ),
                     ),
                     dict(
                         type="call",
@@ -356,12 +383,12 @@ def test_wiki(jmb, client):
         ),
         headers={"x-jembe": True},
     )
-    json_response = json.loads(r.data)
     assert r.status_code == 200
+    json_response = json.loads(r.data)
     assert len(json_response) == 1
     assert json_response[0]["execName"] == "/wiki/edit"
     assert json_response[0]["state"] == dict(
-        form=dict(error=None, title=""), page_path="root"
+        form=dict(error="Title is required", title=""), page_path="root"
     )
     assert json_response[0]["dom"] == (
         """<h1>Edit: Root</h1>"""
@@ -370,12 +397,169 @@ def test_wiki(jmb, client):
         """<button type="button" onclick="$jmb.call('save')">Save</button>"""
         """<button type="button" onclick="$jmb.emit('cancel').to('..')">Cancel</button>"""
     )
-    # TODO change root title - valid title - goto view
-    # TODO add page to root
-    # TODO add page to root
+
+    # change root title - valid title - goto view
+    ######################################
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="edit")),
+                    dict(execName="/wiki/page_title", state=dict(title="Edit: Root")),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/edit",
+                        initParams=dict(
+                            form=dict(error="Title is required", title="New Root"),
+                            page_path="root",
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/edit",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/wiki"
+    assert json_response[0]["state"] == dict(mode="view")
+    assert json_response[0]["dom"] == (
+        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/wiki/page_title"
+    assert json_response[1]["state"] == dict(title="New Root")
+    assert json_response[1]["dom"] == ("""<title>New Root</title>""")
+    assert json_response[2]["execName"] == "/wiki/view"
+    assert json_response[2]["state"] == dict(page_path="root")
+    assert json_response[2]["dom"] == ("""<div><h1>New Root</h1><div></div></div>""")
+
+    # add page to root - display
+    ######################################
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="view")),
+                    dict(execName="/wiki/page_title", state=dict(title="New Root")),
+                    dict(execName="/wiki/view", state=dict(page_path="root")),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/add",
+                        initParams=dict(page_path="root"),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/add",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/wiki"
+    assert json_response[0]["state"] == dict(mode="add")
+    assert json_response[0]["dom"] == (
+        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/add"/></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/wiki/page_title"
+    assert json_response[1]["state"] == dict(title="Add under New Root")
+    assert json_response[1]["dom"] == ("""<title>Add under New Root</title>""")
+    assert json_response[2]["execName"] == "/wiki/add"
+    assert json_response[2]["state"] == dict(
+        page_path="root", form=dict(error=None, name="", title="")
+    )
+    assert json_response[2]["dom"] == (
+        "<h1>Add under New Root</h1>"
+        """<label>Name: <input type="text" value="" onchange="$jmb.set('form.name', this.value).deffer()"></label>"""
+        """<label>Title: <input type="text" value="" onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
+        """<button type="button" onclick="$jmb.call('save')">Save</button>"""
+        """<button type="button" onclick="$jmb.emit('cancel').to('..')">Cancel</button>"""
+    )
+
+    # add page to root - save valid
+    ######################################
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="add")),
+                    dict(
+                        execName="/wiki/page_title",
+                        state=dict(title="Add under New Root"),
+                    ),
+                    dict(
+                        execName="/wiki/add",
+                        state=dict(
+                            page_path="root", form=dict(error=None, name="", title="")
+                        ),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/add",
+                        initParams=dict(
+                            page_path="root",
+                            form=dict(error=None, name="jembe", title="Jembe Page"),
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/add",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/wiki"
+    assert json_response[0]["state"] == dict(mode="view")
+    assert json_response[0]["dom"] == (
+        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/wiki/page_title"
+    assert json_response[1]["state"] == dict(title="Jembe Page")
+    assert json_response[1]["dom"] == ("""<title>Jembe Page</title>""")
+    assert json_response[2]["execName"] == "/wiki/view"
+    assert json_response[2]["state"] == dict(page_path="root/jembe")
+    assert json_response[2]["dom"] == ("""<div><h1>Jembe Page</h1><div></div></div>""")
+
     # TODO add invalid page to root
-    # TODO add page under existing page
+    ######################################
+    # TODO view root page with link to jembe page
+    ######################################
+    # TODO add page under jembe page
+    ######################################
     # TODO edit page under existing page
+    ######################################
     # TODO get wiki page via direct http get
+    ######################################
 
     # TODO add back link, navigation menu etc in demo app
