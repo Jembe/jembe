@@ -361,7 +361,7 @@ class Component(metaclass=ComponentMeta):
         """
         return dict()
 
-    def display(self) -> Union[str, None, "Response"]:
+    def display(self) -> Union[str, "Response"]:
         return self.render_template()
 
     def render_template(self, template: Optional[str] = None, **context) -> str:
