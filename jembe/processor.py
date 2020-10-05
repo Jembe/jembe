@@ -373,8 +373,10 @@ class EmitCommand(Command):
                 ):
                     execute_over.append((component, listener_method_name))
 
-        # order components from top to bottom
-        execute_over.sort(key=lambda t: t[0]._config._hiearchy_level, reverse=True)
+        # order components from top to bottom if message is send only to parents
+        # this is required for proper handling of exceptions
+        if self._to == '/**/.':
+            execute_over.sort(key=lambda t: t[0]._config._hiearchy_level, reverse=True)
         for comp, listener_method_name in execute_over:
             self.processor.add_command(
                 CallListenerCommand(comp.exec_name, listener_method_name, self.event)

@@ -86,7 +86,7 @@ def test_wiki(jmb, client):
             self.emit("set_page_title", title=self.page.title)
             return self.render_template_string(
                 """<div><h1>{{page.title}}</h1>"""
-                """<div>{% for c in children %}<a onclick="$jmb.set(page_path={{c.path}})">{{c.title}}</a><br>{% endfor %}</div></div>"""
+                """<div>{% for c in children %}<a onclick="$jmb.set(page_path='{{c.path}}')">{{c.title}}</a><br>{% endfor %}</div></div>"""
             )
 
     class Edit(Component):
@@ -551,15 +551,199 @@ def test_wiki(jmb, client):
     assert json_response[2]["state"] == dict(page_path="root/jembe")
     assert json_response[2]["dom"] == ("""<div><h1>Jembe Page</h1><div></div></div>""")
 
-    # TODO add invalid page to root
+    # add invalid page to root
     ######################################
-    # TODO view root page with link to jembe page
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="add")),
+                    dict(
+                        execName="/wiki/page_title",
+                        state=dict(title="Add under New Root"),
+                    ),
+                    dict(
+                        execName="/wiki/add",
+                        state=dict(
+                            page_path="root", form=dict(error=None, name="", title="")
+                        ),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/add",
+                        initParams=dict(
+                            page_path="root",
+                            form=dict(error=None, name="", title="Jembe Invalid Page"),
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/add",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/wiki/add"
+    assert json_response[0]["state"] == dict(
+        form=dict(
+            error="Name and title are required", name="", title="Jembe Invalid Page"
+        ),
+        page_path="root",
+    )
+    assert json_response[0]["dom"] == (
+        "<h1>Add under New Root</h1>"
+        "<div>Name and title are required</div>"
+        """<label>Name: <input type="text" value="" onchange="$jmb.set('form.name', this.value).deffer()"></label>"""
+        """<label>Title: <input type="text" value="Jembe Invalid Page" onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
+        """<button type="button" onclick="$jmb.call('save')">Save</button>"""
+        """<button type="button" onclick="$jmb.emit('cancel').to('..')">Cancel</button>"""
+    )
+
+    # view root page with link to jembe page
     ######################################
-    # TODO add page under jembe page
+    r = client.get("/wiki")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/wiki" jmb:data=\'{"changes_url":true,"state":{"mode":"view"},"url":"/wiki"}\'>"""
+        """<head><title jmb:name="/wiki/page_title" jmb:data=\'{"changes_url":false,"state":{"title":"New Root"},"url":"/wiki/page_title"}\'>New Root</title></head>"""
+        """<body>"""
+        """<div jmb:name="/wiki/view" jmb:data=\'{"changes_url":true,"state":{"page_path":"root"},"url":"/wiki/view/root"}\'>"""
+        """<h1>New Root</h1>"""
+        """<div><a onclick="$jmb.set(page_path=\'root/jembe\')">Jembe Page</a><br></div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+    # add page under jembe page
     ######################################
-    # TODO edit page under existing page
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="add")),
+                    dict(
+                        execName="/wiki/page_title",
+                        state=dict(title="Add under Jembe Page"),
+                    ),
+                    dict(
+                        execName="/wiki/add",
+                        state=dict(
+                            page_path="root/jembe", form=dict(error=None, name="", title="")
+                        ),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/add",
+                        initParams=dict(
+                            page_path="root/jembe",
+                            form=dict(error=None, name="suite", title="Suite Page"),
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/add",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/wiki"
+    assert json_response[0]["state"] == dict(mode="view")
+    assert json_response[0]["dom"] == (
+        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/wiki/page_title"
+    assert json_response[1]["state"] == dict(title="Suite Page")
+    assert json_response[1]["dom"] == ("""<title>Suite Page</title>""")
+    assert json_response[2]["execName"] == "/wiki/view"
+    assert json_response[2]["state"] == dict(page_path="root/jembe/suite")
+    assert json_response[2]["dom"] == ("""<div><h1>Suite Page</h1><div></div></div>""")
+    # edit page under existing page
     ######################################
-    # TODO get wiki page via direct http get
+    r = client.post(
+        "/wiki",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/wiki", state=dict(mode="edit")),
+                    dict(
+                        execName="/wiki/page_title",
+                        state=dict(title="Edit Suite Page"),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/wiki/edit",
+                        initParams=dict(
+                            page_path="root/jembe/suite",
+                            form=dict(error=None, title="Jembe Suite Page"),
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/wiki/edit",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/wiki"
+    assert json_response[0]["state"] == dict(mode="view")
+    assert json_response[0]["dom"] == (
+        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/wiki/page_title"
+    assert json_response[1]["state"] == dict(title="Jembe Suite Page")
+    assert json_response[1]["dom"] == ("""<title>Jembe Suite Page</title>""")
+    assert json_response[2]["execName"] == "/wiki/view"
+    assert json_response[2]["state"] == dict(page_path="root/jembe/suite")
+    assert json_response[2]["dom"] == ("""<div><h1>Jembe Suite Page</h1><div></div></div>""")
+    # get wiki page via direct http get
     ######################################
+    r = client.get("/wiki/view/root/jembe")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb:name="/wiki" jmb:data=\'{"changes_url":true,"state":{"mode":"view"},"url":"/wiki"}\'>"""
+        """<head><title jmb:name="/wiki/page_title" jmb:data=\'{"changes_url":false,"state":{"title":"Jembe Page"},"url":"/wiki/page_title"}\'>Jembe Page</title></head>"""
+        """<body>"""
+        """<div jmb:name="/wiki/view" jmb:data=\'{"changes_url":true,"state":{"page_path":"root/jembe"},"url":"/wiki/view/root/jembe"}\'>"""
+        """<h1>Jembe Page</h1>"""
+        """<div><a onclick="$jmb.set(page_path=\'root/jembe/suite\')">Jembe Suite Page</a><br></div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
 
     # TODO add back link, navigation menu etc in demo app
