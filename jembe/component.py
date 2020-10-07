@@ -361,6 +361,34 @@ class Component(metaclass=ComponentMeta):
         """
         return dict()
 
+    def inject_into(self, component:"Component") -> Dict[str, Any]:
+        """
+        inject_into params are used to inject  params into child component.
+        This params usually defines values required by child compoennt that are
+        generated or optained by parent component.
+
+        inject_into is called when child component is initialised, which can
+        happend right after parent comonent is intialised or during execution
+        of display on parent component.
+
+        Typical examples of inject_into params are:
+        - parent_record_id, 
+
+        Child component will inject this paramas into its __init__ method, it will ignore
+        existing values of params set by default or manualy (in template or via ajax request), 
+        but will be overrriden if same param is injected by the child component. 
+
+        If for some reason injected_into params are explicitly set manually they will be ignored in 
+        production but in development warrning will be displayed. 
+        Also if child component does not accept injected_into param this param will be ignored
+        and during development info will be displayed.
+
+        inject into can set any type of init param except for url param (params without default value).
+        if some param is injected it value will not be send to client nor acepted from x-jembe
+        http request and JembeError will be raised.
+        """
+        return dict()
+
     def display(self) -> Union[str, "Response"]:
         return self.render_template()
 

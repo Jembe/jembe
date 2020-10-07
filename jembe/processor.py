@@ -22,6 +22,7 @@ from operator import add
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
+from werkzeug import cached_property
 from .common import exec_name_to_full_name, is_page_exec_name
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
@@ -65,6 +66,20 @@ class Event:
         if "params" in self.__dict__ and name in self.params:
             self.params[name] = value
         return super().__setattr__(name, value)
+
+    @cached_property
+    def source_full_name(self) ->str:
+        if self.source:
+            return self.source._config.full_name
+        else:
+            return exec_name_to_full_name(self.source_full_name)
+
+    @cached_property
+    def source_name(self) -> str:
+        if self.source and self.source._config.name:
+            return self.source._config.name
+        else:
+            return exec_name_to_full_name(self.source_full_name).split('/')[-1]
 
 
 class SystemEvents(Enum):
