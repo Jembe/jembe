@@ -92,6 +92,9 @@ class _SubComponentRenderer:
         self.kwargs = kwargs
 
     def is_accessible(self) -> bool:
+        # TODO add param ignore_incoplete_params = Truo so that exception trown during initialise 
+        # becouse not all required init parameters are suplied are treated as not accessible (
+        # catch exception and return False in this case)
         processor = get_processor()
         component_exec_name = Component._build_exec_name(
             self.name, self._key, self.component.exec_name
