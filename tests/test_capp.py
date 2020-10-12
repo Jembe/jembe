@@ -1,7 +1,9 @@
+from werkzeug import cached_property
+from jembe.common import direct_child_name
 from jembe.processor import Event
 from jembe import component
 from jembe.exceptions import BadRequest, JembeError
-from jembe.component_config import ComponentConfig
+from jembe.component_config import ComponentConfig, redisplay
 from typing import Any, Dict, List, TYPE_CHECKING, Dict, Optional, Union
 from jembe import (
     Component,
@@ -10,7 +12,6 @@ from jembe import (
     config,
     NotFound,
     Unauthorized,
-    isinjected,
 )
 from dataclasses import dataclass, field
 
@@ -32,36 +33,21 @@ class Task:
     parent_id: Optional[int] = None
 
 
-# database
-tasks_db: Dict[int, Task] = dict()
-session: dict = dict(user=None)
-
-
 class WipDb:
     # temporary storage of modified and new tasks (Work in Progress)
     def __init__(self, *tasks: Task) -> None:
         self._tasks: Dict[int, Task] = {t.id: t for t in tasks}
 
-    def encode(self) -> Any:
-        return self._tasks.values()
-
-    @classmethod
-    def decode(cls, encoded_value: List[dict]) -> Any:
-        tasks = dict()
-        for t in encoded_value:
-            tasks[t["id"]] = Task(**t)
-        return tasks
-
-    def save(self):
+    def save(self, original_id: Optional[int] = None) -> Optional[int]:
         map_new_ids: Dict[int, int] = dict()
-        tasks = self._tasks.values()
+        tasks = list(self._tasks.values())
 
         index = 0
         while tasks:
             task = tasks[index]
             if task is None:
-                del(tasks[index])
-                del(tasks_db[index])
+                del tasks[index]
+                del tasks_db[index]
             elif (
                 task.parent_id is None
                 or task.parent_id > 0
@@ -73,7 +59,7 @@ class WipDb:
                     task.id = max(tid for tid in tasks_db.keys())
                     map_new_ids[old_id] = task.id
 
-                if task.parent_id < 0:
+                if task.parent_id and task.parent_id < 0:
                     task.parent_id = map_new_ids[task.parent_id]
 
                 tasks_db[task.id] = task
@@ -83,6 +69,13 @@ class WipDb:
 
             if index >= len(tasks):
                 index = 0
+
+        if original_id:
+            if original_id > 0:
+                return original_id
+            else:
+                return map_new_ids[original_id]
+        return None
 
     def put(self, task: Task):
         self._tasks[task.id] = task
@@ -102,6 +95,11 @@ class WipDb:
 
     def ids(self) -> List[int]:
         return list(self._tasks.keys())
+
+
+# database
+tasks_db: Dict[int, Task] = dict()
+session: dict = dict(user=None, wipdbs=Dict[int, WipDb])
 
 
 # form
@@ -138,48 +136,61 @@ class Tasks(Component):
         iinto = super().inject_into(component)
         if self.state.parent_task_id is not None:
             iinto["parent_task_id"] = self.state.parent_task_id
-        if self.state.wip_db is not None:
-            iinto["wip_db"] = self.state.wip_db
+        if self.state.wip_id is not None:
+            iinto["wip_id"] = self.state.wip_id
         return iinto
 
     def __init__(
         self,
         mode: str = "list",
         parent_task_id: Optional[int] = None,
-        wip_db: Optional[WipDb] = None,
+        wip_id: Optional[int] = None,
         user: Optional[User] = None,
     ) -> None:
         if user is None:
             raise Unauthorized()
 
-        if parent_task_id is not None and (
-            parent_task_id not in tasks_db
-            or (wip_db is not None and not self.state.wip_db.has(parent_task_id))
+        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
+        if parent_task_id is not None and not (
+            parent_task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(parent_task_id))
         ):
             raise NotFound()
 
         if mode not in self._config.components.keys():
             raise BadRequest()
 
-        super().__init__()
+        self.goto_task_id: Optional[int] = None
 
-    @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
-        if param_name == "wip_db" and param_value is not None:
-            return WipDb.decode(param_value)
-        return super().decode_param(param_name, param_value)
+        super().__init__()
 
     @listener(event="_display", source="./*")
     def on_display_child(self, event: Event):
-        self.state.mode = event.source_name
-    
-    # TODO handle save(wip) delete(wip) etc from edit,add and delete compoennts
+        self.state.mode = self, event.source_name
+
+    @listener(event="save", source=["./edit", "./add"])
+    def on_tasks_changed(self, event: Event):
+        self.state.mode = "view"
+        self.goto_task_id = event.params["task_id"]
+
+    @listener(event="cancel", source="./*")
+    def on_cancel_operation(self, event: Event):
+        self.state.mode = "list"
+
+    @listener(event="delete", source=["./delete"])
+    def on_delete_task(self, event: Event):
+        self.state.mode = "list"
 
     def display(self) -> Union[str, "Response"]:
         if self.state.mode == "list":
             return self.render_template_string("{{component('list')}}")
         elif self.state.mode == "view":
-            return self.render_template_string("{{component('view')}}")
+            if self.goto_task_id:
+                return self.render_template_string(
+                    "{{component('view', task_id=goto_task_id)}}"
+                )
+            else:
+                return self.render_template_string("{{component('view')}}")
         elif self.state.mode == "edit":
             return self.render_template_string("{{component('edit')}}")
         elif self.state.mode == "add":
@@ -198,25 +209,20 @@ class TaskList(Component):
     def __init__(
         self,
         parent_task_id: Optional[int] = None,
-        wip_db: Optional[WipDb] = None,
+        wip_id: Optional[int] = None,
         user: Optional[User] = None,
     ) -> None:
         if user is None:
             raise Unauthorized()
 
-        if parent_task_id is not None and (
-            parent_task_id not in tasks_db
-            or (wip_db is not None and not self.state.wip_db.has(parent_task_id))
+        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
+        if parent_task_id is not None and not (
+            parent_task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(parent_task_id))
         ):
             raise NotFound()
 
         super().__init__()
-
-    @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
-        if param_name == "wip_db" and param_value is not None:
-            return WipDb.decode(param_value)
-        return super().decode_param(param_name, param_value)
 
     @property
     def tasks(self) -> Dict[int, Task]:
@@ -235,8 +241,8 @@ class TaskList(Component):
                 if t.parent_id == self.state.parent_task_id
             }
             # replace tasks in db with task from wip
-            if self.state.wip_db:
-                for tid, t in self.state.wip_db.tasks:
+            if self._wipdb:
+                for tid, t in self._wipdb.tasks:
                     if tid > 0 and tid not in self._tasks:
                         raise ValueError(
                             "Work in progress task that does not exist in db must have negative id"
@@ -244,6 +250,9 @@ class TaskList(Component):
                     self._tasks[tid] = t
             return self._tasks
 
+    # redisplay whenever it is executed regardles if the state is changed
+    # becouse state changes in task_db or wipdb will not be reflected to the state
+    @redisplay(when_executed=True)
     def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             """{% if component("../add").is_accessible() %}"""
@@ -289,30 +298,24 @@ class TaskComponentBase(Component):
         iinto = super().inject_into(component)
         if component._config.name == "subtasks" and "task_id" in self.state:
             iinto["parent_task_id"] = self.state.task_id
-            if self.state.wip_db is not None:
-                iinto["wip_db"] = self.state.wip_db
+            if self.state.wip_id is not None:
+                iinto["wip_id"] = self.state.wip_id
         return iinto
 
     def __init__(
-        self, wip_db: Optional[WipDb] = None, user: Optional[User] = None,
+        self, wip_id: Optional[int] = None, user: Optional[User] = None
     ) -> None:
         if user is None:
             raise Unauthorized()
 
-        if (
-            "task_id" in self.state
-            and self.state.task_id not in tasks_db
-            or (wip_db is not None and not self.state.wip_db.has(self.state.task_id))
+        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
+        if "task_id" in self.state and not (
+            self.state.task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(self.state.task_id))
         ):
             raise NotFound()
 
         super().__init__()
-
-    @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
-        if param_name == "wip_db" and param_value is not None:
-            return WipDb.decode(param_value)
-        return super().decode_param(param_name, param_value)
 
     @property
     def task(self) -> Task:
@@ -321,19 +324,45 @@ class TaskComponentBase(Component):
         try:
             return self._task
         except AttributeError:
-            if self.state.wip_db and self.state.wip_db.has(self.state.task_id):
-                self._task: Task = self.state.wip_db.get(self.state.task_id)
+            if self._wipdb and self._wipdb.has(self.state.task_id):
+                self._task: Task = self._wipdb.get(self.state.task_id)
             else:
                 self._task = tasks_db[self.state.task_id]
             return self._task
 
 
 @config(Component.Config(components=dict(subtasks=Tasks)))
-class ViewTask(TaskComponentBase):
+class ViewTask(Component):
     def __init__(
-        self, task_id: int, wip_db: Optional[WipDb] = None, user: Optional[User] = None,
+        self, task_id: int, wip_id: Optional[int] = None, user: Optional[User] = None,
     ) -> None:
-        super().__init__(user=user, wip_db=wip_db)
+        if user is None:
+            raise Unauthorized()
+
+        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
+
+        if not (
+            self.state.task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(self.state.task_id))
+        ):
+            raise NotFound()
+
+        super().__init__()
+
+    def inject(self) -> Dict[str, Any]:
+        return dict(user=session.get("user", None))
+
+    def inject_into(self, component: Component) -> Dict[str, Any]:
+        if component._config.name == "subtasks":
+            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
+        return dict()
+
+    @cached_property
+    def task(self) -> Task:
+        if self._wipdb and self._wipdb.has(self.state.task_id):
+            return self._wipdb.get(self.state.task_id)
+        else:
+            return tasks_db[self.state.task_id]
 
     def display(self) -> Union[str, Response]:
         return self.render_template_string(
@@ -344,74 +373,85 @@ class ViewTask(TaskComponentBase):
         )
 
 
-@config(Component.Config(components=dict(subtasks=TaskList)))
-class EditTask(TaskComponentBase):
+@config(Component.Config(components=dict(subtasks=Tasks)))
+class EditTask(Component):
     def __init__(
         self,
         task_id: int,
         form: Optional[TaskForm] = None,
-        wip_db: Optional[WipDb] = None,
+        wip_id: Optional[int] = None,
         user: Optional[User] = None,
     ) -> None:
-        super().__init__(user=user, wip_db=wip_db)
+        if user is None:
+            raise Unauthorized()
+
+        if self.state.wip_id is None:
+            # Initialise wipdb with wip_id
+            self.state.wip_id = max(session["wipdbs"].keys()) + 1
+            session["wipdbs"][self.state.wip_id] = WipDb()
+        self._wipdb = session["wipdbs"][wip_id]
+
+        if not (
+            self.state.task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(self.state.task_id))
+        ):
+            raise NotFound()
 
         if form is None:
             self.state.form = TaskForm(
                 title=self.task.title, description=self.task.description
             )
 
-        if self.state.wip_db is None:
-            # Initialise wip_db that will be injectected
-            # in subtasks component if needed
-            self.state.wip_db = WipDb()
+        super().__init__()
+
+    def inject(self) -> Dict[str, Any]:
+        return dict(user=session.get("user", None))
+
+    def inject_into(self, component: Component) -> Dict[str, Any]:
+        if component._config.name == "subtasks":
+            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
+        return dict()
+
+    @cached_property
+    def task(self) -> Task:
+        if self._wipdb.has(self.state.task_id):
+            return self._wipdb.get(self.state.task_id)
+        else:
+            return tasks_db[self.state.task_id]
+
+    @listener(event=["cancel", "save"], source=".")
+    def on_self_cancel(self, event: Event):
+        if not self.isinjected("wip_id"):
+            # delete wipdb
+            del session["wipdbs"][self.state.wip_id]
+            self.state.wip_id = None
 
     @action
     def save(self):
         if self.state.form.is_valid():
-            # save in wip_db
-            # create new task becaouse we dont want jet
-            # to change task in task_db (self.tasks)
+            # create new task
             task = Task(
                 self.state.task_id,
                 self.state.form.title,
                 self.state.form.description,
                 self.task.parent_id,
             )
+            # save in wip_db
+            # becaouse we dont want jet to change task in task_db (self.task)
             # do not care if already exist or not
             self.state.wip_db.put(task)
-            if isinjected(self.state.wip_db):
-                # wipdb is changed, inform component who first initialised wipdb
-                # to know to redisplay itself
-                self.emit("save", wip=True)
+            if self.isinjected("wip_id"):
+                # wipdb is changed
+                pass
             else:
                 # saving from component who created wip_db
                 # save all changes from wip_db
-                self.state.wip_db.save()
-                # emit save to parent to decide what to display next
-                self.emit("save", wip=False)
-            # dont redisplay parent (Tasks) should decide what to display after
-            # successful save or
+                self._wip_db.save()
+            # emit save so that parent can decide what to display next
+            self.emit("save", task_id=self.state.task_id)
+            # dont redisplay this component after successfull save
             return False
         # form is not valid redisplay it with error
-
-    @listener(event="save", source="./**")
-    def on_save(self, event: Event):
-        if event.params["wip"] and not isinjected(self.state.wip_db):
-            # redisplay so that client get new encoded wip_db
-            raise NotImplementedError()
-        # if this is not save in wip_db (this should not happend but..)
-        # just ignore it becouse we have our on wip_db :) to maintain that
-        # is not changed
-        # if wip_db is injected into this Edit ... than this compoennt
-        # displays record from wip_db that is not changed and it does not
-        # send encoded wip_db to client so there is no need to redisplay it
-
-        # TODO are we coping wip_db on inject_into if so that si bad (lots of duplication), or not
-        # if we are just referencing wip_db than when wip_db is changed display on every compoent
-        # including notinjected will force them to redisplay becaouse wip_db data has changed
-        # TODO test all of this and modified implementation accordinly and
-        # try to do without isinjected and any new API
-        return False
 
     def display(self) -> Union[str, Response]:
         return self.render_template_string(
@@ -430,60 +470,90 @@ class EditTask(TaskComponentBase):
         )
 
 
-@config(Component.Config(components=dict(subtasks=TaskList)))
-class AddTask(TaskComponentBase):
+@config(Component.Config(components=dict(subtasks=Tasks)))
+class AddTask(Component):
     def __init__(
         self,
         parent_task_id: Optional[int] = None,
+        task_id: Optional[int] = None,
         form: Optional[TaskForm] = None,
-        wip_db: Optional[WipDb] = None,
+        wip_id: Optional[int] = None,
         user: Optional[User] = None,
     ) -> None:
-        if parent_task_id is not None and (
-            parent_task_id not in tasks_db
-            or (
-                self.state.wip_db is not None
-                and not self.state.wip_db.has(parent_task_id)
-            )
+        if user is None:
+            raise Unauthorized()
+
+        if self.state.wip_id is None:
+            self.state.wip_id = max(session["wipdbs"].keys()) + 1
+            session["wipdbs"][self.state.wip_id] = WipDb()
+        self._wipdb = session["wipdbs"][self.state.wip_id]
+
+        if parent_task_id is not None and not (
+            parent_task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(parent_task_id))
         ):
             raise NotFound()
 
-        super().__init__(wip_db=wip_db, user=user)
+        if self.state.task_id is None:
+            self.state.task_id = min(0, min(self.state.wip_db.keys())) - 1
+            new_task = Task(
+                id=self.state.task_id, title="", parent_id=self.state.parent_task_id
+            )
+            self._wipdb.add(new_task)
 
         if form is None:
-            self.state.form = TaskForm(title="", description=None)
+            self.state.form = TaskForm(
+                title=self.task.title, description=self.task.description
+            )
+        super().__init__()
 
-    @action
-    def add_task(self):
-        task_id = min(0, min(self.state.wip_db.keys())) - 1
-        new_task = Task(id=task_id, title="", parent_id=self.state.parent_task_id)
-        self.state.wip_db[task_id] = new_task
-        self.emit("update_wip")
-        return False
+    def inject(self) -> Dict[str, Any]:
+        return dict(user=session.get("user", None))
+
+    def inject_into(self, component: Component) -> Dict[str, Any]:
+        if component._config.name == "subtasks":
+            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
+        return dict()
+
+    @cached_property
+    def task(self) -> Task:
+        if self._wipdb.has(self.state.task_id):
+            return self._wipdb.get(self.state.task_id)
+        else:
+            return tasks_db[self.state.task_id]
+
+    @listener(event=["cancel", "save"], source=".")
+    def on_self_save_or_cancel(self, event: Event):
+        if not self.isinjected("wip_id"):
+            del session["wipdbs"][self.state.wip_id]
+            self.state.wip_id = None
 
     @action
     def save(self):
         if self.state.form.is_valid():
             task = Task(
-                min(0, min(self.state.wip_db.ids())) - 1,
+                self.state.task_id,
                 self.state.form.title,
                 self.state.form.description,
                 self.state.parent_task_id,
             )
             self.state.wip_db.put(task)
-            if isinjected(self.state.wip_db):
-                # wipdb is changed, inform component who first initialised wipdb
-                # to know to redisplay itself
-                self.emit("save", wip=True)
+            # save in wip_db
+            # becaouse we dont want jet to change task in task_db (self.task)
+            # do not care if already exist or not
+            self.state.wip_db.put(task)
+            if self.isinjected("wip_id"):
+                # wipdb is changed
+                pass
             else:
                 # saving from component who created wip_db
                 # save all changes from wip_db
-                self.state.wip_db.save()
-                # emit save to parent to decide what to display next
-                self.emit("save", wip=False)
-            # dont redisplay parent (Tasks) should decide what to display after
-            # successful save or
+                self.state.task_id = self._wip_db.save(self.state.task_id)
+            # emit save so that parent can decide what to display next
+            self.emit("save", task_id=self.state.task_id)
+            # dont redisplay this component after successfull save
             return False
+        # form is not valid redisplay it with error
 
     def display(self) -> Union[str, Response]:
         return self.render_template_string(
@@ -502,21 +572,46 @@ class AddTask(TaskComponentBase):
         )
 
 
-class DeleteTask(TaskComponentBase):
+class DeleteTask(Component):
     def __init__(
-        self, task_id: int, wip_db: Optional[WipDb] = None, user: Optional[User] = None,
+        self, task_id: int, wip_id: Optional[int] = None, user: Optional[User] = None,
     ) -> None:
-        super().__init__(user=user, wip_db=wip_db)
+        if user is None:
+            raise Unauthorized()
+
+        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
+
+        if not (
+            self.state.task_id in tasks_db
+            or (self._wipdb is not None and self._wipdb.has(self.state.task_id))
+        ):
+            raise NotFound()
+
+        super().__init__()
+
+    def inject(self) -> Dict[str, Any]:
+        return dict(user=session.get("user", None))
+
+    @cached_property
+    def task(self) -> Task:
+        if self._wipdb and self._wipdb.has(self.state.task_id):
+            return self._wipdb.get(self.state.task_id)
+        else:
+            return tasks_db[self.state.task_id]
 
     def delete(self):
-        if isinjected(self.state.wip_db) and self.state.wip_db is not None and self.state.wip_db.has(self.state.task_id):
+        if (
+            self.isinjected("wip_id")
+            and self._wipdb
+            and self._wipdb.has(self.state.task_id)
+        ):
             # delete from wip_db
             self.state.wip_db[self.state.task_id] = None
-            self.emit("delete", wip=True)
+            self.emit("delete")
         else:
             # direct delte from tasks_db
-            del(tasks_db[self.state.task_id])
-            self.emit("delete", wip=False)
+            del tasks_db[self.state.task_id]
+            self.emit("delete")
         # dont redisplay parent (Tasks) should decide what to display after
         # successful delete
         return False
@@ -532,17 +627,16 @@ class DeleteTask(TaskComponentBase):
 def test_capp(jmb, client):
     """build simple task apps for testing server side processing and jembe api"""
 
-    @jmb.page(
-        "tasks",
-        Component.Config(
-            components=dict(
-                tasks=TaskList,
-                view=ViewTask,
-                edit=EditTask,
-                add=AddTask,
-                delete=DeleteTask,
-            )
-        ),
-    )
-    class TasksPage(Component):
+    @jmb.page("tasks",)
+    class TasksPage(Tasks):
         pass
+
+    # TODO compile
+    # TODO display empty list
+    # TODO add task (x-jembe)
+    # TODO add second task (x-jembe)
+    # TODO edit first task (x-jembe)
+    # TODO edit second task and add subtasks (x-jembe)
+    # TODO add subtask with two level subtasks (x-jembe)
+    # TODO edit task and add, edit and delete subtasks in bulk (x-jembe)
+    # TODO delete task

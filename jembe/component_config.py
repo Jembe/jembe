@@ -3,9 +3,7 @@ from typing import (
     Optional,
     Type,
     Dict,
-    List,
     Tuple,
-    Any,
     Union,
     Sequence,
     NewType,
@@ -15,14 +13,14 @@ from enum import Enum
 from copy import deepcopy
 from itertools import accumulate
 from operator import add
-from inspect import signature, getmembers, isfunction
+from inspect import getmembers, isfunction
 from .exceptions import JembeError
 from flask import url_for
+from .common import ComponentRef
 
 if TYPE_CHECKING:  # pragma: no cover
     import inspect
     from .component import Component, ComponentState
-    from .common import ComponentRef
     from .processor import Processor
     from flask import Request
 
@@ -327,16 +325,14 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self,
         name: Optional[str] = None,
         template: Optional[str] = None,
-        components: Optional[Dict[str, "ComponentRef",]] = None,
+        components: Optional[Dict[str, ComponentRef]] = None,
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
         _component_class: Optional[Type["Component"]] = None,
         _parent: Optional["ComponentConfig"] = None,
     ):
         self.name = name
-        self.components: Dict[
-            str, "ComponentRef"
-        ] = components if components else dict()
+        self.components: Dict[str, ComponentRef] = components if components else dict()
         self._template = template
         self._redisplay_temp = redisplay
         self.changes_url = changes_url
@@ -508,7 +504,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     @classmethod
     def update_components_config(
         cls,
-        components: Optional[Dict[str, "ComponentRef"]],
+        components: Optional[Dict[str, ComponentRef]],
         name: Optional[str],
         params: Dict,
     ):
@@ -522,12 +518,21 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         if components is None:
             return
 
-        def _update_cref(cref: "ComponentRef", params: Dict):
-            component = cref[0] if isinstance(cref, tuple) else cref
-            try:
-                component._jembe_config_init_params.update(params)
-            except AttributeError:
-                component._jembe_config_init_params = deepcopy(params)
+        def _update_cref(cref: ComponentRef, params: Dict):
+            component: Union[Type[Component], str] = (
+                cref[0] if isinstance(cref, tuple) else cref
+            )
+            if isinstance(component, str):
+                # TODO when implement how jembe handles post config initialisation from string
+                # implement this
+                raise NotImplementedError()
+            else:
+                # TODO modifiing _jembe_config_init_params is bad class params
+                # find another solution for this
+                try:
+                    component._jembe_config_init_params.update(params)
+                except AttributeError:
+                    component._jembe_config_init_params = deepcopy(params)
 
         if name is None:
             for name in components.keys():

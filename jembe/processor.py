@@ -1,6 +1,5 @@
 from typing import (
     Tuple,
-    Type,
     Union,
     TYPE_CHECKING,
     TypeVar,

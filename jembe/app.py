@@ -1,12 +1,12 @@
-from typing import TYPE_CHECKING, Optional, Union, Tuple, Type, List, Dict
+from typing import TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
 from flask import g
+from .common import ComponentRef
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .common import ComponentRef
     from flask import Flask, Request, Response
     from .component_config import ComponentConfig
     from .component import Component
@@ -28,7 +28,7 @@ class Jembe:
         # all registred jembe components configs [full_name, config instance]
         self.components_configs: Dict[str, "ComponentConfig"] = {}
         # pages waiting to be registred
-        self._unregistred_pages: Dict[str, "ComponentRef"] = {}
+        self._unregistred_pages: Dict[str, ComponentRef] = {}
 
         if app is not None:
             self.init_app(app)
@@ -65,7 +65,7 @@ class Jembe:
         component_config: Optional["ComponentConfig"] = None,
     ):
 
-        component_ref: "ComponentRef" = (
+        component_ref: ComponentRef = (
             component,
             component_config,
         ) if component_config else component
@@ -93,7 +93,7 @@ class Jembe:
 
         return decorator
 
-    def _register_page(self, name: str, component_ref: "ComponentRef"):
+    def _register_page(self, name: str, component_ref: ComponentRef):
         if self.flask is None:  # pragma: no cover
             raise NotImplementedError()
 
@@ -101,7 +101,7 @@ class Jembe:
         bp: Optional["Blueprint"] = None
         page_url_path: Optional[str] = None
         component_refs: List[
-            Tuple[str, "ComponentRef", Optional["ComponentConfig"]]
+            Tuple[str, ComponentRef, Optional["ComponentConfig"]]
         ] = [(name, component_ref, None)]
         while component_refs:
             component_name, curent_ref, parent_config = component_refs.pop(0)

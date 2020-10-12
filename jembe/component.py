@@ -92,7 +92,7 @@ class _SubComponentRenderer:
         self.kwargs = kwargs
 
     def is_accessible(self) -> bool:
-        # TODO add param ignore_incoplete_params = Truo so that exception trown during initialise 
+        # TODO add param ignore_incoplete_params = Truo so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
         processor = get_processor()
@@ -364,7 +364,7 @@ class Component(metaclass=ComponentMeta):
         """
         return dict()
 
-    def inject_into(self, component:"Component") -> Dict[str, Any]:
+    def inject_into(self, component: "Component") -> Dict[str, Any]:
         """
         inject_into params are used to inject  params into child component.
         This params usually defines values required by child compoennt that are
@@ -391,6 +391,9 @@ class Component(metaclass=ComponentMeta):
         http request and JembeError will be raised.
         """
         return dict()
+
+    def isinjected(self, param_name: str) -> bool:
+        return param_name in self._jembe_injected_params_names
 
     def display(self) -> Union[str, "Response"]:
         return self.render_template()
