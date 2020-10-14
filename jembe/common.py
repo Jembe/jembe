@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any 
+from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any
+from importlib import import_module
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component import Component, ComponentConfig
@@ -37,3 +38,15 @@ def direct_child_name(component: "Component", subcompoenent_full_name: str) -> s
             )
         )
     return child_names[len(parent_names)]
+
+
+def import_by_name(object_name: str) -> Any:
+    try:
+        str_split = object_name.split(".")
+        object_name = str_split[-1]
+        modul_name = ".".join(str_split[:-1])
+        modul = import_module(modul_name)
+        object_type = getattr(modul, object_name)
+    except:
+        raise ValueError("Import with name {} doesn't exist".format(object_name))
+    return object_type

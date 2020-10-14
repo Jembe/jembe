@@ -1,5 +1,5 @@
 from typing import (
-    TYPE_CHECKING,
+    Callable, TYPE_CHECKING,
     Optional,
     Type,
     Dict,
@@ -326,6 +326,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         name: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[Dict[str, ComponentRef]] = None,
+        inject_into_components: Optional[Callable[["Component", "ComponentConfig"], dict]] = None, # TODO
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
         _component_class: Optional[Type["Component"]] = None,
@@ -339,9 +340,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
         if not self.changes_url:
             # set changes_url to False to all its children components
-            self.update_components_config(
-                self.components, None, dict(changes_url=False)
-            )
+            self.update_components_config(None, dict(changes_url=False))
 
         # intialise by Jembe app after registring route
         self.__endpoint: str
@@ -501,12 +500,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def _get_default_template_name(self) -> str:
         return "{}.html".format(self.full_name.strip("/"))
 
-    @classmethod
     def update_components_config(
-        cls,
-        components: Optional[Dict[str, ComponentRef]],
-        name: Optional[str],
-        params: Dict,
+        self, name: Optional[str], params: Dict,
     ):
         """
         For use inside __init__ to change sub components config init params
@@ -515,28 +510,33 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         name: name of the component config to change if name is None apply params to all components
         params: dict with new params to set
         """
-        if components is None:
+        if not self.components:
             return
 
-        def _update_cref(cref: ComponentRef, params: Dict):
-            component: Union[Type[Component], str] = (
-                cref[0] if isinstance(cref, tuple) else cref
-            )
-            if isinstance(component, str):
-                # TODO when implement how jembe handles post config initialisation from string
-                # implement this
-                raise NotImplementedError()
+        def _update_cref(cname: str, params: Dict):
+            """ Update self.compoennts """
+            comp_ref: ComponentRef = self.components[cname]
+            if not isinstance(comp_ref, tuple):
+                comp_ref = (comp_ref, dict())
+                self.components[cname] = comp_ref
+            if isinstance(comp_ref[1], ComponentConfig):
+                comp_ref = (comp_ref[0], comp_ref[1]._raw_init_params)
+                self.components[cname] = comp_ref
+            if isinstance(comp_ref[1], dict):  # just to satisfy typing check
+                comp_ref[1].update(params)
             else:
-                # TODO modifiing _jembe_config_init_params is bad class params
-                # find another solution for this
-                try:
-                    component._jembe_config_init_params.update(params)
-                except AttributeError:
-                    component._jembe_config_init_params = deepcopy(params)
+                # this shuld never happend
+                raise NotImplementedError()
 
         if name is None:
-            for name in components.keys():
-                _update_cref(components[name], params)
+            for name in self.components.keys():
+                _update_cref(name, params)
         else:
-            _update_cref(components[name], params)
+            if name not in self.components:
+                raise ValueError(
+                    "Component with name {} is not defined inside {}".format(
+                        name, self.name
+                    )
+                )
+            _update_cref(name, params)
 

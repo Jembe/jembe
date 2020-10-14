@@ -17,11 +17,11 @@ from copy import deepcopy
 from enum import Enum
 from collections import deque
 from itertools import accumulate, chain
+from functools import cached_property
 from operator import add
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
-from werkzeug import cached_property
 from .common import exec_name_to_full_name, is_page_exec_name
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag

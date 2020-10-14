@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
 from flask import g
-from .common import ComponentRef
+from .common import ComponentRef, import_by_name
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -100,17 +100,24 @@ class Jembe:
         # go down component hiearchy
         bp: Optional["Blueprint"] = None
         page_url_path: Optional[str] = None
-        component_refs: List[
-            Tuple[str, ComponentRef, Optional["ComponentConfig"]]
-        ] = [(name, component_ref, None)]
+        component_refs: List[Tuple[str, ComponentRef, Optional["ComponentConfig"]]] = [
+            (name, component_ref, None)
+        ]
         while component_refs:
             component_name, curent_ref, parent_config = component_refs.pop(0)
             if isinstance(curent_ref, tuple):
                 # create config with custom params
-                component: Type["Component"] = curent_ref[0]
+                component: Type["Component"] = curent_ref[0] if not isinstance(
+                    curent_ref[0], str
+                ) else import_by_name(curent_ref[0])
+                curent_ref_params = (
+                    curent_ref[1]
+                    if isinstance(curent_ref[1], dict)
+                    else curent_ref[1]._raw_init_params
+                )
                 component_config = component.Config(
                     **{
-                        **curent_ref[1]._raw_init_params,
+                        **curent_ref_params,
                         "name": component_name,
                         "_parent": parent_config,
                         "_component_class": component,
@@ -118,7 +125,11 @@ class Jembe:
                 )
             else:
                 # create config with default params
-                component = curent_ref
+                component = (
+                    curent_ref
+                    if not isinstance(curent_ref, str)
+                    else import_by_name(curent_ref)
+                )
                 component_config = component.Config(
                     name=component_name,
                     _parent=parent_config,

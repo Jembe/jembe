@@ -1,10 +1,10 @@
-from werkzeug import cached_property
-from jembe.common import direct_child_name
-from jembe.processor import Event
 from jembe import component
+from typing import Any, Dict, List, TYPE_CHECKING, Dict, Optional, Union
+from functools import cached_property
+from dataclasses import dataclass, field
+from jembe.processor import Event
 from jembe.exceptions import BadRequest, JembeError
 from jembe.component_config import ComponentConfig, redisplay
-from typing import Any, Dict, List, TYPE_CHECKING, Dict, Optional, Union
 from jembe import (
     Component,
     action,
@@ -13,7 +13,6 @@ from jembe import (
     NotFound,
     Unauthorized,
 )
-from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from flask import Response
@@ -119,26 +118,38 @@ class TaskForm:
 # components
 @config(
     Component.Config(
-        components=dict(
-            list="tests.test_capp.TaskList",
-            view="tests.test_capp.ViewTask",
-            edit="tests.test_capp.EditTask",
-            add="tests.test_capp.AddTask",
-            delete="tests.test_capp.DeleteTask",
-        )
+        # components=dict(
+        #     list="tests.test_capp.TaskList",
+        #     view="tests.test_capp.ViewTask",
+        #     edit="tests.test_capp.EditTask",
+        #     add="tests.test_capp.AddTask",
+        #     delete="tests.test_capp.DeleteTask",
+        # ),
+        inject_into_components=lambda self, component_config: Tasks.inject_into_components(self, component_config)
     )
 )
 class Tasks(Component):
+    """
+    Displayes task list with view, edit add and delete operation.
+
+    It can have list, view, edit, add and delete components.
+    list component is required
+
+    it passes (injects into its components) parent_task_id and wip_id if
+    thay are not None.
+    """
+
     def inject(self) -> Dict[str, Any]:
         return dict(user=session.get("user", None))
 
-    def inject_into(self, component: Component) -> Dict[str, Any]:
-        iinto = super().inject_into(component)
+    @classmethod
+    def inject_into_components(cls, self: Component, component_config: ComponentConfig):
+        result = dict()
         if self.state.parent_task_id is not None:
-            iinto["parent_task_id"] = self.state.parent_task_id
+            result["parent_task_id"] = self.state.parent_task_id
         if self.state.wip_id is not None:
-            iinto["wip_id"] = self.state.wip_id
-        return iinto
+            result["wip_id"] = self.state.wip_id
+        return result
 
     def __init__(
         self,
@@ -170,7 +181,7 @@ class Tasks(Component):
 
     @listener(event="save", source=["./edit", "./add"])
     def on_tasks_changed(self, event: Event):
-        self.state.mode = "view"
+        self.state.mode = "view" if "view" in self._config.components else "edit"
         self.goto_task_id = event.params["task_id"]
 
     @listener(event="cancel", source="./*")
@@ -263,11 +274,13 @@ class TaskList(Component):
             "<td>"
             """{% if component("../view", task_id=t.id).is_accessible() %}"""
             """<a href="{{component.url}}" onclick="{{component.jrl}}">{{t.title}}</a>"""
+            """{% elif component("../edit", task_id=t.id).is_accessible() %}"""
+            """<a href="{{component.url}}" onclick="{{component.jrl}}">{{t.title}}</a>"""
             # """<a href="{{component.url}}" onclick="$jmb.component('../view', task_id=t.id)">{{t.title}}</a>"""
             """{% else %}{{t.title}}{% endif %}"""
             "</td>"
             "<td>"
-            """{% if component("../edit", task_id=t.id).is_accessible() %}"""
+            """{% if not component("../view", task_id=t.id).is_accessible() and  component("../edit", task_id=t.id).is_accessible() %}"""
             """<a href="{{component.url}}" onclick="{{component.jrl}}">edit</a>{% endif %}"""
             """{% if component("../delete", task_id=t.id).is_accessible() %}"""
             """<a href="{{component.url}}" onclick="{{component.jrl}}">delete</a>{% endif %}"""
@@ -290,48 +303,6 @@ class TaskList(Component):
         # component.action_factory(component_relative_name, title, help_text, icon, init_params, **whatever)
 
 
-class TaskComponentBase(Component):
-    def inject(self) -> Dict[str, Any]:
-        return dict(user=session.get("user", None))
-
-    def inject_into(self, component: Component) -> Dict[str, Any]:
-        iinto = super().inject_into(component)
-        if component._config.name == "subtasks" and "task_id" in self.state:
-            iinto["parent_task_id"] = self.state.task_id
-            if self.state.wip_id is not None:
-                iinto["wip_id"] = self.state.wip_id
-        return iinto
-
-    def __init__(
-        self, wip_id: Optional[int] = None, user: Optional[User] = None
-    ) -> None:
-        if user is None:
-            raise Unauthorized()
-
-        self._wipdb = session["wipdbs"][wip_id] if wip_id else None
-        if "task_id" in self.state and not (
-            self.state.task_id in tasks_db
-            or (self._wipdb is not None and self._wipdb.has(self.state.task_id))
-        ):
-            raise NotFound()
-
-        super().__init__()
-
-    @property
-    def task(self) -> Task:
-        if "task_id" not in self.state:
-            raise ValueError("task_id state param does not exist")
-        try:
-            return self._task
-        except AttributeError:
-            if self._wipdb and self._wipdb.has(self.state.task_id):
-                self._task: Task = self._wipdb.get(self.state.task_id)
-            else:
-                self._task = tasks_db[self.state.task_id]
-            return self._task
-
-
-@config(Component.Config(components=dict(subtasks=Tasks)))
 class ViewTask(Component):
     def __init__(
         self, task_id: int, wip_id: Optional[int] = None, user: Optional[User] = None,
@@ -352,11 +323,6 @@ class ViewTask(Component):
     def inject(self) -> Dict[str, Any]:
         return dict(user=session.get("user", None))
 
-    def inject_into(self, component: Component) -> Dict[str, Any]:
-        if component._config.name == "subtasks":
-            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
-        return dict()
-
     @cached_property
     def task(self) -> Task:
         if self._wipdb and self._wipdb.has(self.state.task_id):
@@ -364,7 +330,7 @@ class ViewTask(Component):
         else:
             return tasks_db[self.state.task_id]
 
-    def display(self) -> Union[str, Response]:
+    def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             """<h1><a href="#" onclick="$jmb.component("..")">Back</a> {{task.title}}</h1>"""
             "<div>{{task.description}}</div>"
@@ -373,7 +339,7 @@ class ViewTask(Component):
         )
 
 
-@config(Component.Config(components=dict(subtasks=Tasks)))
+# @config(Component.Config(components=dict(subtasks=Tasks)))
 class EditTask(Component):
     def __init__(
         self,
@@ -406,11 +372,6 @@ class EditTask(Component):
 
     def inject(self) -> Dict[str, Any]:
         return dict(user=session.get("user", None))
-
-    def inject_into(self, component: Component) -> Dict[str, Any]:
-        if component._config.name == "subtasks":
-            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
-        return dict()
 
     @cached_property
     def task(self) -> Task:
@@ -453,7 +414,7 @@ class EditTask(Component):
             return False
         # form is not valid redisplay it with error
 
-    def display(self) -> Union[str, Response]:
+    def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             "<h1>Edit {{task.title}}</h1>"
             """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
@@ -470,7 +431,6 @@ class EditTask(Component):
         )
 
 
-@config(Component.Config(components=dict(subtasks=Tasks)))
 class AddTask(Component):
     def __init__(
         self,
@@ -509,11 +469,6 @@ class AddTask(Component):
 
     def inject(self) -> Dict[str, Any]:
         return dict(user=session.get("user", None))
-
-    def inject_into(self, component: Component) -> Dict[str, Any]:
-        if component._config.name == "subtasks":
-            return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
-        return dict()
 
     @cached_property
     def task(self) -> Task:
@@ -555,7 +510,7 @@ class AddTask(Component):
             return False
         # form is not valid redisplay it with error
 
-    def display(self) -> Union[str, Response]:
+    def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             "<h1>New task</h1>"
             """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
@@ -616,7 +571,7 @@ class DeleteTask(Component):
         # successful delete
         return False
 
-    def display(self) -> Union[str, Response]:
+    def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             "<h1>Delete {{task.title}}</h1>"
             """<button type="button" onclick="$jmb.call('save')">Save</button>"""
@@ -627,7 +582,70 @@ class DeleteTask(Component):
 def test_capp(jmb, client):
     """build simple task apps for testing server side processing and jembe api"""
 
-    @jmb.page("tasks",)
+    def inject_parent_and_wip_id(self: Component, component_config: ComponentConfig):
+        return dict(parent_task_id=self.state.task_id, wip_id=self.state.wip_id)
+
+    @jmb.page(
+        "tasks",
+        Tasks.Config(
+            components=dict(
+                list=TaskList,
+                view=(
+                    ViewTask,
+                    ViewTask.Config(
+                        components=dict(
+                            subtasks=(
+                                Tasks,
+                                Tasks.Config(
+                                    components=dict(list=TaskList, view=ViewTask)
+                                ),
+                            )
+                        ),
+                        inject_into_components=inject_parent_and_wip_id,
+                    ),
+                ),
+                edit=(
+                    EditTask,
+                    EditTask.Config(
+                        components=dict(
+                            sustasks=(
+                                Tasks,
+                                Tasks.Config(
+                                    components=dict(
+                                        list=TaskList,
+                                        add=AddTask,
+                                        edit=EditTask,
+                                        delete=DeleteTask,
+                                    )
+                                ),
+                            )
+                        ),
+                        inject_into_components=inject_parent_and_wip_id,
+                    ),
+                ),
+                add=(
+                    AddTask,
+                    AddTask.Config(
+                        components=dict(
+                            subtasks=(
+                                Tasks,
+                                Tasks.Config(
+                                    components=dict(
+                                        list=TaskList,
+                                        add=AddTask,
+                                        edit=EditTask,
+                                        delete=DeleteTask,
+                                    ),
+                                ),
+                            )
+                        ),
+                        inject_into_components=inject_parent_and_wip_id,
+                    ),
+                ),
+                delete=DeleteTask,
+            ),
+        ),
+    )
     class TasksPage(Tasks):
         pass
 
