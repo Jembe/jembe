@@ -334,12 +334,13 @@ class ViewTask(Component):
         return self.render_template_string(
             """<h1><a href="#" onclick="$jmb.component("..")">Back</a> {{task.title}}</h1>"""
             "<div>{{task.description}}</div>"
+            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Sub tasks</h2>"
-            "<div>{{component('subtasks', parent_task_id=task_id)}}</div>"
+            "<div>{{component}}</div>"
+            "{% endif %}"
         )
 
 
-# @config(Component.Config(components=dict(subtasks=Tasks)))
 class EditTask(Component):
     def __init__(
         self,
@@ -426,8 +427,10 @@ class EditTask(Component):
             """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
             """<button type="button" onclick="$jmb.call('save')">Save</button>"""
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
-            "<h2>Subtasks</h2>"
-            "<div>{{component('subtasks', parent_task_id=task_id)}}</div>"
+            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
+            "<h2>Sub tasks</h2>"
+            "<div>{{component}}</div>"
+            "{% endif %}"
         )
 
 
@@ -522,8 +525,10 @@ class AddTask(Component):
             """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
             """<button type="button" onclick="$jmb.call('save')">Save</button>"""
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
+            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Subtasks</h2>"
-            "<div>{{component('subtasks', parent_task_id=task_id)}}</div>"
+            "<div>{{component}}</div>"
+            "{% endif %}"
         )
 
 
