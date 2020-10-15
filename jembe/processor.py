@@ -67,7 +67,7 @@ class Event:
         return super().__setattr__(name, value)
 
     @cached_property
-    def source_full_name(self) ->str:
+    def source_full_name(self) -> str:
         if self.source:
             return self.source._config.full_name
         else:
@@ -78,7 +78,7 @@ class Event:
         if self.source and self.source._config.name:
             return self.source._config.name
         else:
-            return exec_name_to_full_name(self.source_full_name).split('/')[-1]
+            return exec_name_to_full_name(self.source_full_name).split("/")[-1]
 
 
 class SystemEvents(Enum):
@@ -158,26 +158,6 @@ class CallActionCommand(Command):
                 )
             )
 
-        if (
-            self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
-            and self.component_exec_name in self.processor.renderers
-        ):
-            # Calling display aciton
-            if (
-                RedisplayFlag.WHEN_ON_PAGE in cconfig.redisplay
-                or RedisplayFlag.WHEN_DISPLAY_EXECUTED in cconfig.redisplay
-            ):
-                # continune with redisplay
-                pass
-            elif (
-                RedisplayFlag.WHEN_STATE_CHANGED in cconfig.redisplay
-                and self.processor.renderers[self.component_exec_name].state
-                == component.state
-            ):
-                # if action is display and compoent already is displayed/rendered in same state
-                # no need to execute display again because it should return same result
-                return
-
         # execute action
         action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
         # process action result
@@ -187,38 +167,14 @@ class CallActionCommand(Command):
             # after executing action that returns True or None
             # component should be rendered by executing display
             self.processor.add_command(
-                CallActionCommand(
-                    self.component_exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
+                CallDisplayCommand(
+                    self.component_exec_name, force=action_result == True
                 ),
                 end=True,
             )
-        elif isinstance(action_result, bool) or action_result == False:
+        elif isinstance(action_result, bool) and action_result == False:
             # Do nothing
             pass
-        elif self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION and isinstance(
-            action_result, str
-        ):
-            # save component display responses in memory
-            # Add component html to processor rendererd
-            self.processor.renderers[self.component_exec_name] = ComponentRender(
-                True,
-                component.state.deepcopy(),
-                component.url,
-                component._config.changes_url,
-                action_result,
-            )
-        elif (
-            self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION
-            and not isinstance(action_result, str)
-        ):
-            # Display should return html string if not raise JembeError
-            raise JembeError(
-                "{} action of {} shuld return html string not {}".format(
-                    ComponentConfig.DEFAULT_DISPLAY_ACTION,
-                    cconfig.full_name,
-                    action_result,
-                )
-            )
         elif isinstance(action_result, Response):
             # TODO If self.component is component directly requested via http request
             # and it is not x-jembe request return respon
@@ -232,43 +188,115 @@ class CallActionCommand(Command):
             )
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
-        commands = [
+        return [
             EmitCommand(
                 self.component_exec_name,
                 SystemEvents.CALLING.value,
                 dict(action=self.action_name),
             ).mount(self.processor),
         ]
-        if self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION:
-            commands.append(
-                EmitCommand(
-                    self.component_exec_name,
-                    SystemEvents.DISPLAYING.value,
-                    dict(action=self.action_name),
-                ).mount(self.processor)
-            )
-        return commands
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
-        commands = [
+        return [
             EmitCommand(
                 self.component_exec_name,
                 SystemEvents.CALL.value,
                 dict(action=self.action_name),
             ).mount(self.processor),
         ]
-        if self.action_name == ComponentConfig.DEFAULT_DISPLAY_ACTION:
-            commands.append(
-                EmitCommand(
-                    self.component_exec_name,
-                    SystemEvents.DISPLAY.value,
-                    dict(action=self.action_name),
-                ).mount(self.processor)
-            )
-        return commands
 
     def __repr__(self):
         return "CallAction({}, {})".format(self.component_exec_name, self.action_name)
+
+
+class CallDisplayCommand(CallActionCommand):
+    def __init__(self, component_exec_name: str, force: bool = False) -> None:
+        super().__init__(
+            component_exec_name=component_exec_name,
+            action_name=ComponentConfig.DEFAULT_DISPLAY_ACTION,
+            args=None,
+            kwargs=None,
+        )
+        self.force = force
+
+    def execute(self):
+        component = self.processor.components[self.component_exec_name]
+        cconfig = component._config
+
+        if self.component_exec_name in self.processor.renderers and not (
+            self.force
+            or RedisplayFlag.WHEN_ON_PAGE in cconfig.redisplay
+            or RedisplayFlag.WHEN_DISPLAY_EXECUTED in cconfig.redisplay
+            or (
+                RedisplayFlag.WHEN_STATE_CHANGED in cconfig.redisplay
+                and self.processor.renderers[self.component_exec_name].state
+                != component.state
+            )
+        ):
+            # if compoent is already displayed/rendered in same state and no force is set
+            # no need to execute display again because it should return same result
+            return
+
+        # execute action
+        action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
+        # process action result
+        if isinstance(action_result, str):
+            # save component display responses in memory
+            # Add component html to processor rendererd
+            self.processor.renderers[self.component_exec_name] = ComponentRender(
+                True,
+                component.state.deepcopy(),
+                component.url,
+                component._config.changes_url,
+                action_result,
+            )
+        elif isinstance(action_result, Response):
+            # TODO If self.component is component directly requested via http request
+            # and it is not x-jembe request return respon
+            # othervise raise JembeError
+            raise NotImplementedError()
+        elif not isinstance(action_result, str):
+            # Display should return html string if not raise JembeError
+            raise JembeError(
+                "{} action of {} shuld return html string not {}".format(
+                    ComponentConfig.DEFAULT_DISPLAY_ACTION,
+                    cconfig.full_name,
+                    action_result,
+                )
+            )
+        else:
+            raise JembeError(
+                "Invalid display result type: {}.{} {}".format(
+                    cconfig.full_name, self.action_name, action_result,
+                )
+            )
+
+    def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
+        commands = list(super().get_before_emit_commands())
+        commands.append(
+            EmitCommand(
+                self.component_exec_name,
+                SystemEvents.DISPLAYING.value,
+                dict(action=self.action_name),
+            ).mount(self.processor)
+        )
+        return commands
+
+    def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
+        commands = list(super().get_after_emit_commands())
+        commands.append(
+            EmitCommand(
+                self.component_exec_name,
+                SystemEvents.DISPLAY.value,
+                dict(action=self.action_name),
+            ).mount(self.processor)
+        )
+        return commands
+
+    def __repr__(self):
+        return "DisplayAction({}, {})".format(
+            self.component_exec_name, self.action_name
+        )
 
 
 class CallListenerCommand(Command):
@@ -297,9 +325,7 @@ class CallListenerCommand(Command):
             # after executing listener that returns True or None
             # component should be rendered by executing display
             self.processor.add_command(
-                CallActionCommand(
-                    component.exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
-                ),
+                CallDisplayCommand(component.exec_name, force=listener_result == True),
                 end=True,
             )
         elif isinstance(listener_result, bool) or listener_result == False:
@@ -389,7 +415,7 @@ class EmitCommand(Command):
 
         # order components from top to bottom if message is send only to parents
         # this is required for proper handling of exceptions
-        if self._to == '/**/.':
+        if self._to == "/**/.":
             execute_over.sort(key=lambda t: t[0]._config._hiearchy_level, reverse=True)
         for comp, listener_method_name in execute_over:
             self.processor.add_command(
@@ -805,7 +831,15 @@ class Processor:
                     command_data["componentExecName"], command_data["initParams"]
                 ),
             )
-        elif command_data["type"] == "call":
+        elif (
+            command_data["type"] == "call"
+            and command_data["actionName"] == ComponentConfig.DEFAULT_DISPLAY_ACTION
+        ):
+            return CallDisplayCommand(command_data["componentExecName"],)
+        elif (
+            command_data["type"] == "call"
+            and command_data["actionName"] != ComponentConfig.DEFAULT_DISPLAY_ACTION
+        ):
             return CallActionCommand(
                 command_data["componentExecName"],
                 command_data["actionName"],
@@ -839,17 +873,11 @@ class Processor:
             )
 
             self.add_command(
-                CallActionCommand(
-                    exec_names[-1], ComponentConfig.DEFAULT_DISPLAY_ACTION
-                ),
-                end=True,
+                CallDisplayCommand(exec_names[-1]), end=True,
             )
             for exec_name in exec_names[:-1]:
                 self.add_command(
-                    CallActionCommand(
-                        exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION
-                    ),
-                    end=True,
+                    CallDisplayCommand(exec_name), end=True,
                 )
 
     def __create_commands_from_url_path(
@@ -919,9 +947,7 @@ class Processor:
             missing_render_exec_names,
             key=lambda exec_name: self.components[exec_name]._config._hiearchy_level,
         ):
-            self.add_command(
-                CallActionCommand(exec_name, ComponentConfig.DEFAULT_DISPLAY_ACTION)
-            )
+            self.add_command(CallDisplayCommand(exec_name))
         self._staging_commands.move_commands_to(self._commands)
 
         self._execute_commands()

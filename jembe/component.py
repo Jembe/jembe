@@ -17,7 +17,7 @@ from .exceptions import JembeError
 from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
 from .app import get_processor
-from .processor import CallActionCommand, InitialiseCommand, EmitCommand
+from .processor import CallActionCommand, CallDisplayCommand, InitialiseCommand, EmitCommand
 from .common import exec_name_to_full_name
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -121,12 +121,20 @@ class _SubComponentRenderer:
         # call action command is put in que to be executed latter
         # if this command raises exception parent should chach it and call display
         # with appropriate template
-        processor.add_command(
-            CallActionCommand(
-                component_exec_name, self.action, self.action_args, self.action_kwargs,
-            ),
-            end=True,
-        )
+        if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
+            processor.add_command(
+                CallDisplayCommand(
+                    component_exec_name
+                ),
+                end=True,
+            )
+        else:
+            processor.add_command(
+                CallActionCommand(
+                    component_exec_name, self.action, self.action_args, self.action_kwargs,
+                ),
+                end=True,
+            )
         return '<jmb-placeholder exec-name="{}"/>'.format(component_exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":
