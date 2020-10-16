@@ -107,7 +107,7 @@ class Jembe:
             component_name, curent_ref, parent_config = component_refs.pop(0)
             if isinstance(curent_ref, tuple):
                 # create config with custom params
-                component: Type["Component"] = curent_ref[0] if not isinstance(
+                component_class: Type["Component"] = curent_ref[0] if not isinstance(
                     curent_ref[0], str
                 ) else import_by_name(curent_ref[0])
                 curent_ref_params = (
@@ -115,34 +115,32 @@ class Jembe:
                     if isinstance(curent_ref[1], dict)
                     else curent_ref[1]._raw_init_params
                 )
-                component_config = component.Config(
+                component_config = component_class.Config(
                     **{
                         **curent_ref_params,
                         "name": component_name,
                         "_parent": parent_config,
-                        "_component_class": component,
+                        "_component_class": component_class,
                     }  # type:ignore
                 )
             else:
                 # create config with default params
-                component = (
+                component_class = (
                     curent_ref
                     if not isinstance(curent_ref, str)
                     else import_by_name(curent_ref)
                 )
-                component_config = component.Config(
+                component_config = component_class.Config(
                     name=component_name,
                     _parent=parent_config,
-                    _component_class=component,
+                    _component_class=component_class,
                 )
-
-            setattr(component, "_config", component_config)
 
             # fill components_configs
             self.components_configs[component_config.full_name] = component_config
 
             if bp is None:
-                bp = Blueprint(component_name, component.__module__)
+                bp = Blueprint(component_name, component_class.__module__)
             if page_url_path is None:
                 page_url_path = component_config.url_path
 
@@ -174,7 +172,6 @@ def get_processor():
         component_full_name = request.endpoint[len(request.blueprint) + 1 :]
         g.jmb_processor = Processor(jembe, component_full_name, request)
     return g.jmb_processor
-
 
 def jembe_master_view(**kwargs) -> "Response":
     return get_processor().process_request().build_response()

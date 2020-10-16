@@ -17,7 +17,12 @@ from .exceptions import JembeError
 from flask import render_template, render_template_string, current_app
 from .component_config import ComponentConfig
 from .app import get_processor
-from .processor import CallActionCommand, CallDisplayCommand, InitialiseCommand, EmitCommand
+from .processor import (
+    CallActionCommand,
+    CallDisplayCommand,
+    InitialiseCommand,
+    EmitCommand,
+)
 from .common import exec_name_to_full_name
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -123,15 +128,15 @@ class _SubComponentRenderer:
         # with appropriate template
         if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
             processor.add_command(
-                CallDisplayCommand(
-                    component_exec_name
-                ),
-                end=True,
+                CallDisplayCommand(component_exec_name), end=True,
             )
         else:
             processor.add_command(
                 CallActionCommand(
-                    component_exec_name, self.action, self.action_args, self.action_kwargs,
+                    component_exec_name,
+                    self.action,
+                    self.action_args,
+                    self.action_kwargs,
                 ),
                 end=True,
             )
@@ -332,20 +337,20 @@ class Component(metaclass=ComponentMeta):
                 param_hint = cls._jembe_init_signature.parameters[param_name]
                 if not _supported_hint(param_hint):
                     raise JembeError(
-                        "State param {} of {} with hint {} is not supported for json encode/decode "
+                        "State param {} of {}.{} with hint {} is not supported for json encode/decode "
                         "nor custom encoding/decoding logic is defined in encode_param/decode_param."
                         "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
                         "init- & float-derivated Enums, bool, Optional".format(
-                            param_name, cls._config.full_name, param_hint
+                            param_name, cls.__module__, cls.__name__, param_hint
                         )
                     )
             else:
                 raise JembeError(
-                    "State param {} of {} does not have supported json encode/decode type hint "
+                    "State param {} of {}.{} does not have supported json encode/decode type hint "
                     "nor custom encoding/decoding logic is defined in encode_param/decode_param."
                     "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
                     "init- & float-derivated Enums, bool, Optional".format(
-                        param_name, cls._config.full_name
+                        param_name, cls.__module__, cls.__name__
                     )
                 )
 

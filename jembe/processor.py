@@ -627,7 +627,12 @@ class InitialiseCommand(Command):
         # create new component if component with identical exec_name
         # does not exist
         if self._must_do_init:
-            component = self._cconfig.component_class(**self.init_params)  # type:ignore
+            # Instance createion by excplictly calling __new__ and __init__
+            # becouse _config should be avaiable in __init__
+            component = object.__new__(self._cconfig.component_class)
+            component._config = self._cconfig
+            component.__init__(**self.init_params)  # type:ignore
+
             component.exec_name = self.component_exec_name
             self.processor.components[component.exec_name] = component
 
