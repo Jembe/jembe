@@ -10,18 +10,20 @@ from typing import (
     get_args,
     Type,
 )
+from functools import cached_property
 from copy import deepcopy
 from abc import ABCMeta
 from inspect import isclass, isfunction, signature, getmembers
-from .exceptions import JembeError
+from .exceptions import JembeError, NotFound
 from flask import render_template, render_template_string, current_app
-from .component_config import ComponentConfig
+from .component_config import ComponentConfig, action
 from .app import get_processor
 from .processor import (
     CallActionCommand,
     CallDisplayCommand,
     InitialiseCommand,
     EmitCommand,
+    Processor,
 )
 from .common import exec_name_to_full_name
 
@@ -96,16 +98,69 @@ class _SubComponentRenderer:
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
 
+        if "." in self.name or "/" in self.name:
+            raise JembeError(
+                "Component renderer only suppotrs rendering or accessing direct childs"
+            )
+
     def is_accessible(self) -> bool:
         # TODO add param ignore_incoplete_params = Truo so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
-        processor = get_processor()
-        component_exec_name = Component._build_exec_name(
+        initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
+        return self.processor.execute_initialise_command_successfully(
+            initialise_command
+        )
+
+    @cached_property
+    def url(self) -> str:
+        if self.exec_name not in self.processor.components:
+            if not self.is_accessible():
+                raise NotFound()
+        return self.processor.components[self.exec_name].url
+
+    @cached_property
+    def jrl(self) -> str:
+        if self.exec_name not in self.processor.components:
+            if not self.is_accessible():
+                raise NotFound()
+
+        def _prep_v(v):
+            if isinstance(v, bool):
+                return "true" if v else "false"
+            return "'{}'".format(v)
+
+        return "$jmb.component('{name}'{kwargs}){key}{action}".format(
+            name=self.name,
+            key=".key('{}')".format(self._key) if self._key else "",
+            action=".call('{name}'{args}{kwargs})".format(
+                name=self.action,
+                args="".join((",{}".format(_prep_v(v)) for v in self.action_args)),
+                kwargs="".join(
+                    (
+                        ",{}='{}'".format(k, _prep_v(v))
+                        for k, v in self.action_kwargs.items()
+                    )
+                ),
+            )
+            if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
+            else "",
+            kwargs="".join(
+                (",{}='{}'".format(k, _prep_v(v)) for k, v in self.kwargs.items())
+            )
+            if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
+            else "",
+        )
+
+    @cached_property
+    def exec_name(self) -> str:
+        return Component._build_exec_name(
             self.name, self._key, self.component.exec_name
         )
-        initialise_command = InitialiseCommand(component_exec_name, self.kwargs)
-        return processor.execute_initialise_command_successfully(initialise_command)
+
+    @cached_property
+    def processor(self) -> Processor:
+        return get_processor()
 
     def __call__(self) -> str:
         """
@@ -115,32 +170,24 @@ class _SubComponentRenderer:
         will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
         so that we can decide how to render template
         """
-        processor = get_processor()
-        component_exec_name = Component._build_exec_name(
-            self.name, self._key, self.component.exec_name
-        )
-
-        processor.add_command(
-            InitialiseCommand(component_exec_name, self.kwargs), end=True
+        self.processor.add_command(
+            InitialiseCommand(self.exec_name, self.kwargs), end=True
         )
         # call action command is put in que to be executed latter
         # if this command raises exception parent should chach it and call display
         # with appropriate template
         if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
-            processor.add_command(
-                CallDisplayCommand(component_exec_name), end=True,
+            self.processor.add_command(
+                CallDisplayCommand(self.exec_name), end=True,
             )
         else:
-            processor.add_command(
+            self.processor.add_command(
                 CallActionCommand(
-                    component_exec_name,
-                    self.action,
-                    self.action_args,
-                    self.action_kwargs,
+                    self.exec_name, self.action, self.action_args, self.action_kwargs,
                 ),
                 end=True,
             )
-        return '<jmb-placeholder exec-name="{}"/>'.format(component_exec_name)
+        return '<jmb-placeholder exec-name="{}"/>'.format(self.exec_name)
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key
@@ -271,7 +318,7 @@ class Component(metaclass=ComponentMeta):
         return "/".join((parent_exec_name, local_exec_name))
 
     @property
-    def url(self) -> Optional[str]:
+    def url(self) -> str:
         """
         Returns url of this component build using url_path of parent
         components and url_path of this component
@@ -477,9 +524,18 @@ class Component(metaclass=ComponentMeta):
         }
 
     def _render_subcomponent_template(
-        self, name: str, *args, **kwargs
+        self, name: Optional[str] = None, *args, **kwargs
     ) -> "_SubComponentRenderer":
-        return _SubComponentRenderer(self, name, args, kwargs)
+        if name is None:
+            try:
+                return self.__prev_sub_component_renderer
+            except AttributeError:
+                raise JembeError("Previous component renderer is not set")
+        else:
+            self.__prev_sub_component_renderer: "_SubComponentRenderer" = _SubComponentRenderer(
+                self, name, args, kwargs
+            )
+            return self.__prev_sub_component_renderer
 
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()

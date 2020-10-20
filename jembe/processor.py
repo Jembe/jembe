@@ -19,6 +19,7 @@ from collections import deque
 from itertools import accumulate, chain
 from functools import cached_property
 from operator import add
+from flask.globals import current_app
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
@@ -1037,6 +1038,9 @@ class Processor:
 
                     # restore _staging_commands
                     self._staging_commands = backup_current_staging_commands
+                    current_app.logger.warning(
+                        "Exception when initialising component out of proccessing que {}: {}".format(cmd, exc)
+                    )
                     return False
                 # Before or after command raised exception
                 # this should not happend and that indicated bug so

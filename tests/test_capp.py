@@ -1,6 +1,8 @@
 from typing import Any, Dict, List, TYPE_CHECKING, Dict, Optional, Union
 from functools import cached_property
 from dataclasses import dataclass, field
+
+from flask import json
 from jembe.processor import Event
 from jembe.exceptions import BadRequest, JembeError
 from jembe.component_config import ComponentConfig, redisplay
@@ -194,12 +196,12 @@ class TaskList(Component):
     @listener(event="_display", source="./*")
     def on_display_child(self, event: Event):
         self.state.mode = event.source_name
-        self.goto_task_id = event.params["task_id"]
+        self.goto_task_id = event.params.get("task_id", None)
 
     @listener(event="save", source=["./edit", "./add"])
     def on_tasks_changed(self, event: Event):
         self.state.mode = "view" if "view" in self._config.components else "edit"
-        self.goto_task_id = event.params["task_id"]
+        self.goto_task_id = event.params.get("task_id", None)
 
     @listener(event="cancel", source="./*")
     def on_cancel_operation(self, event: Event):
@@ -216,23 +218,23 @@ class TaskList(Component):
         list_template = (
             """<div>"""
             """{% if component("add").is_accessible() %}"""
-            """<button type="button" onclick="{{component.jrl}}">Add</button>{% endif %}"""
+            """<button type="button" onclick="{{component().jrl}}">Add</button>{% endif %}"""
             "<table>"
             "<tr><th>Task</th><th>Actions</th></tr>"
             "{% for t in tasks %}<tr>"
             "<td>"
             """{% if component("view", task_id=t.id).is_accessible() %}"""
-            """<a href="{{component.url}}" onclick="{{component.jrl}}">{{t.title}}</a>"""
+            """<a href="{{component().url}}" onclick="{{component().jrl}}">{{t.title}}</a>"""
             """{% elif component("edit", task_id=t.id).is_accessible() %}"""
-            """<a href="{{component.url}}" onclick="{{component.jrl}}">{{t.title}}</a>"""
+            """<a href="{{component().url}}" onclick="{{component().jrl}}">{{t.title}}</a>"""
             # """<a href="{{component.url}}" onclick="$jmb.component('../view', task_id=t.id)">{{t.title}}</a>"""
             """{% else %}{{t.title}}{% endif %}"""
             "</td>"
             "<td>"
             """{% if not component("view", task_id=t.id).is_accessible() and  component("edit", task_id=t.id).is_accessible() %}"""
-            """<a href="{{component.url}}" onclick="{{component.jrl}}">edit</a>{% endif %}"""
+            """<a href="{{component().url}}" onclick="{{component().jrl}}">edit</a>{% endif %}"""
             """{% if component("delete", task_id=t.id).is_accessible() %}"""
-            """<a href="{{component.url}}" onclick="{{component.jrl}}">delete</a>{% endif %}"""
+            """<a href="{{component().url}}" onclick="{{component().jrl}}">delete</a>{% endif %}"""
             "</td>"
             "</tr>{% endfor %}"
             "</table>"
@@ -306,7 +308,7 @@ class ViewTask(Component):
             "<div>{{task.description}}</div>"
             "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Sub tasks</h2>"
-            "<div>{{component}}</div>"
+            "<div>{{component()}}</div>"
             "{% endif %}"
         )
 
@@ -403,7 +405,7 @@ class EditTask(Component):
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
             "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Sub tasks</h2>"
-            "<div>{{component}}</div>"
+            "<div>{{component()}}</div>"
             "{% endif %}"
         )
 
@@ -430,24 +432,30 @@ class AddTask(Component):
         ):
             raise NotFound()
 
+        self._mounted = False
         super().__init__()
 
     def mount(self) -> None:
         # TODO mount is executed before first executing first action including display
         # sutable for initialising costly resources that shuld not be accessed
         # if no action is executed (if we checking is_accessible no resurces should be allocated)
+        if self._mounted:
+            return
+        self._mounted = True
+
         if self.state.wip_id is None:
             self.state.wip_id = (
                 max(session["wipdbs"].keys()) + 1 if session["wipdbs"] else 1
             )
-            session["wipdbs"][self.state.wip_id] = WipDb()
+            self._wipdb = WipDb()
+            session["wipdbs"][self.state.wip_id] = self._wipdb
 
         if self.state.task_id is None:
-            self.state.task_id = min([0, *self.state.wip_db.keys()]) - 1
+            self.state.task_id = min([0, *self._wipdb.ids()]) - 1
             new_task = Task(
                 id=self.state.task_id, title="", parent_id=self.state.parent_task_id
             )
-            self._wipdb.add(new_task)
+            self._wipdb.put(new_task)
 
         if self.state.form is None:
             self.state.form = TaskForm(
@@ -469,6 +477,7 @@ class AddTask(Component):
 
     @action
     def save(self):
+        self.mount()
         if self.state.form.is_valid():
             task = Task(
                 self.state.task_id,
@@ -495,8 +504,10 @@ class AddTask(Component):
         # form is not valid redisplay it with error
 
     def display(self) -> Union[str, "Response"]:
+        self.mount()
         self.emit("set_page_title", title="Add task")
         return self.render_template_string(
+            "<div>"
             "<h1>New task</h1>"
             """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
             """<label>Title:"""
@@ -509,8 +520,9 @@ class AddTask(Component):
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
             "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Subtasks</h2>"
-            "<div>{{component}}</div>"
+            "<div>{{component()}}</div>"
             "{% endif %}"
+            "</div>"
         )
 
 
@@ -575,7 +587,6 @@ class PageTitle(Component):
     @listener(event="set_page_title")
     def on_set_page_title(self, event):
         self.state.title = event.title
-        return False
 
     @action(deferred=True)
     def display(self):
@@ -711,10 +722,86 @@ def test_empty_list(jmb, client):
         """</div>"""
         """</body></html>"""
     ).encode("utf-8")
-    # TODO add task (x-jembe)
-    # TODO add second task (x-jembe)
-    # TODO edit first task (x-jembe)
-    # TODO edit second task and add subtasks (x-jembe)
-    # TODO add subtask with two level subtasks (x-jembe)
-    # TODO edit task and add, edit and delete subtasks in bulk (x-jembe)
-    # TODO delete task
+
+
+def test_add_task_x(jmb, client):
+    jmb.add_page("tasks", TasksPage)
+    # login
+    session["user"] = User("admin")
+    # display add page
+    r = client.post(
+        "/tasks/tasks/add",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(execName="/tasks/page_title", state=dict(title="Tasks"),),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="list", parent_task_id=None, wip_id=None),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/tasks/tasks/add",
+                        initParams=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/add",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="Add task")
+    assert json_response[0]["dom"] == (
+        """<title>Add task</title>"""
+    )
+    assert json_response[1]["execName"] == "/tasks/tasks"
+    assert json_response[1]["state"] == dict(
+        mode="add", parent_task_id=None, wip_id=None
+    )
+    assert json_response[1]["dom"] == (
+        """<jmb-placeholder exec-name="/tasks/tasks/add"/>"""
+    )
+    assert json_response[2]["execName"] == "/tasks/tasks/add"
+    assert json_response[2]["state"] == dict(
+        form=dict(title="", description=None, error=None),
+        parent_task_id=None,
+        task_id=-1,
+        wip_id=1,
+    )
+    assert json_response[2]["dom"] == (
+        "<div>"
+        "<h1>New task</h1>"
+        """<label>Title:"""
+        """<input type="text" value="" """
+        """onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
+        """<label>Description:"""
+        """<input type="text" value="" """
+        """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
+        """<button type="button" onclick="$jmb.call('save')">Save</button>"""
+        """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
+        "<h2>Subtasks</h2>"
+        """<div><jmb-placeholder exec-name="/tasks/tasks/add/subtasks"/></div>"""
+        "</div>"
+    )
+    # add new task
+
+
+# TODO add second task (x-jembe)
+# TODO edit first task (x-jembe)
+# TODO edit second task and add subtasks (x-jembe)
+# TODO add subtask with two level subtasks (x-jembe)
+# TODO edit task and add, edit and delete subtasks in bulk (x-jembe)
+# TODO delete task
