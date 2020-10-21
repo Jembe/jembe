@@ -1,5 +1,6 @@
 import os
 import pytest
+from traceback import print_exc
 from jembe import Jembe
 from jembe.exceptions import JembeError
 
@@ -17,6 +18,7 @@ def app():
 
     @app.errorhandler(JembeError)
     def handle_jembe_errror(error):
+        app.logger.exception(error)
         return "JembeError", 500
     yield app
 

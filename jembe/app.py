@@ -3,7 +3,7 @@ from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
 from flask import g
-from .common import ComponentRef, import_by_name
+from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -163,6 +163,14 @@ class Jembe:
         if bp:
             self.flask.register_blueprint(bp, url_prefix=page_url_path)
 
+    def get_component_config(self, exec_name: str) -> "ComponentConfig":
+        try:
+            return self.components_configs[exec_name_to_full_name(exec_name)]
+        except KeyError:
+            raise JembeError(
+                "Component {} does not exist".format(exec_name_to_full_name(exec_name))
+            )
+
 
 def get_processor():
     if "jmb_processor" not in g:
@@ -172,6 +180,7 @@ def get_processor():
         component_full_name = request.endpoint[len(request.blueprint) + 1 :]
         g.jmb_processor = Processor(jembe, component_full_name, request)
     return g.jmb_processor
+
 
 def jembe_master_view(**kwargs) -> "Response":
     return get_processor().process_request().build_response()

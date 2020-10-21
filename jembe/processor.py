@@ -20,10 +20,11 @@ from itertools import accumulate, chain
 from functools import cached_property
 from operator import add
 from flask.globals import current_app
+from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
-from .common import exec_name_to_full_name, is_page_exec_name
+from .common import exec_name_to_full_name, is_page_exec_name, parent_exec_name
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
@@ -417,7 +418,7 @@ class EmitCommand(Command):
         # order components from top to bottom if message is send only to parents
         # this is required for proper handling of exceptions
         if self._to == "/**/.":
-            execute_over.sort(key=lambda t: t[0]._config._hiearchy_level, reverse=True)
+            execute_over.sort(key=lambda t: t[0]._config.hiearchy_level, reverse=True)
         for comp, listener_method_name in execute_over:
             self.processor.add_command(
                 CallListenerCommand(comp.exec_name, listener_method_name, self.event)
@@ -595,7 +596,7 @@ class InitialiseCommand(Command):
         exist_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
-        self.init_params = init_params
+        self.init_params = {k:(v if not isinstance(v, Undefined) else None) for k, v in init_params.items()}
         self.exist_on_client = exist_on_client
 
         self._cconfig: "ComponentConfig"
@@ -607,8 +608,9 @@ class InitialiseCommand(Command):
         except AttributeError:
             self.__must_do_init = True
 
-            component_full_name = exec_name_to_full_name(self.component_exec_name)
-            self._cconfig = self.processor.jembe.components_configs[component_full_name]
+            self._cconfig = self.processor.jembe.get_component_config(
+                self.component_exec_name
+            )
 
             if self.component_exec_name in self.processor.components:
                 # if state params are same continue
@@ -630,8 +632,20 @@ class InitialiseCommand(Command):
         if self._must_do_init:
             # Instance createion by excplictly calling __new__ and __init__
             # becouse _config should be avaiable in __init__
+            parent_cconfig = self._cconfig.parent
+            inject_into = (
+                parent_cconfig._inject_into_components(
+                    self.processor.components[
+                        parent_exec_name(self.component_exec_name)
+                    ],
+                    self._cconfig,
+                )
+                if parent_cconfig and parent_cconfig._inject_into_components
+                else dict()
+            )
             component = object.__new__(self._cconfig.component_class)
             component._config = self._cconfig
+            component._jembe_injected_into = inject_into
             component.__init__(**self.init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
@@ -802,9 +816,7 @@ class Processor:
         )
 
     def _decode_init_params(self, exec_name: str, init_params: dict) -> dict:
-        component_class = self.jembe.components_configs[
-            exec_name_to_full_name(exec_name)
-        ].component_class
+        component_class = self.jembe.get_component_config(exec_name).component_class
 
         decoded_params = dict()
         for param_name, param_value in init_params.items():
@@ -951,7 +963,7 @@ class Processor:
         missing_render_exec_names = needs_render_exec_names - set(self.renderers.keys())
         for exec_name in sorted(
             missing_render_exec_names,
-            key=lambda exec_name: self.components[exec_name]._config._hiearchy_level,
+            key=lambda exec_name: self.components[exec_name]._config.hiearchy_level,
         ):
             self.add_command(CallDisplayCommand(exec_name))
         self._staging_commands.move_commands_to(self._commands)
@@ -1000,10 +1012,17 @@ class Processor:
         if initialise is successfull all before and after commands should be executed.
         """
 
-        if command.component_exec_name in self._raised_exception_on_initialise and (
-            command.init_params
-            == self._raised_exception_on_initialise[command.component_exec_name]
+        if exec_name_to_full_name(
+            command.component_exec_name
+        ) not in self.jembe.components_configs or (
+            command.component_exec_name in self._raised_exception_on_initialise
+            and (
+                command.init_params
+                == self._raised_exception_on_initialise[command.component_exec_name]
+            )
         ):
+            # component does not exist (component_config with requested full_name does not exist)
+            # or initailisation of component with same init_params already failed
             return False
 
         backup_current_staging_commands = self._staging_commands
@@ -1038,9 +1057,12 @@ class Processor:
 
                     # restore _staging_commands
                     self._staging_commands = backup_current_staging_commands
-                    current_app.logger.warning(
-                        "Exception when initialising component out of proccessing que {}: {}".format(cmd, exc)
-                    )
+                    if current_app.debug or current_app.testing:
+                        current_app.logger.exception(
+                            "Exception when initialising component out of proccessing que {}: {}".format(
+                                cmd, exc
+                            )
+                        )
                     return False
                 # Before or after command raised exception
                 # this should not happend and that indicated bug so
@@ -1129,9 +1151,9 @@ class Processor:
                         dict(
                             execName=exec_name,
                             state=state.tojsondict(
-                                self.jembe.components_configs[
-                                    exec_name_to_full_name(exec_name)
-                                ].component_class
+                                self.jembe.get_component_config(
+                                    exec_name
+                                ).component_class
                             ),
                             dom=html,
                             url=url,
@@ -1156,9 +1178,7 @@ class Processor:
             }
             unused_exec_names = sorted(
                 c_etrees.keys(),
-                key=lambda exec_name: self.components[
-                    exec_name
-                ]._config._hiearchy_level,
+                key=lambda exec_name: self.components[exec_name]._config.hiearchy_level,
             )
             response_etree = None
             can_find_placeholder = True
@@ -1217,9 +1237,7 @@ class Processor:
                 json.dumps(
                     dict(
                         state=state.tojsondict(
-                            self.jembe.components_configs[
-                                exec_name_to_full_name(exec_name)
-                            ].component_class
+                            self.jembe.get_component_config(exec_name).component_class
                         ),
                         url=url,
                         changes_url=changes_url,

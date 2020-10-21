@@ -211,7 +211,14 @@ def componentInitDecorator(init_method):
         # Inject params from inject method
         # if signature(init_method) == self._jembe_init_signature:
         if not hasattr(self, "_jembe_injected_params_names"):
-            params_to_inject = self.inject()
+            params_to_inject = {
+                **{
+                    k: v
+                    for k, v in self._jembe_injected_into.items()
+                    if k in self._jembe_init_param_names
+                },
+                **self.inject(),
+            }
             self._jembe_injected_params_names = list(params_to_inject.keys())
             for name, value in params_to_inject.items():
                 if current_app.debug and name in kwargs:
@@ -248,6 +255,9 @@ class ComponentMeta(ABCMeta):
             # to define url params
             init_signature = signature(attrs["__init__"])
             attrs["_jembe_init_signature"] = init_signature
+            attrs["_jembe_init_param_names"] = tuple(
+                p.name for p in init_signature.parameters.values() if p.name != "self"
+            )
             attrs["_jembe_state_param_names"] = tuple(
                 p.name
                 for p in init_signature.parameters.values()

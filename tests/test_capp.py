@@ -185,12 +185,13 @@ class TaskList(Component):
             }
             # replace tasks in db with task from wip
             if self._wipdb:
-                for tid, t in self._wipdb.tasks:
+                for tid, t in self._wipdb.tasks.items():
                     if tid > 0 and tid not in self._tasks:
                         raise ValueError(
                             "Work in progress task that does not exist in db must have negative id"
                         )
-                    self._tasks[tid] = t
+                    if t.parent_id == self.state.parent_task_id:
+                        self._tasks[tid] = t
             return self._tasks
 
     @listener(event="_display", source="./*")
@@ -221,7 +222,7 @@ class TaskList(Component):
             """<button type="button" onclick="{{component().jrl}}">Add</button>{% endif %}"""
             "<table>"
             "<tr><th>Task</th><th>Actions</th></tr>"
-            "{% for t in tasks %}<tr>"
+            "{% for t in tasks.values() %}<tr>"
             "<td>"
             """{% if component("view", task_id=t.id).is_accessible() %}"""
             """<a href="{{component().url}}" onclick="{{component().jrl}}">{{t.title}}</a>"""
@@ -241,7 +242,8 @@ class TaskList(Component):
             "</div>"
         )
         if self.state.mode == "list":
-            self.emit("set_page_title", title="Tasks")
+            if self.state.parent_task_id is None:
+                self.emit("set_page_title", title="Tasks")
             return self.render_template_string(list_template)
         elif self.state.mode == "view":
             if self.goto_task_id:
@@ -514,11 +516,11 @@ class AddTask(Component):
             """<input type="text" value="{{form.title}}" """
             """onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
             """<label>Description:"""
-            """<input type="text" value="{{form.description}}" """
+            """<input type="text" value="{{form.description|default("",true)}}" """
             """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
             """<button type="button" onclick="$jmb.call('save')">Save</button>"""
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
-            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
+            "{% if component('subtasks').is_accessible() %}"
             "<h2>Subtasks</h2>"
             "<div>{{component()}}</div>"
             "{% endif %}"
@@ -582,11 +584,16 @@ class DeleteTask(Component):
 @config(Component.Config(changes_url=False))
 class PageTitle(Component):
     def __init__(self, title: str = ""):
+        self._level: Optional[int] = None
         super().__init__()
 
     @listener(event="set_page_title")
-    def on_set_page_title(self, event):
-        self.state.title = event.title
+    def on_set_page_title(self, event: Event):
+        if self._level is None or (
+            event.source and event.source._config.hiearchy_level > self._level
+        ):
+            self._level = event.source._config.hiearchy_level if event.source else 0
+            self.state.title = event.title
 
     @action(deferred=True)
     def display(self):
@@ -761,12 +768,10 @@ def test_add_task_x(jmb, client):
     )
     assert r.status_code == 200
     json_response = json.loads(r.data)
-    assert len(json_response) == 3
+    assert len(json_response) == 4
     assert json_response[0]["execName"] == "/tasks/page_title"
     assert json_response[0]["state"] == dict(title="Add task")
-    assert json_response[0]["dom"] == (
-        """<title>Add task</title>"""
-    )
+    assert json_response[0]["dom"] == ("""<title>Add task</title>""")
     assert json_response[1]["execName"] == "/tasks/tasks"
     assert json_response[1]["state"] == dict(
         mode="add", parent_task_id=None, wip_id=None
@@ -794,6 +799,16 @@ def test_add_task_x(jmb, client):
         """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
         "<h2>Subtasks</h2>"
         """<div><jmb-placeholder exec-name="/tasks/tasks/add/subtasks"/></div>"""
+        "</div>"
+    )
+    assert json_response[3]["execName"] == "/tasks/tasks/add/subtasks"
+    assert json_response[3]["state"] == dict(mode="list")
+    assert json_response[3]["dom"] == (
+        "<div>"
+        """<button type="button" onclick="$jmb.component('add')">Add</button>"""
+        "<table>"
+        "<tr><th>Task</th><th>Actions</th></tr>"
+        "</table>"
         "</div>"
     )
     # add new task

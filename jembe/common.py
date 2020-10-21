@@ -40,6 +40,10 @@ def direct_child_name(component: "Component", subcompoenent_full_name: str) -> s
     return child_names[len(parent_names)]
 
 
+def parent_exec_name(exec_name: str) -> str:
+    return "/".join(exec_name.split("/")[:-1])
+
+
 def import_by_name(object_name: str) -> Any:
     try:
         str_split = object_name.split(".")

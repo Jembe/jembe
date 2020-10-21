@@ -1,5 +1,6 @@
 from typing import (
-    Callable, TYPE_CHECKING,
+    Callable,
+    TYPE_CHECKING,
     Optional,
     Type,
     Dict,
@@ -326,15 +327,28 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         name: Optional[str] = None,
         template: Optional[str] = None,
         components: Optional[Dict[str, ComponentRef]] = None,
-        inject_into_components: Optional[Callable[["Component", "ComponentConfig"], dict]] = None, # TODO
+        inject_into_components: Optional[
+            Callable[["Component", "ComponentConfig"], dict]
+        ] = None,  # TODO
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
         _component_class: Optional[Type["Component"]] = None,
         _parent: Optional["ComponentConfig"] = None,
     ):
+        """
+        name: name of the component
+        template: path to default template for displaying component
+        components: Definition of subcomponents
+        inject_into_components: Callable to inject init params into subcomponents
+        redisplay: Flag to define when componnet will be redisplayed on client depending of its state
+        changes_url: Does this component changes location url and allow back browser navigation to it
+
+        _component_class, _parent: used internally by jembe library
+        """
         self.name = name
         self.components: Dict[str, ComponentRef] = components if components else dict()
         self._template = template
+        self._inject_into_components = inject_into_components
         self._redisplay_temp = redisplay
         self.changes_url = changes_url
 
@@ -474,6 +488,13 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             "{}{}".format(self.parent.url_path, url_path) if self.parent else url_path
         )
         return url_path
+
+    @property
+    def hiearchy_level(self) -> int:
+        try:
+            return self._hiearchy_level
+        except AttributeError:
+            raise JembeError("Componet config initialisation is not complete")
 
     def get_raw_url_params(self, state: "ComponentState", key: str) -> dict:
         url_params = {up.identifier: state[up.name] for up in self._url_params}
