@@ -662,7 +662,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                 components=[
                     dict(execName="/cpage", state=dict(counters=["first", "second"])),
                     dict(execName="/cpage/counter.first", state=dict(value=0)),
-                    # dict(execName="/cpage/counter.second", state=dict(value=0)),
+                    dict(execName="/cpage/counter.second", state=dict(value=0)),
                 ],
                 commands=[
                     dict(
@@ -722,7 +722,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                         state=dict(counters=["first", "second", "third"]),
                     ),
                     dict(execName="/cpage/counter.first", state=dict(value=0)),
-                    # dict(execName="/cpage/counter.second", state=dict(value=2)),
+                    dict(execName="/cpage/counter.second", state=dict(value=1)),
                     dict(execName="/cpage/counter.third", state=dict(value=0)),
                 ],
                 commands=[

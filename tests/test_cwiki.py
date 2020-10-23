@@ -359,6 +359,12 @@ def test_wiki(jmb, client):
                 components=[
                     dict(execName="/wiki", state=dict(mode="edit")),
                     dict(execName="/wiki/page_title", state=dict(title="Edit: Root")),
+                    dict(
+                        execName="/wiki/edit",
+                        state=dict(
+                            form=dict(error=None, title="Root"), page_path="root"
+                        ),
+                    ),
                 ],
                 commands=[
                     dict(
@@ -404,6 +410,13 @@ def test_wiki(jmb, client):
                 components=[
                     dict(execName="/wiki", state=dict(mode="edit")),
                     dict(execName="/wiki/page_title", state=dict(title="Edit: Root")),
+                    dict(
+                        execName="/wiki/edit",
+                        state=dict(
+                            form=dict(error="Title is required", title=""),
+                            page_path="root",
+                        ),
+                    ),
                 ],
                 commands=[
                     dict(
@@ -639,7 +652,8 @@ def test_wiki(jmb, client):
                     dict(
                         execName="/wiki/add",
                         state=dict(
-                            page_path="root/jembe", form=dict(error=None, name="", title="")
+                            page_path="root/jembe",
+                            form=dict(error=None, name="", title=""),
                         ),
                     ),
                 ],
@@ -690,6 +704,13 @@ def test_wiki(jmb, client):
                         execName="/wiki/page_title",
                         state=dict(title="Edit Suite Page"),
                     ),
+                    dict(
+                        execName="/wiki/edit",
+                        state=dict(
+                            page_path="root/jembe/suite",
+                            form=dict(error=None, title="Suite Page"),
+                        ),
+                    ),
                 ],
                 commands=[
                     dict(
@@ -725,7 +746,9 @@ def test_wiki(jmb, client):
     assert json_response[1]["dom"] == ("""<title>Jembe Suite Page</title>""")
     assert json_response[2]["execName"] == "/wiki/view"
     assert json_response[2]["state"] == dict(page_path="root/jembe/suite")
-    assert json_response[2]["dom"] == ("""<div><h1>Jembe Suite Page</h1><div></div></div>""")
+    assert json_response[2]["dom"] == (
+        """<div><h1>Jembe Suite Page</h1><div></div></div>"""
+    )
     # get wiki page via direct http get
     ######################################
     r = client.get("/wiki/view/root/jembe")

@@ -16,7 +16,8 @@ from abc import ABCMeta
 from inspect import isclass, isfunction, signature, getmembers
 from .exceptions import JembeError, NotFound
 from flask import render_template, render_template_string, current_app
-from .component_config import ComponentConfig, action
+from markupsafe import Markup
+from .component_config import ComponentConfig
 from .app import get_processor
 from .processor import (
     CallActionCommand,
@@ -130,7 +131,7 @@ class _SubComponentRenderer:
                 return "true" if v else "false"
             return "'{}'".format(v)
 
-        return "$jmb.component('{name}'{kwargs}){key}{action}".format(
+        return Markup("$jmb.component('{name}'{kwargs}){key}{action}".format(
             name=self.name,
             key=".key('{}')".format(self._key) if self._key else "",
             action=".call('{name}'{args}{kwargs})".format(
@@ -150,7 +151,7 @@ class _SubComponentRenderer:
             )
             if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
             else "",
-        )
+        ))
 
     @cached_property
     def exec_name(self) -> str:
@@ -187,7 +188,7 @@ class _SubComponentRenderer:
                 ),
                 end=True,
             )
-        return '<jmb-placeholder exec-name="{}"/>'.format(self.exec_name)
+        return Markup('<jmb-placeholder exec-name="{}"/>'.format(self.exec_name))
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key

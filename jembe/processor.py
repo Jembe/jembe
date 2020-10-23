@@ -596,35 +596,55 @@ class InitialiseCommand(Command):
         exist_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
-        self.init_params = {k:(v if not isinstance(v, Undefined) else None) for k, v in init_params.items()}
+        self.init_params = {
+            k: (v if not isinstance(v, Undefined) else None)
+            for k, v in init_params.items()
+        }
         self.exist_on_client = exist_on_client
 
         self._cconfig: "ComponentConfig"
+        self._inject_into_params: Dict[str, Any]
 
-    @property
+    @cached_property
     def _must_do_init(self):
-        try:
-            return self.__must_do_init
-        except AttributeError:
-            self.__must_do_init = True
 
-            self._cconfig = self.processor.jembe.get_component_config(
-                self.component_exec_name
+        self._cconfig = self.processor.jembe.get_component_config(
+            self.component_exec_name
+        )
+        parent_cconfig = self._cconfig.parent
+        self._inject_into_params = (
+            parent_cconfig._inject_into_components(
+                self.processor.components[parent_exec_name(self.component_exec_name)],
+                self._cconfig,
             )
+            if parent_cconfig and parent_cconfig._inject_into_components
+            else dict()
+        )
 
-            if self.component_exec_name in self.processor.components:
-                # if state params are same continue
-                # else raise jembeerror until find better solution
-                component = self.processor.components[self.component_exec_name]
-                for key, value in component.state.items():
-                    if key in self.init_params and value != self.init_params[key]:
-                        raise JembeError(
-                            "Rendering component with different state params from existing compoenent {}".format(
-                                component
-                            )
+        if self.component_exec_name in self.processor.components:
+            new_params = {**self.init_params, **self._inject_into_params}
+            # if state params are same continue
+            # else raise jembeerror until find better solution
+            component = self.processor.components[self.component_exec_name]
+            raise JembeError(str(new_params))
+            for key, value in component.state.items():
+                if key in new_params and value != new_params[key]:
+                    # TODO reinitialise component if it is not displayed/mounted (any action called including display)???
+                    # what to do with children components?? do thay needs to be reinitialised
+                    # can I just change state param?? Will some logic needs to be executed when changing state params I don't know?
+                    # Only way to change state params from outside params should be during initialisation
+                    # but does that mean that we need some kind of clean method to release resources when doing reinitialisation?
+                    # will clean method complicated api to much ?
+                    # TODO why this method dont fall more offten.. with current tests??
+                    # no i cannot to this simple test if part of the params are changed .. must do all of them including
+                    # default ones that is whay test not faling as it should
+                    raise JembeError(
+                        "Initialising component with different state params from existing compoenent {}".format(
+                            component
                         )
-                self.__must_do_init = False
-            return self.__must_do_init
+                    )
+            return False
+        return True
 
     def execute(self):
         # create new component if component with identical exec_name

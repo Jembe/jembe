@@ -57,7 +57,9 @@ class WipDb:
                 # save task
                 if task.id < 0:
                     old_id = task.id
-                    task.id = max(tid for tid in tasks_db.keys())
+                    task.id = (
+                        max(tid for tid in tasks_db.keys()) if tasks_db.keys() else 1
+                    )
                     map_new_ids[old_id] = task.id
 
                 if task.parent_id and task.parent_id < 0:
@@ -114,6 +116,17 @@ class TaskForm:
             self.error = "Title is required"
             return False
         return True
+
+    @classmethod
+    def decode_from_param(cls, param_value) -> Optional["TaskForm"]:
+        return (
+            cls(
+                title=param_value.get("title", ""),
+                description=param_value.get("description", None),
+            )
+            if param_value is not None
+            else None
+        )
 
 
 # components
@@ -338,6 +351,12 @@ class EditTask(Component):
 
         super().__init__()
 
+    @classmethod
+    def decode_param(cls, param_name: str, param_value: Any) -> Any:
+        if param_name == "form":
+            return TaskForm.decode_from_param(param_value)
+        return super().decode_param(param_name, param_value)
+
     def mount(self):
         if self.state.wip_id is None:
             # Initialise wipdb with wip_id
@@ -437,6 +456,12 @@ class AddTask(Component):
         self._mounted = False
         super().__init__()
 
+    @classmethod
+    def decode_param(cls, param_name: str, param_value: Any) -> Any:
+        if param_name == "form":
+            return TaskForm.decode_from_param(param_value)
+        return super().decode_param(param_name, param_value)
+
     def mount(self) -> None:
         # TODO mount is executed before first executing first action including display
         # sutable for initialising costly resources that shuld not be accessed
@@ -487,18 +512,21 @@ class AddTask(Component):
                 self.state.form.description,
                 self.state.parent_task_id,
             )
-            self.state.wip_db.put(task)
             # save in wip_db
             # becaouse we dont want jet to change task in task_db (self.task)
             # do not care if already exist or not
-            self.state.wip_db.put(task)
+            self._wipdb.put(task)
             if self.isinjected("wip_id"):
                 # wipdb is changed
                 pass
             else:
                 # saving from component who created wip_db
                 # save all changes from wip_db
-                self.state.task_id = self._wip_db.save(self.state.task_id)
+                self.state.task_id = self._wipdb.save(self.state.task_id)
+                # remove wipdb becouse we dont need it anymore
+                del session["wipdbs"][self.state.wip_id]
+                self.state.wip_id = None
+                # TODO change injected into of child components when state is changed
             # emit save so that parent can decide what to display next
             self.emit("save", task_id=self.state.task_id)
             # dont redisplay this component after successfull save
@@ -737,7 +765,7 @@ def test_add_task_x(jmb, client):
     session["user"] = User("admin")
     # display add page
     r = client.post(
-        "/tasks/tasks/add",
+        "/tasks/tasks",
         data=json.dumps(
             dict(
                 components=[
@@ -812,6 +840,72 @@ def test_add_task_x(jmb, client):
         "</div>"
     )
     # add new task
+    r = client.post(
+        "/tasks/tasks/add",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(execName="/tasks/page_title", state=dict(title="Add task")),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="add", parent_task_id=None, wip_id=None),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/add",
+                        state=dict(
+                            form=dict(title="", description=None, error=None),
+                            parent_task_id=None,
+                            wip_id=1,
+                            task_id=-1,
+                        ),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/add/subtasks", state=dict(mode="list"),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/tasks/tasks/add",
+                        initParams=dict(
+                            form=dict(
+                                title="Task 1", description="First task", error=None
+                            ),
+                            parent_task_id=None,
+                            wip_id=1,
+                            task_id=-1,
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/add",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 4
+    assert len(session["wipdbs"]) == 0
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="View Task 1")
+    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[1]["execName"] == "/tasks/tasks"
+    assert json_response[1]["state"] == dict(mode="view", wip_id=None, parent_task_id=None)
+    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[2]["execName"] == "/tasks/tasks/view"
+    assert json_response[2]["state"] == dict(task_id=1, wip_id=None)
+    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
+    assert json_response[3]["state"] == dict(mode="list")
+    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    # TODO check state of every component 
 
 
 # TODO add second task (x-jembe)
