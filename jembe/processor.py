@@ -162,6 +162,7 @@ class CallActionCommand(Command):
 
         # execute action
         action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
+        component.has_action_or_listener_executed = True
         # process action result
         if action_result is None or (
             isinstance(action_result, bool) and action_result == True
@@ -321,6 +322,7 @@ class CallListenerCommand(Command):
 
         # execute listener
         listener_result = getattr(component, self.listener_name)(self.event)
+        component.has_action_or_listener_executed = True
         if listener_result is None or (
             isinstance(listener_result, bool) and listener_result == True
         ):
@@ -603,16 +605,15 @@ class InitialiseCommand(Command):
         self.exist_on_client = exist_on_client
 
         self._cconfig: "ComponentConfig"
-        self._inject_into_params: Dict[str, Any]
+
+    def mount(self, processor: "Processor") -> "InitialiseCommand":
+        self._cconfig = processor.jembe.get_component_config(self.component_exec_name)
+        return super().mount(processor)
 
     @cached_property
-    def _must_do_init(self):
-
-        self._cconfig = self.processor.jembe.get_component_config(
-            self.component_exec_name
-        )
+    def _inject_into_params(self) -> Dict[str, Any]:
         parent_cconfig = self._cconfig.parent
-        self._inject_into_params = (
+        return (
             parent_cconfig._inject_into_components(
                 self.processor.components[parent_exec_name(self.component_exec_name)],
                 self._cconfig,
@@ -621,52 +622,55 @@ class InitialiseCommand(Command):
             else dict()
         )
 
+    @cached_property
+    def _must_do_init(self):
         if self.component_exec_name in self.processor.components:
             new_params = {**self.init_params, **self._inject_into_params}
             # if state params are same continue
             # else raise jembeerror until find better solution
             component = self.processor.components[self.component_exec_name]
-            raise JembeError(str(new_params))
-            for key, value in component.state.items():
-                if key in new_params and value != new_params[key]:
-                    # TODO reinitialise component if it is not displayed/mounted (any action called including display)???
-                    # what to do with children components?? do thay needs to be reinitialised
-                    # can I just change state param?? Will some logic needs to be executed when changing state params I don't know?
-                    # Only way to change state params from outside params should be during initialisation
-                    # but does that mean that we need some kind of clean method to release resources when doing reinitialisation?
-                    # will clean method complicated api to much ?
-                    # TODO why this method dont fall more offten.. with current tests??
-                    # no i cannot to this simple test if part of the params are changed .. must do all of them including
-                    # default ones that is whay test not faling as it should
+            has_new_params = False
+
+            for k, v in new_params.items():
+                if k in component.state and v != component.state[k]:
+                    has_new_params = True
+                    break
+
+            if component.has_action_or_listener_executed:
+                if has_new_params:
                     raise JembeError(
-                        "Initialising component with different state params from existing compoenent {}".format(
-                            component
-                        )
+                        (
+                            "Cant reinitialise component {} with new parametes after "
+                            "action or listener is executed by this component."
+                        ).format(component.exec_name)
                     )
-            return False
+                else:
+                    return False
+            else:
+                return has_new_params
         return True
 
     def execute(self):
         # create new component if component with identical exec_name
         # does not exist
         if self._must_do_init:
-            # Instance createion by excplictly calling __new__ and __init__
-            # becouse _config should be avaiable in __init__
-            parent_cconfig = self._cconfig.parent
-            inject_into = (
-                parent_cconfig._inject_into_components(
-                    self.processor.components[
-                        parent_exec_name(self.component_exec_name)
-                    ],
-                    self._cconfig,
-                )
-                if parent_cconfig and parent_cconfig._inject_into_components
+            component = self.processor.components.get(self.component_exec_name, None)
+            existing_params = (
+                {
+                    k: v
+                    for k, v in component.state.items()
+                    if k in component.state._injected_params_names
+                }
+                if component
                 else dict()
             )
+            init_params = {**existing_params, **self.init_params}
+            # Instance createion by excplictly calling __new__ and __init__
+            # becouse _config should be avaiable in __init__
             component = object.__new__(self._cconfig.component_class)
             component._config = self._cconfig
-            component._jembe_injected_into = inject_into
-            component.__init__(**self.init_params)  # type:ignore
+            component._jembe_injected_into = self._inject_into_params
+            component.__init__(**init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
             self.processor.components[component.exec_name] = component

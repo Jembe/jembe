@@ -319,7 +319,7 @@ class ViewTask(Component):
     def display(self) -> Union[str, "Response"]:
         self.emit("set_page_title", title="View {}".format(self.task.title))
         return self.render_template_string(
-            """<h1><a href="#" onclick="$jmb.component("..")">Back</a> {{task.title}}</h1>"""
+            """<h1><a href="#" onclick="$jmb.component('..')">Back</a> {{task.title}}</h1>"""
             "<div>{{task.description}}</div>"
             "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
             "<h2>Sub tasks</h2>"
@@ -895,17 +895,30 @@ def test_add_task_x(jmb, client):
     assert len(session["wipdbs"]) == 0
     assert json_response[0]["execName"] == "/tasks/page_title"
     assert json_response[0]["state"] == dict(title="View Task 1")
-    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[0]["dom"] == ("""<title>View Task 1</title>""")
     assert json_response[1]["execName"] == "/tasks/tasks"
-    assert json_response[1]["state"] == dict(mode="view", wip_id=None, parent_task_id=None)
-    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[1]["state"] == dict(
+        mode="view", wip_id=None, parent_task_id=None
+    )
+    assert json_response[1]["dom"] == (
+        """<jmb-placeholder exec-name="/tasks/tasks/view"/>"""
+    )
     assert json_response[2]["execName"] == "/tasks/tasks/view"
     assert json_response[2]["state"] == dict(task_id=1, wip_id=None)
-    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[2]["dom"] == (
+        """<h1><a href="#" onclick="$jmb.component('..')">Back</a> Task 1</h1>"""
+        """<div>First task</div>"""
+        "<h2>Sub tasks</h2>"
+        """<div><jmb-placeholder exec-name="/tasks/tasks/view/subtasks"/></div>"""
+    )
     assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
     assert json_response[3]["state"] == dict(mode="list")
-    # assert json_response[0]["dom"] == ("""<title>Add task</title>""")
-    # TODO check state of every component 
+    assert json_response[3]["dom"] == (
+        "<div><table><tr><th>Task</th><th>Actions</th></tr></table></div>"
+    )
+    assert session == dict(user=User(username="admin"), wipdbs={})
+    assert tasks_db == {1: Task(1, "Task 1", "First task")}
+    # TODO check state of every component
 
 
 # TODO add second task (x-jembe)

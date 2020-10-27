@@ -283,6 +283,7 @@ class Component(metaclass=ComponentMeta):
     def __init__(self):
         self.__key: str = ""
         self.__exec_name: str
+        self.__has_action_or_listener_executed:bool = False
 
     @property
     def key(self) -> str:
@@ -312,6 +313,15 @@ class Component(metaclass=ComponentMeta):
         name_key = exec_name.strip("/").split("/")[-1].split(".")
         if len(name_key) == 2:
             self.__key = name_key[1]
+    @property
+    def has_action_or_listener_executed(self) -> bool:
+        return self.__has_action_or_listener_executed
+
+    @has_action_or_listener_executed.setter
+    def has_action_or_listener_executed(self, value: bool):
+        if value != True:
+            raise JembeError("Cannot reset action or listener execution status on component")
+        self.__has_action_or_listener_executed = True
 
     def set_parent_exec_name(self, parent_exec_name: str):
         self.__exec_name = "{}/{}.{}".format(
