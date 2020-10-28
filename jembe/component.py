@@ -129,6 +129,8 @@ class _SubComponentRenderer:
         def _prep_v(v):
             if isinstance(v, bool):
                 return "true" if v else "false"
+            elif isinstance(v, (int, float)):
+                return v
             return "'{}'".format(v)
 
         return Markup("$jmb.component('{name}'{kwargs}){key}{action}".format(
@@ -139,7 +141,7 @@ class _SubComponentRenderer:
                 args="".join((",{}".format(_prep_v(v)) for v in self.action_args)),
                 kwargs="".join(
                     (
-                        ",{}='{}'".format(k, _prep_v(v))
+                        ",{}={}".format(k, _prep_v(v))
                         for k, v in self.action_kwargs.items()
                     )
                 ),
@@ -147,10 +149,8 @@ class _SubComponentRenderer:
             if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
             else "",
             kwargs="".join(
-                (",{}='{}'".format(k, _prep_v(v)) for k, v in self.kwargs.items())
+                (",{}={}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
             )
-            if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
-            else "",
         ))
 
     @cached_property

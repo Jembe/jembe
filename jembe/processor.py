@@ -454,12 +454,14 @@ class EmitCommand(Command):
             - /**/.                             -> match to parent at any level
             - /**/component[.[*|<key>]]/**/.    -> match to parent at any level named
             - //                                -> process event from root page
+            - .                                 -> component that emited event
             - etc.
         """
 
         if pattern is None:
-            # match any compoennt
+            # match any component
             return True
+
         if "/**/." in pattern:
             # reverse match for parent
             if pattern_exec_name == component_exec_name:
@@ -491,7 +493,7 @@ class EmitCommand(Command):
             # regular path match
             if pattern.startswith("/"):
                 pass
-            elif pattern.startswith("./"):
+            elif pattern.startswith("./") or pattern == ".":
                 pattern = "{}{}".format(pattern_exec_name, pattern.lstrip("."))
             elif pattern.startswith(".."):
                 pattern_begins = pattern_exec_name.lstrip("/").split("/")
