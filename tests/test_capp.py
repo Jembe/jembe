@@ -58,7 +58,9 @@ class WipDb:
                 if task.id < 0:
                     old_id = task.id
                     task.id = (
-                        max(tid for tid in tasks_db.keys()) + 1 if tasks_db.keys() else 1
+                        max(tid for tid in tasks_db.keys()) + 1
+                        if tasks_db.keys()
+                        else 1
                     )
                     map_new_ids[old_id] = task.id
 
@@ -207,7 +209,6 @@ class TaskList(Component):
 
     @listener(event="_display", source="./*")
     def on_display_child(self, event: Event):
-        import pdb; pdb.set_trace()
         self.state.mode = event.source_name
         self.goto_task_id = event.params.get("task_id", None)
 
@@ -265,6 +266,12 @@ class TaskList(Component):
             else:
                 return self.render_template_string("{{component('view')}}")
         elif self.state.mode == "edit":
+            if self.goto_task_id:
+                return self.render_template_string(
+                    "{{component('edit', task_id=goto_task_id)}}"
+                )
+            else:
+                return self.render_template_string("{{component('edit')}}")
             return self.render_template_string("{{component('edit')}}")
         elif self.state.mode == "add":
             return self.render_template_string("{{component('add')}}")
@@ -382,10 +389,11 @@ class EditTask(Component):
             return tasks_db[self.state.task_id]
 
     @listener(event=["cancel", "save"], source=".")
-    def on_self_cancel(self, event: Event):
+    def on_self_save_or_cancel(self, event: Event):
         if not self.isinjected("wip_id"):
             del session["wipdbs"][self.state.wip_id]
             self.state.wip_id = None
+        return False
 
     @action
     def save(self):
@@ -401,14 +409,14 @@ class EditTask(Component):
             # save in wip_db
             # becaouse we dont want jet to change task in task_db (self.task)
             # do not care if already exist or not
-            self.state.wip_db.put(task)
+            self._wipdb.put(task)
             if self.isinjected("wip_id"):
                 # wipdb is changed
                 pass
             else:
                 # saving from component who created wip_db
                 # save all changes from wip_db
-                self._wip_db.save()
+                self._wipdb.save()
             # emit save so that parent can decide what to display next
             self.emit("save", task_id=self.state.task_id)
             # dont redisplay this component after successfull save
@@ -419,6 +427,7 @@ class EditTask(Component):
         self.mount()
         self.emit("set_page_title", title="Edit {}".format(self.task.title))
         return self.render_template_string(
+            "<div>"
             "<h1>Edit {{task.title}}</h1>"
             """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
             """<label>Title:"""
@@ -430,9 +439,10 @@ class EditTask(Component):
             """<button type="button" onclick="$jmb.call('save')">Save</button>"""
             """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
             "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
-            "<h2>Sub tasks</h2>"
+            "<h2>Subtasks</h2>"
             "<div>{{component()}}</div>"
             "{% endif %}"
+            "</div>"
         )
 
 
@@ -503,6 +513,7 @@ class AddTask(Component):
         if not self.isinjected("wip_id"):
             del session["wipdbs"][self.state.wip_id]
             self.state.wip_id = None
+        return False
 
     @action
     def save(self):
@@ -658,7 +669,7 @@ def inject_parent_and_wip_id(self: Component, component_config: ComponentConfig)
                             EditTask,
                             EditTask.Config(
                                 components=dict(
-                                    sustasks=(
+                                    subtasks=(
                                         TaskList,
                                         TaskList.Config(
                                             components=dict(
@@ -1015,6 +1026,7 @@ def test_add_second_task_x(client, jmb):
         "<div><table><tr><th>Task</th><th>Actions</th></tr></table></div>"
     )
 
+
 def test_refresh_task_list_x(jmb, client):
     jmb.add_page("tasks", TasksPage)
 
@@ -1054,7 +1066,9 @@ def test_refresh_task_list_x(jmb, client):
     json_response = json.loads(r.data)
     assert len(json_response) == 1
     assert json_response[0]["execName"] == "/tasks/tasks"
-    assert json_response[0]["state"] == dict(mode="list", parent_task_id=None, wip_id=None)
+    assert json_response[0]["state"] == dict(
+        mode="list", parent_task_id=None, wip_id=None
+    )
     assert json_response[0]["dom"] == (
         "<div>"
         """<button type="button" onclick="$jmb.component('add')">Add</button>"""
@@ -1079,7 +1093,9 @@ def test_refresh_task_list_x(jmb, client):
         "</td>"
         "</tr>"
         "</table>"
-        "</div>")
+        "</div>"
+    )
+
 
 def test_edit_first_task_x(jmb, client):
     jmb.add_page("tasks", TasksPage)
@@ -1107,9 +1123,7 @@ def test_edit_first_task_x(jmb, client):
                     dict(
                         type="init",
                         componentExecName="/tasks/tasks/edit",
-                        initParams=dict(
-                            task_id=1,
-                        ),
+                        initParams=dict(task_id=1,),
                     ),
                     dict(
                         type="call",
@@ -1138,24 +1152,23 @@ def test_edit_first_task_x(jmb, client):
     )
     assert json_response[2]["execName"] == "/tasks/tasks/edit"
     assert json_response[2]["state"] == dict(
-        form=dict(title="Task 1", description="First Task", error=None),
-        parent_task_id=None,
+        form=dict(title="Task 1", description="First task", error=None),
         task_id=1,
         wip_id=1,
     )
     assert json_response[2]["dom"] == (
         "<div>"
-        "<h1>New task</h1>"
+        "<h1>Edit Task 1</h1>"
         """<label>Title:"""
-        """<input type="text" value="" """
+        """<input type="text" value="Task 1" """
         """onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
         """<label>Description:"""
-        """<input type="text" value="" """
+        """<input type="text" value="First task" """
         """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
         """<button type="button" onclick="$jmb.call('save')">Save</button>"""
         """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
         "<h2>Subtasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/add/subtasks"/></div>"""
+        """<div><jmb-placeholder exec-name="/tasks/tasks/edit/subtasks"/></div>"""
         "</div>"
     )
     assert json_response[3]["execName"] == "/tasks/tasks/edit/subtasks"
@@ -1168,6 +1181,344 @@ def test_edit_first_task_x(jmb, client):
         "</table>"
         "</div>"
     )
+
+    assert len(session["wipdbs"]) == 1
+    assert tasks_db == {
+        1: Task(1, "Task 1", "First task"),
+        2: Task(2, "Task 2", "Second task"),
+    }
+    # do edit second task
+    r = client.post(
+        "/tasks/tasks",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(
+                        execName="/tasks/page_title", state=dict(title="Edit Task 1"),
+                    ),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="edit", parent_task_id=None, wip_id=None),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit",
+                        state=dict(
+                            form=dict(
+                                title="Task 1", description="First task", error=None
+                            ),
+                            task_id=1,
+                            wip_id=1,
+                        ),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks", state=dict(mode="list"),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/tasks/tasks/edit",
+                        initParams=dict(
+                            form=dict(
+                                title="Extended task 1",
+                                description="Extended first task",
+                                error=None,
+                            ),
+                            task_id=1,
+                            wip_id=1,
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/edit",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 4
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="View Extended task 1")
+    assert json_response[0]["dom"] == ("""<title>View Extended task 1</title>""")
+    assert json_response[1]["execName"] == "/tasks/tasks"
+    assert json_response[1]["state"] == dict(
+        mode="view", parent_task_id=None, wip_id=None
+    )
+    assert json_response[1]["dom"] == (
+        """<jmb-placeholder exec-name="/tasks/tasks/view"/>"""
+    )
+    assert json_response[2]["execName"] == "/tasks/tasks/view"
+    assert json_response[2]["state"] == dict(task_id=1, wip_id=None)
+    assert json_response[2]["dom"] == (
+        """<h1><a href="#" onclick="$jmb.component('..')">Back</a> Extended task 1</h1>"""
+        """<div>Extended first task</div>"""
+        "<h2>Sub tasks</h2>"
+        """<div><jmb-placeholder exec-name="/tasks/tasks/view/subtasks"/></div>"""
+    )
+    assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
+    assert json_response[3]["state"] == dict(mode="list")
+    assert json_response[3]["dom"] == (
+        "<div><table><tr><th>Task</th><th>Actions</th></tr></table></div>"
+    )
+
+    assert session == dict(user=User(username="admin"), wipdbs={})
+    assert tasks_db == {
+        1: Task(1, "Extended task 1", "Extended first task"),
+        2: Task(2, "Task 2", "Second task"),
+    }
+
+
+def test_add_subtask_to_second_task_x(jmb, client):
+    jmb.add_page("tasks", TasksPage)
+
+    global session, tasks_db
+    session = dict(user=User(username="admin"), wipdbs={1: WipDb()})
+    tasks_db = {
+        1: Task(1, "Extended task 1", "Extended first task"),
+        2: Task(2, "Task 2", "Second task"),
+    }
+    # display add
+    r = client.post(
+        "/tasks/tasks/edit/1/subtasks",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(
+                        execName="/tasks/page_title", state=dict(title="Edit Task 2"),
+                    ),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="edit", parent_task_id=None, wip_id=None),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit",
+                        state=dict(
+                            form=dict(
+                                title="Task 2", description="Second task", error=None
+                            ),
+                            task_id=2,
+                            wip_id=1,
+                        ),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks", state=dict(mode="list"),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/tasks/tasks/edit/subtasks/add",
+                        initParams=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/edit/subtasks/add",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="Add task")
+    assert json_response[0]["dom"] == ("""<title>Add task</title>""")
+    assert json_response[1]["execName"] == "/tasks/tasks/edit/subtasks"
+    assert json_response[1]["state"] == dict(mode="add")
+    assert json_response[1]["dom"] == (
+        """<jmb-placeholder exec-name="/tasks/tasks/edit/subtasks/add"/>"""
+    )
+    assert json_response[2]["execName"] == "/tasks/tasks/edit/subtasks/add"
+    assert json_response[2]["state"] == dict(
+        form=dict(title="", description=None, error=None), task_id=-1
+    )
+    assert json_response[2]["dom"] == (
+        "<div>"
+        "<h1>New task</h1>"
+        """<label>Title:"""
+        """<input type="text" value="" """
+        """onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
+        """<label>Description:"""
+        """<input type="text" value="" """
+        """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
+        """<button type="button" onclick="$jmb.call('save')">Save</button>"""
+        """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
+        "</div>"
+    )
+    # add subtask
+    r = client.post(
+        "/tasks/tasks/edit/2/subtasks/add",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(execName="/tasks/page_title", state=dict(title="Add task"),),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="edit", parent_task_id=None, wip_id=None),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit",
+                        state=dict(
+                            form=dict(
+                                title="Task 2", description="Second task", error=None
+                            ),
+                            task_id=2,
+                            wip_id=1,
+                        ),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks", state=dict(mode="add"),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks/add",
+                        state=dict(
+                            form=dict(title="", description=None, error=None),
+                            task_id=-1,
+                        ),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/tasks/tasks/edit/subtasks/add",
+                        initParams=dict(
+                            form=dict(
+                                title="Subtask 2.1",
+                                description="First subtask of second task",
+                                error=None,
+                            ),
+                            task_id=-1,
+                        ),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/edit/subtasks/add",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    json_response = json.loads(r.data)
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="Edit Subtask 2.1")
+    assert json_response[0]["dom"] == ("""<title>Edit Subtask 2.1</title>""")
+    assert json_response[1]["execName"] == "/tasks/tasks/edit/subtasks"
+    assert json_response[1]["state"] == dict(mode="edit")
+    assert json_response[1]["dom"] == (
+        """<jmb-placeholder exec-name="/tasks/tasks/edit/subtasks/edit"/>"""
+    )
+    assert json_response[2]["execName"] == "/tasks/tasks/edit/subtasks/edit"
+    assert json_response[2]["state"] == dict(
+        form=dict(
+            title="Subtask 2.1", description="First subtask of second task", error=None
+        ),
+        task_id=-1,
+    )
+    assert json_response[2]["dom"] == (
+        "<div>"
+        "<h1>Edit Subtask 2.1</h1>"
+        """<label>Title:"""
+        """<input type="text" value="Subtask 2.1" """
+        """onchange="$jmb.set('form.title', this.value).deffer()"></label>"""
+        """<label>Description:"""
+        """<input type="text" value="First subtask of second task" """
+        """onchange="$jmb.set('form.description', this.value).deffer()"></label>"""
+        """<button type="button" onclick="$jmb.call('save')">Save</button>"""
+        """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
+        "</div>"
+    )
+    # Save second task so that newlly created subtask is saved
+    r = client.post(
+        "/tasks/tasks/edit/2",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/tasks", state=dict()),
+                    dict(
+                        execName="/tasks/page_title",
+                        state=dict(title="Edit Subtask 2.1"),
+                    ),
+                    dict(
+                        execName="/tasks/tasks",
+                        state=dict(mode="edit", parent_task_id=None, wip_id=None),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit",
+                        state=dict(
+                            form=dict(
+                                title="Task 2", description="Second task", error=None
+                            ),
+                            task_id=2,
+                            wip_id=1,
+                        ),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks", state=dict(mode="edit"),
+                    ),
+                    dict(
+                        execName="/tasks/tasks/edit/subtasks/edit",
+                        state=dict(
+                            form=dict(
+                                title="Subtask 2.1",
+                                description="First subtask of second task",
+                                error=None,
+                            ),
+                            task_id=-1,
+                        ),
+                    ),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/tasks/tasks/edit",
+                        actionName="save",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    assert len(session["wipdbs"]) == 0
+    assert tasks_db == {
+        1: Task(1, "Extended task 1", "Extended first task"),
+        2: Task(2, "Task 2", "Second task"),
+        3: Task(3, "Subtask 2.1", "First subtask of second task", parent_id=2),
+    }
+    json_response = json.loads(r.data)
+    assert json_response[0]["execName"] == "/tasks/page_title"
+    assert json_response[0]["state"] == dict(title="View Task 2")
+    assert json_response[1]["execName"] == "/tasks/tasks"
+    assert json_response[1]["state"] == dict(
+        mode="view", parent_task_id=None, wip_id=None
+    )
+    assert json_response[2]["execName"] == "/tasks/tasks/view"
+    assert json_response[2]["state"] == dict(task_id=2, wip_id=None)
+    assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
+    assert json_response[3]["state"] == dict(mode="list")
+
 
 # TODO edit second task and add subtasks (x-jembe)
 # TODO add subtask with two level subtasks (x-jembe)

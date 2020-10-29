@@ -222,35 +222,44 @@ class CallDisplayCommand(CallActionCommand):
         )
         self.force = force
 
-    def execute(self):
-        component = self.processor.components[self.component_exec_name]
-        cconfig = component._config
+    @cached_property
+    def _component(self) -> "Component":
+        return self.processor.components[self.component_exec_name]
+
+    @cached_property
+    def _redisplay_needed(self):
 
         if self.component_exec_name in self.processor.renderers and not (
             self.force
-            or RedisplayFlag.WHEN_ON_PAGE in cconfig.redisplay
-            or RedisplayFlag.WHEN_DISPLAY_EXECUTED in cconfig.redisplay
+            or RedisplayFlag.WHEN_ON_PAGE in self._component._config.redisplay
+            or RedisplayFlag.WHEN_DISPLAY_EXECUTED in self._component._config.redisplay
             or (
-                RedisplayFlag.WHEN_STATE_CHANGED in cconfig.redisplay
+                RedisplayFlag.WHEN_STATE_CHANGED in self._component._config.redisplay
                 and self.processor.renderers[self.component_exec_name].state
-                != component.state
+                != self._component.state
             )
         ):
             # if compoent is already displayed/rendered in same state and no force is set
             # no need to execute display again because it should return same result
-            return
+            return False
+        return True
 
+    def execute(self):
+        if not self._redisplay_needed:
+            return
         # execute action
-        action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
+        action_result = getattr(self._component, self.action_name)(
+            *self.args, **self.kwargs
+        )
         # process action result
         if isinstance(action_result, str):
             # save component display responses in memory
             # Add component html to processor rendererd
             self.processor.renderers[self.component_exec_name] = ComponentRender(
                 True,
-                component.state.deepcopy(),
-                component.url,
-                component._config.changes_url,
+                self._component.state.deepcopy(),
+                self._component.url,
+                self._component._config.changes_url,
                 action_result,
             )
         elif isinstance(action_result, Response):
@@ -263,14 +272,14 @@ class CallDisplayCommand(CallActionCommand):
             raise JembeError(
                 "{} action of {} shuld return html string not {}".format(
                     ComponentConfig.DEFAULT_DISPLAY_ACTION,
-                    cconfig.full_name,
+                    self._component._config.full_name,
                     action_result,
                 )
             )
         else:
             raise JembeError(
                 "Invalid display result type: {}.{} {}".format(
-                    cconfig.full_name, self.action_name, action_result,
+                    self._component._config.full_name, self.action_name, action_result,
                 )
             )
 
@@ -287,13 +296,14 @@ class CallDisplayCommand(CallActionCommand):
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
         commands = list(super().get_after_emit_commands())
-        commands.append(
-            EmitCommand(
-                self.component_exec_name,
-                SystemEvents.DISPLAY.value,
-                dict(action=self.action_name),
-            ).mount(self.processor)
-        )
+        if self._redisplay_needed:
+            commands.append(
+                EmitCommand(
+                    self.component_exec_name,
+                    SystemEvents.DISPLAY.value,
+                    dict(action=self.action_name),
+                ).mount(self.processor)
+            )
         return commands
 
     def __repr__(self):
@@ -1119,8 +1129,7 @@ class Processor:
         If there is not listener for _exception event in parent compoent or exception event is not handled. Processor
         will rerise exception and it will be handled like regular flask exception.
         """
-
-        # Clear all staging commands becouse command has raised exception
+        # Clear all staging commands because command has raised exception
         self._staging_commands.clear()
 
         # Create emit command to emit exception to component parents
@@ -1153,6 +1162,9 @@ class Processor:
         if not emit_command.event.params["handled"]:
             # if exception is not handled by parent components
             # rerise exception
+            current_app.logger.error(
+                "Unhandled exception in {}: {}".format(command, exc)
+            )
             raise emit_command.event.params["exception"]
 
         # if exception is handled dont raise exception
