@@ -937,7 +937,6 @@ def test_add_task_x(jmb, client):
     # TODO check state of every component
 
 
-# TODO add second task (x-jembe)
 def test_add_second_task_x(client, jmb):
     """Calling save without properly created seted wipdb_id and task_id"""
     global session, tasks_db

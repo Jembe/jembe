@@ -30,17 +30,22 @@ class Jembe:
         # pages waiting to be registred
         self._unregistred_pages: Dict[str, ComponentRef] = {}
 
+        from .jembe_page import JembePage
+
+        self.add_page("jembe", JembePage)
+
         if app is not None:
             self.init_app(app)
 
     @property
-    def flask(self) -> "Flask":
+    def flask(self) -> Optional["Flask"]:
         try:
             return self.__flask
         except AttributeError:
-            raise JembeError(
-                "Jembe app is not initilised with flask app. Call init_app first."
-            )
+            return None
+            # raise JembeError(
+            #     "Jembe app is not initilised with flask app. Call init_app first."
+            # )
 
     def init_app(self, app: "Flask"):
         """
@@ -99,7 +104,6 @@ class Jembe:
 
         # go down component hiearchy
         bp: Optional["Blueprint"] = None
-        page_url_path: Optional[str] = None
         component_refs: List[Tuple[str, ComponentRef, Optional["ComponentConfig"]]] = [
             (name, component_ref, None)
         ]
@@ -140,12 +144,16 @@ class Jembe:
             self.components_configs[component_config.full_name] = component_config
 
             if bp is None:
-                bp = Blueprint(component_name, component_class.__module__)
-            if page_url_path is None:
-                page_url_path = component_config.url_path
+                bp = Blueprint(
+                    component_name,
+                    component_class.__module__,
+                    template_folder="templates",
+                    static_folder="static",
+                    static_url_path="/{}/static".format(component_name)
+                )
 
             bp.add_url_rule(
-                component_config.url_path[len(page_url_path) :],
+                component_config.url_path,
                 component_config.full_name,
                 jembe_master_view,
                 methods=["GET", "POST"],
@@ -161,7 +169,7 @@ class Jembe:
                 )
 
         if bp:
-            self.flask.register_blueprint(bp, url_prefix=page_url_path)
+            self.flask.register_blueprint(bp)
 
     def get_component_config(self, exec_name: str) -> "ComponentConfig":
         try:

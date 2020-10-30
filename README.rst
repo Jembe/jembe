@@ -1,6 +1,8 @@
 Jembe
 =====
 
-Jembe is web pplication framework build on top of Flask. It is designed
-to allow developing web application with html over wire phylosophy, making
-complex client UI interaction doable with just python and jinja2 templates.
+Framework for building web applications, designed to allow develpment
+without need to handle low level HTTP events. 
+
+around with html over wire phylosophy, making
+complex client UI interaction duable with just python and jinja2 templates.

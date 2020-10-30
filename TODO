@@ -3,17 +3,17 @@ Public Dev Lunch:
     ✔ inject params @done(20-09-22 09:53)
     ✔ update window.location on x-jembe request @done(20-09-23 10:52)
     ✔ update window.location on regular http request if necessary @done(20-09-23 10:52)
-    ☐ How to update page title or other header tags??? without introducing new logic
-    ☐ Deffered actions??
+    ✔ How to update page title or other header tags??? without introducing new logic @done(20-10-30 07:35)
+    ✔ Deffered actions?? @done(20-10-30 07:35)
     ☐ design and create javascript rendering part and updateing window.location
     ☐ design and create javascript execution part
     ☐ Flash messages
-    ☐ Create page counter
-    ☐ Create page with coutner component
-    ☐ Create page with multiple coutner components
-    ☐ Create blog post demo
-    ☐ create list/view/list demo
-    ☐ Suport for init_params for basic types
+    ✔ Create page counter @done(20-10-30 07:35)
+    ✔ Create page with coutner component @done(20-10-30 07:35)
+    ✔ Create page with multiple coutner components @done(20-10-30 07:35)
+    ✔ Create blog post demo @done(20-10-30 07:35)
+    ✔ create list/view/list demo @done(20-10-30 07:35)
+    ✔ Suport for init_params for basic types @done(20-10-30 07:35)
     ✔ use .html templates instead of jinja2 in order to enable autoescaping @done(20-09-10 23:12)
 
 Archive:
