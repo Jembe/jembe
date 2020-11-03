@@ -1,3 +1,2 @@
-
-console.log('jembe static js imported')
-window.alert('jembe static js imported')
+import { JembeClient} from "./jembeClient.js";
+window.jembeClient = new JembeClient(document)
