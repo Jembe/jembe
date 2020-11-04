@@ -1310,19 +1310,19 @@ def test_update_window_location(jmb, client):
     assert len(json_response) == 5
     assert json_response[0]["execName"] == "/page"
     assert json_response[0]["url"] == "/page"
-    assert json_response[0]["changes_url"] == True
+    assert json_response[0]["changesUrl"] == True
     assert json_response[1]["execName"] == "/page/s1"
     assert json_response[1]["url"] == "/page/s1"
-    assert json_response[1]["changes_url"] == False
+    assert json_response[1]["changesUrl"] == False
     assert json_response[2]["execName"] == "/page/s1/s2"
     assert json_response[2]["url"] == "/page/s1/s2"
-    assert json_response[2]["changes_url"] == False
+    assert json_response[2]["changesUrl"] == False
     assert json_response[3]["execName"] == "/page/c1"
     assert json_response[3]["url"] == "/page/c1"
-    assert json_response[3]["changes_url"] == True
+    assert json_response[3]["changesUrl"] == True
     assert json_response[4]["execName"] == "/page/c2"
     assert json_response[4]["url"] == "/page/c2"
-    assert json_response[4]["changes_url"] == True
+    assert json_response[4]["changesUrl"] == True
 
 
 # TODO test counter with configurable increment

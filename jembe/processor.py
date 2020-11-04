@@ -1195,7 +1195,7 @@ class Processor:
                             ),
                             dom=html,
                             url=url,
-                            changes_url=changes_url,
+                            changesUrl=changes_url,
                         )
                     )
             return jsonify(ajax_responses)

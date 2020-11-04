@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "test": "jest --watch"
+  },
+  "devDependencies": {
+    "jest": "^26.6.2",
+    "@babel/plugin-transform-modules-commonjs": "^7.12.1"
+  }
+}
