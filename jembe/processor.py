@@ -1278,7 +1278,7 @@ class Processor:
                             self.jembe.get_component_config(exec_name).component_class
                         ),
                         url=url,
-                        changes_url=changes_url,
+                        changesUrl=changes_url,
                     ),
                     separators=(",", ":"),
                     sort_keys=True,

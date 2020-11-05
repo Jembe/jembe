@@ -36,7 +36,7 @@ def test_counter(jmb, client):
 
     # call page
     counter0_page_html = b"""<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body><div jmb:name="/cpage/counter" jmb:data=\'{"changes_url":true,"state":{"value":0},"url":"/cpage/counter"}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
+<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body><div jmb:name="/cpage/counter" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter"}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
     r = client.get("/cpage")
     assert r.status_code == 200
     assert r.data == counter0_page_html
@@ -147,18 +147,18 @@ def test_multi_counter(jmb, client):
     assert r.status_code == 200
     test_r_data = (
         '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n'
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
+        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
+        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
@@ -172,18 +172,18 @@ def test_multi_counter(jmb, client):
     assert r.status_code == 200
     test_r_data = (
         '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n'
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
+        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changes_url":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
+        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
@@ -562,7 +562,7 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         "</body></html>"
@@ -574,10 +574,10 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
-        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"changes_url":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
         """<button onclick="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
         "</body></html>"
     ).encode("utf-8")
@@ -817,8 +817,8 @@ def test_initialising_listener(jmb, client):
     html = (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter" jmb:data=\'{"changes_url":true,"state":{"value":10},"url":"/cpage/counter"}\'>10</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter" jmb:data=\'{"changesUrl":true,"state":{"value":10},"url":"/cpage/counter"}\'>10</div>"""
         "</body></html>"
     ).encode("utf-8")
     r = client.get("/cpage")
@@ -871,9 +871,9 @@ def test_counter_data_on_server(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changes_url":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>10</div>"""
-        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changes_url":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>10</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
         "</body></html>"
     ).encode("utf-8")
     # increase counter
@@ -916,9 +916,9 @@ def test_counter_data_on_server(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changes_url":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>11</div>"""
-        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changes_url":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>11</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
         "</body></html>"
     ).encode("utf-8")
 
@@ -994,7 +994,7 @@ def test_catch_exception_by_parent_and_ignore_it(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changes_url":true,"state":{},"url":"/cpage"}\'><head></head><body></body></html>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body></body></html>"""
     ).encode("utf-8")
 
 
@@ -1032,7 +1032,7 @@ def test_catch_errors_while_rendering(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/list" jmb:data=\'{"changes_url":true,"state":{},"url":"/list"}\'><body>"""
+        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{},"url":"/list"}\'><body>"""
         "<div>edit 1</div><div>view 2</div>"
         """</body></html>"""
     ).encode("utf-8")
@@ -1059,7 +1059,7 @@ def test_error_handling_leaves_empty_placeholder(client, jmb):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body></body></html>"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body></body></html>"""
     ).encode("utf-8")
 
 
@@ -1089,8 +1089,8 @@ def test_error_handling_leaves_empty_placeholder_deep(client, jmb):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/a" jmb:data=\'{"changes_url":true,"state":{},"url":"/page/a"}\'></div>"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
         """</body></html>"""
     ).encode("utf-8")
 
@@ -1143,9 +1143,9 @@ def test_error_handling_with_listener_on_display_with_deferred_action(client, jm
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/c" jmb:data=\'{"changes_url":true,"state":{},"url":"/page/c"}\'>errors 1</div>"""
-        """<div jmb:name="/page/a" jmb:data=\'{"changes_url":true,"state":{"b_has_error":true},"url":"/page/a"}\'>b has error</div>"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/c" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/c"}\'>errors 1</div>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{"b_has_error":true},"url":"/page/a"}\'>b has error</div>"""
         """</body></html>"""
     ).encode("utf-8")
     r2 = client.get("/page/c")
@@ -1207,7 +1207,7 @@ def test_inject_init_params_to_component(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changes_url":true,"state":{},"url":"/page"}\'><body>1 Jembe 1</body></html>"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>1 Jembe 1</body></html>"""
     ).encode("utf-8")
 
     # ignore injected params

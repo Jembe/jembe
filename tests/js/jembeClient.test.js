@@ -4,7 +4,7 @@ import { JembeClient } from "../../jembe/static/js/jembeClient.js";
 test('identify component on simple page', () => {
   const doc = (new DOMParser()).parseFromString(
     `<!DOCTYPE html>
-    <html lang="en" jmb:name="/simple_page" jmb:data='{"changes_url":true,"state":{},"url":"/simple_page"}'>
+    <html lang="en" jmb:name="/simple_page" jmb:data='{"changesUrl":true,"state":{},"url":"/simple_page"}'>
     <head>
         <title>Simple page</title>
     </head>
@@ -27,11 +27,11 @@ test('identify component on simple page', () => {
 test('indentify components on page with counter', () => {
   const doc = (new DOMParser()).parseFromString(`
     <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-    <html jmb:name="/cpage" jmb:data='{"changes_url":true,"state":{},"url":"/cpage"}'>
+    <html jmb:name="/cpage" jmb:data='{"changesUrl":true,"state":{},"url":"/cpage"}'>
       <head></head>
       <body>
         <div jmb:name="/cpage/counter" 
-             jmb:data='{"changes_url":true,"state":{"value":0},"url":"/cpage/counter"}'>
+             jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter"}'>
           <div>Count: 0</div>
           <a jmb:click="increase()">increase</a>
         </div>
@@ -103,5 +103,88 @@ test('indentify components from x-jembe response v2', () => {
     `<td jmb:name="/page/test">test</td>`
   )
 })
+test('indentify components from x-jembe response - page component', () => {
+  const xResponse = [
+    {
+      "execName": "/page",
+      "state": {},
+      "url": "/page",
+      "changesUrl": true,
+      "dom": `<html><head><jmb-placeholder exec-name="/page/title"/><body><jmb-placeholder exec-name="/page/tasks"/></body></html>`,
+    }
+  ]
+  const jembeClient = new JembeClient()
+  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  expect(Object.keys(components).length).toBe(1)
+
+  const pageCompRef= components["/page"]
+  expect(pageCompRef.execName).toBe('/page')
+  expect(pageCompRef.state).toEqual({})
+  expect(pageCompRef.changesUrl).toBe(true)
+  expect(pageCompRef.url).toBe('/page')
+  expect(pageCompRef.dom.outerHTML).toBe(
+    `<html jmb:name="/page"><head><jmb-placeholder exec-name="/page/title"/><body><jmb-placeholder exec-name="/page/tasks"/></body></html>`,
+  )
+})
 // TODO First write tests here for updatePage (page, page with counters, 
 // capp tasks with subtasks and all)
+
+test('update document v1', () => {
+  const doc = (new DOMParser()).parseFromString(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <head>
+        <title jmb:name="/page/title" jmb:data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title"}'>
+          Title
+        </title>
+      </head>
+      <body>
+        <div jmb:name="/page/tasks" 
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             Tasks
+        </div>
+      </body>
+    </html>
+  `, "text/html")
+  const xResponse = [
+    {
+      "execName": "/page",
+      "state": {},
+      "url": "/page",
+      "changesUrl": true,
+      "dom": `<html>
+      <head>
+        <jbm-placeholder exec-name="/page/title"/>
+      </head>
+      <body>
+        <jbm-placeholder exec-name="/page/view"/>
+      </body>
+    </html>`
+    },
+    {
+      "execName": "/page/title",
+      "state": {"title":"Task"},
+      "url": "/page/title",
+      "changesUrl": false,
+      "dom": `<title>Task</title>`,
+    },
+    {
+      "execName": "/page/view",
+      "state": {"id":1},
+      "url": "/page/view/1",
+      "changesUrl": true,
+      "dom": `<div>Task 1</div>`,
+    }
+  ]
+  const jembeClient = new JembeClient(doc)
+  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(doc.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page"><head>
+        <title jmb:name="/page/title">Task</title>
+      </head>
+      <body>
+        <div jmb:name="/page/view">Tasks 1</div>
+      
+    
+  </body></html>`
+  )
+})
