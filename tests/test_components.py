@@ -103,7 +103,7 @@ def test_counter(jmb, client):
     assert r.status_code == 200
 
     ajax_response_data = json.loads(r.data)
-    counter1_page_html = """<html><head></head><body><jmb-placeholder exec-name="/cpage/counter"/></body></html>"""
+    counter1_page_html = """<html><head></head><body><template jmb-placeholder="/cpage/counter"></template></body></html>"""
     assert len(ajax_response_data) == 1
     assert ajax_response_data[0]["execName"] == "/cpage/counter"
     assert ajax_response_data[0]["state"] == {"value": 1}
@@ -275,9 +275,9 @@ def test_multi_counter(jmb, client):
     assert ajax_response_data[1]["state"] == dict()
     assert ajax_response_data[1]["dom"] == (
         """<html><head></head><body>"""
-        """<jmb-placeholder exec-name="/cpage/counter.first"/>"""
-        """<jmb-placeholder exec-name="/cpage/counter.second"/>"""
-        """<jmb-placeholder exec-name="/cpage/counter.third"/>"""
+        """<template jmb-placeholder="/cpage/counter.first"></template>"""
+        """<template jmb-placeholder="/cpage/counter.second"></template>"""
+        """<template jmb-placeholder="/cpage/counter.third"></template>"""
         """</body></html>"""
     )
     assert ajax_response_data[1]["url"] == "/cpage"
@@ -609,7 +609,8 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.first"
@@ -646,8 +647,10 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
@@ -697,9 +700,12 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.third"/><button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.third"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
@@ -786,8 +792,10 @@ def test_dynamic_add_remove_counters(jmb, client):
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.first"/><button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
-        """<div><jmb-placeholder exec-name="/cpage/counter.second"/><button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
+        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
 

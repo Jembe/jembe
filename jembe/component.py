@@ -188,7 +188,7 @@ class _SubComponentRenderer:
                 ),
                 end=True,
             )
-        return Markup('<jmb-placeholder exec-name="{}"/>'.format(self.exec_name))
+        return Markup('<template jmb-placeholder="{}"></template>'.format(self.exec_name))
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key

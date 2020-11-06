@@ -1228,10 +1228,10 @@ class Processor:
                 # find all placeholders in response_tree and replace them with
                 # appropriate etrees
                 for placeholder in response_etree.xpath(
-                    ".//jmb-placeholder[@exec-name]"
+                    ".//template[@jmb-placeholder]"
                 ):
                     can_find_placeholder = True
-                    exec_name = placeholder.attrib["exec-name"]
+                    exec_name = placeholder.attrib["jmb-placeholder"]
                     try:
                         c_etree = c_etrees[exec_name]
                         unused_exec_names.pop(unused_exec_names.index(exec_name))
@@ -1249,7 +1249,7 @@ class Processor:
             # because above logic will not find all empty placeholders
             if response_etree is not None:
                 for placeholder in response_etree.xpath(
-                    ".//jmb-placeholder[@exec-name]"
+                    ".//template[@jmb-placeholder]"
                 ):
                     placeholder.getparent().remove(placeholder)
             return etree.tostring(response_etree, method="html")

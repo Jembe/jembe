@@ -334,7 +334,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="edit")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/edit"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/edit"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="Edit: Root")
@@ -445,7 +446,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="view")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/view"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="New Root")
@@ -489,7 +491,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="add")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/add"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/add"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="Add under New Root")
@@ -552,7 +555,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="view")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/view"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="Jembe Page")
@@ -684,7 +688,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="view")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/view"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="Suite Page")
@@ -739,7 +744,8 @@ def test_wiki(jmb, client):
     assert json_response[0]["execName"] == "/wiki"
     assert json_response[0]["state"] == dict(mode="view")
     assert json_response[0]["dom"] == (
-        """<html><head><jmb-placeholder exec-name="/wiki/page_title"/></head><body><jmb-placeholder exec-name="/wiki/view"/></body></html>"""
+        """<html><head><template jmb-placeholder="/wiki/page_title"></template></head>"""
+        """<body><template jmb-placeholder="/wiki/view"></template></body></html>"""
     )
     assert json_response[1]["execName"] == "/wiki/page_title"
     assert json_response[1]["state"] == dict(title="Jembe Suite Page")

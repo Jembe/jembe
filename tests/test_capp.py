@@ -821,7 +821,7 @@ def test_add_task_x(jmb, client):
         mode="add", parent_task_id=None, wip_id=None
     )
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/add"/>"""
+        """<template jmb-placeholder="/tasks/tasks/add"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/add"
     assert json_response[2]["state"] == dict(
@@ -842,7 +842,7 @@ def test_add_task_x(jmb, client):
         """<button type="button" onclick="$jmb.call('save')">Save</button>"""
         """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
         "<h2>Subtasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/add/subtasks"/></div>"""
+        """<div><template jmb-placeholder="/tasks/tasks/add/subtasks"></template></div>"""
         "</div>"
     )
     assert json_response[3]["execName"] == "/tasks/tasks/add/subtasks"
@@ -917,7 +917,7 @@ def test_add_task_x(jmb, client):
         mode="view", wip_id=None, parent_task_id=None
     )
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/view"/>"""
+        """<template jmb-placeholder="/tasks/tasks/view"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/view"
     assert json_response[2]["state"] == dict(task_id=1, wip_id=None)
@@ -925,7 +925,7 @@ def test_add_task_x(jmb, client):
         """<h1><a href="#" onclick="$jmb.component('..')">Back</a> Task 1</h1>"""
         """<div>First task</div>"""
         "<h2>Sub tasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/view/subtasks"/></div>"""
+        """<div><template jmb-placeholder="/tasks/tasks/view/subtasks"></template></div>"""
     )
     assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
     assert json_response[3]["state"] == dict(mode="list")
@@ -1009,7 +1009,7 @@ def test_add_second_task_x(client, jmb):
         mode="view", wip_id=None, parent_task_id=None
     )
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/view"/>"""
+        """<template jmb-placeholder="/tasks/tasks/view"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/view"
     assert json_response[2]["state"] == dict(task_id=2, wip_id=None)
@@ -1017,7 +1017,7 @@ def test_add_second_task_x(client, jmb):
         """<h1><a href="#" onclick="$jmb.component('..')">Back</a> Task 2</h1>"""
         """<div>Second task</div>"""
         "<h2>Sub tasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/view/subtasks"/></div>"""
+        """<div><template jmb-placeholder="/tasks/tasks/view/subtasks"></template></div>"""
     )
     assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
     assert json_response[3]["state"] == dict(mode="list")
@@ -1147,7 +1147,7 @@ def test_edit_first_task_x(jmb, client):
         mode="edit", parent_task_id=None, wip_id=None
     )
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/edit"/>"""
+        """<template jmb-placeholder="/tasks/tasks/edit"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/edit"
     assert json_response[2]["state"] == dict(
@@ -1167,7 +1167,7 @@ def test_edit_first_task_x(jmb, client):
         """<button type="button" onclick="$jmb.call('save')">Save</button>"""
         """<button type="button" onclick="$jmb.emit('cancel')">Cancel</button>"""
         "<h2>Subtasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/edit/subtasks"/></div>"""
+        """<div><template jmb-placeholder="/tasks/tasks/edit/subtasks"></template></div>"""
         "</div>"
     )
     assert json_response[3]["execName"] == "/tasks/tasks/edit/subtasks"
@@ -1251,7 +1251,7 @@ def test_edit_first_task_x(jmb, client):
         mode="view", parent_task_id=None, wip_id=None
     )
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/view"/>"""
+        """<template jmb-placeholder="/tasks/tasks/view"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/view"
     assert json_response[2]["state"] == dict(task_id=1, wip_id=None)
@@ -1259,7 +1259,7 @@ def test_edit_first_task_x(jmb, client):
         """<h1><a href="#" onclick="$jmb.component('..')">Back</a> Extended task 1</h1>"""
         """<div>Extended first task</div>"""
         "<h2>Sub tasks</h2>"
-        """<div><jmb-placeholder exec-name="/tasks/tasks/view/subtasks"/></div>"""
+        """<div><template jmb-placeholder="/tasks/tasks/view/subtasks"></template></div>"""
     )
     assert json_response[3]["execName"] == "/tasks/tasks/view/subtasks"
     assert json_response[3]["state"] == dict(mode="list")
@@ -1338,7 +1338,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
     assert json_response[1]["execName"] == "/tasks/tasks/edit/subtasks"
     assert json_response[1]["state"] == dict(mode="add")
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/edit/subtasks/add"/>"""
+        """<template jmb-placeholder="/tasks/tasks/edit/subtasks/add"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/edit/subtasks/add"
     assert json_response[2]["state"] == dict(
@@ -1424,7 +1424,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
     assert json_response[1]["execName"] == "/tasks/tasks/edit/subtasks"
     assert json_response[1]["state"] == dict(mode="edit")
     assert json_response[1]["dom"] == (
-        """<jmb-placeholder exec-name="/tasks/tasks/edit/subtasks/edit"/>"""
+        """<template jmb-placeholder="/tasks/tasks/edit/subtasks/edit"></template>"""
     )
     assert json_response[2]["execName"] == "/tasks/tasks/edit/subtasks/edit"
     assert json_response[2]["state"] == dict(

@@ -110,26 +110,54 @@ test('indentify components from x-jembe response - page component', () => {
       "state": {},
       "url": "/page",
       "changesUrl": true,
-      "dom": `<html><head><jmb-placeholder exec-name="/page/title"/><body><jmb-placeholder exec-name="/page/tasks"/></body></html>`,
+      "dom": `<html>
+      <head><template jmb-placeholder="/page/title"></template></head>
+      <body><template jmb-placeholder="/page/tasks"></template></body>
+      </html>`,
     }
   ]
   const jembeClient = new JembeClient()
   const components = jembeClient.getComponentsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
 
-  const pageCompRef= components["/page"]
+  const pageCompRef = components["/page"]
   expect(pageCompRef.execName).toBe('/page')
   expect(pageCompRef.state).toEqual({})
   expect(pageCompRef.changesUrl).toBe(true)
   expect(pageCompRef.url).toBe('/page')
   expect(pageCompRef.dom.outerHTML).toBe(
-    `<html jmb:name="/page"><head><jmb-placeholder exec-name="/page/title"/><body><jmb-placeholder exec-name="/page/tasks"/></body></html>`,
+    `<html jmb:name="/page"><head><template jmb-placeholder="/page/title"></template></head>
+      <body><template jmb-placeholder="/page/tasks"></template>
+      </body></html>`,
   )
 })
 // TODO First write tests here for updatePage (page, page with counters, 
 // capp tasks with subtasks and all)
 
-test('update document v1', () => {
+test('update document with x-response - page component', () => {
+  const doc = (new DOMParser()).parseFromString(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page"}'>
+      <head><title>Test</title></head>
+      <body>Test</body></html>`, "text/html")
+  const xResponse = [
+    {
+      "execName": "/page1",
+      "state": { "value": 1 },
+      "url": "/page1",
+      "changesUrl": true,
+      "dom": `<html>
+      <head><title>Test1</title></head>
+      <body>Test1</body></html>`
+    },
+  ]
+  const jembeClient = new JembeClient(doc)
+  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(doc.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page1"><head><title>Test1</title></head>
+      <body>Test1</body></html>`
+  )
+})
+test('update document with x-response', () => {
   const doc = (new DOMParser()).parseFromString(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
       <head>
@@ -153,23 +181,23 @@ test('update document v1', () => {
       "changesUrl": true,
       "dom": `<html>
       <head>
-        <jbm-placeholder exec-name="/page/title"/>
+        <template jmb-placeholder="/page/title"></template>
       </head>
       <body>
-        <jbm-placeholder exec-name="/page/view"/>
+        <template jmb-placeholder="/page/view"></template>
       </body>
     </html>`
     },
     {
       "execName": "/page/title",
-      "state": {"title":"Task"},
+      "state": { "title": "Task" },
       "url": "/page/title",
       "changesUrl": false,
       "dom": `<title>Task</title>`,
     },
     {
       "execName": "/page/view",
-      "state": {"id":1},
+      "state": { "id": 1 },
       "url": "/page/view/1",
       "changesUrl": true,
       "dom": `<div>Task 1</div>`,
@@ -182,9 +210,42 @@ test('update document v1', () => {
         <title jmb:name="/page/title">Task</title>
       </head>
       <body>
-        <div jmb:name="/page/view">Tasks 1</div>
+        <div jmb:name="/page/view">Task 1</div>
       
-    
-  </body></html>`
+    </body></html>`
+  )
+  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(
+    [
+      {
+        "execName": "/page",
+        "state": {},
+        "url": "/page",
+        "changesUrl": true,
+        "dom": `<html>
+      <head>
+        <template jmb-placeholder="/page/title"></template>
+      </head>
+      <body>
+        <template jmb-placeholder="/page/view"></template>
+      </body>
+    </html>`
+      },
+      {
+        "execName": "/page/title",
+        "state": { "title": "Title changed" },
+        "url": "/page/title",
+        "changesUrl": false,
+        "dom": `<title>Title changed</title>`,
+      }
+    ]
+  ))
+  expect(doc.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page"><head>
+        <title jmb:name="/page/title">Title changed</title>
+      </head>
+      <body>
+        <div jmb:name="/page/view">Task 1</div>
+      
+    </body></html>`
   )
 })
