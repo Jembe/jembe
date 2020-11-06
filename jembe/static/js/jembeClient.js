@@ -15,6 +15,12 @@
   On x-jembe response update page:  
     - update components refs in JembeClient.compoennts
     - update only changed html of received components html
+
+
+    build commands, send it and process response
+    initialise ClientApi for every compoent
+    add handles for jmb:on...
+    $jmb (clientApi) avaiable in jmb:on... scripts
 */
 import { JembeComponentAPI } from "./componentApi.js";
 
