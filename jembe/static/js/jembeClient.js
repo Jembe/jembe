@@ -18,7 +18,7 @@
 
 
     build commands, send it and process response
-    initialise ClientApi for every compoent
+    initialise ClientApi for every component
     add handles for jmb:on...
     $jmb (clientApi) avaiable in jmb:on... scripts
 */
@@ -48,6 +48,12 @@ class ComponentRef {
       this.placeHolders[placeholder.getAttribute("jmb:name")] = placeholder
     }
   }
+  toJsonRequest() {
+    return {
+      "execName": this.execName,
+      "state": this.state
+    }
+  }
 }
 /**
  * Handle all jembe logic on client side, primarly building, sending, processing 
@@ -59,6 +65,7 @@ class JembeClient {
     this.components = this.getComponentsFromDocument()
     this.commands = []
     this.domParser = new DOMParser()
+    this.xRequestUrl = null
   }
   /**
    * Finds all jmb:name and associate jmb:data tags in document 
@@ -206,6 +213,92 @@ class JembeClient {
   }
   isPageExecName(execName) {
     return execName.split("/").length === 2
+  }
+
+  addInitialiseCommand(execName, initParams) {
+    const exisitingInitCommands = this.commands.filter(
+      x => x.type === "init" && x.componentExecName === execName
+    )
+    if (exisitingInitCommands.length > 0) {
+      for (const key of Object.keys(initParams)) {
+        exisitingInitCommands[0].initParams[key] = initParams[key]
+      }
+    } else if (this.components[execName] !== undefined) {
+      this.commands.push(
+        {
+          "type": "init",
+          "componentExecName": execName,
+          "initParams": { ...(this.components[execName].state), ...initParams }
+        }
+      )
+    } else {
+      this.commands.push(
+        {
+          "type": "init",
+          "componentExecName": execName,
+          "initParams": initParams
+        }
+      )
+    }
+  }
+
+  addCallCommand(execName, actionName, args, kwargs) {
+    this.commands.push(
+      {
+        "type": "call",
+        "componentExecName": execName,
+        "actionName": actionName,
+        "args": args,
+        "kwargs": kwargs
+      }
+    )
+  }
+  addEmitCommand(execName, eventName, params) {
+    this.commands.push(
+      {
+        "type": "emit",
+        "componentExecName": execName,
+        "eventName": eventName,
+        "params": params,
+      }
+    )
+
+  }
+  getXRequestJson() {
+    return JSON.stringify({
+      "components": Object.values(this.components).map(x => x.toJsonRequest()),
+      "commands": this.commands
+    })
+  }
+  setXRequestUrl(url) {
+    this.xRequestUrl = url
+  }
+  executeCommands() {
+    const url = this.xRequestUrl !== null ? this.xRequestUrl: window.location.href
+    // fetch request and process response
+    fetch(url, {
+      method: "POST",
+      cache: "no-cache",
+      credentials: "same-origin",
+      redirect: "follow",
+      referrer: "no-referrer",
+      headers: {'X-JEMBE': true},
+      body: this.getXRequestJson()
+    }).then(
+      response => {
+        if (response.ok) {
+          return response.json()
+        } else {
+          console.error("Request not successfull")
+        }
+      }
+    ).catch(error => {
+        console.error("Error in request", error)
+    }).then(
+      json=> this.getComponentsFromXResponse(json)
+    ).then(
+      components => this.updateDocument(components)
+    )
   }
 }
 

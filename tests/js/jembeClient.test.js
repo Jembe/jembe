@@ -249,3 +249,85 @@ test('update document with x-response', () => {
     </body></html>`
   )
 })
+
+test('build initialise and display command', () => {
+  const doc = (new DOMParser()).parseFromString(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <head>
+      </head>
+      <body>
+        <div jmb:name="/page/tasks" 
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             Tasks
+        </div>
+      </body>
+    </html>
+  `, "text/html")
+  const jembeClient = new JembeClient(doc)
+  jembeClient.addInitialiseCommand(
+    "/page/tasks",
+    { "page": 1, "page_size": 10 }
+  )
+  jembeClient.addCallCommand("/page/tasks", "display", [], {})
+  expect(jembeClient.getXRequestJson()).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/page", "state": {} },
+        { "execName": "/page/tasks", "state": { "page": 0, "page_size": 10 } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/page/tasks",
+          "initParams": { "page": 1, "page_size": 10 }
+        },
+        {
+          "type": "call",
+          "componentExecName": "/page/tasks",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        }
+      ]
+    }
+  ))
+})
+// initialise same component called two times
+test('initialise same component two times', () => {
+  const doc = (new DOMParser()).parseFromString(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <head>
+      </head>
+      <body>
+        <div jmb:name="/page/tasks" 
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks"}'>
+             Tasks
+        </div>
+      </body>
+    </html>
+  `, "text/html")
+  const jembeClient = new JembeClient(doc)
+  jembeClient.addInitialiseCommand(
+    "/page/tasks",
+    { "page": 1, }
+  )
+  jembeClient.addInitialiseCommand(
+    "/page/tasks",
+    { "page_size": 5 }
+  )
+  expect(jembeClient.getXRequestJson()).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/page", "state": {} },
+        { "execName": "/page/tasks", "state": { "page": 0, "page_size": 10, "filter":null } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/page/tasks",
+          "initParams": { "page": 1, "page_size": 5, "filter": null }
+        }
+      ]
+    }
+  ))
+})
