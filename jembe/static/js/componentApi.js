@@ -1,21 +1,9 @@
+import { JembeClient } from "./jembeClient"
 
 class InitialiseCommand {
   constructor(execName, state) {
     this.execName = execName
     this.state = state
-  }
-}
-class CallCommand {
-  constructor(execName, actionName, args, kwargs) {
-    this.execName = execName
-    this.actionName = actionName
-    this.args = args
-    this.kwargs = kwargs
-  }
-}
-class DisplayCommand extends CallCommand {
-  constructor(execName) {
-    super(execName, "display", [], {})
   }
 }
 class EmitCommand {
@@ -30,10 +18,24 @@ class EmitCommand {
   }
 }
 class JembeComponentAPI {
-
-  call() { }
+  constructor(jembeClient, componentRef) {
+    /** @type {JembeClient} */
+    this.jembeClient = jembeClient
+    /** @type {ComponentRef} */
+    this.componentRef = componentRef
+    this.commands = []
+  }
+  call(actionName) {
+    // TODO add args and kwargs
+    this.jembeClient.addCallCommand(
+      this.componentRef.execName,
+      actionName,
+      [],
+      {}
+    )
+  }
   set() { }
   emit() { }
   component() { }
 }
-export {JembeComponentAPI}
+export { JembeComponentAPI }

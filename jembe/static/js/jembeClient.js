@@ -5,7 +5,7 @@
   Genrate new commands with:
     # $jmb.call(<method_name>, params)[.redisplay(force=True)]
     # $jmb.emit(<event_name>, event_params).to(<selector>)
-    # $jmb.set(<state_praam_name>, value).deffer()
+    # $jmb.set(<state_praam_name>, value).deferred()
     # <comand_name>() (call action on current component)
     # $jmb.component(<component_name>, <state_params>).key(<key>).[call|emit|component]
   Supported tags:
@@ -38,13 +38,15 @@ class ComponentRef {
     this.placeHolders = {}
     this.onDocument = onDocument
     this.getPlaceHolders()
+    this.api = null
   }
+
   getPlaceHolders() {
     this.placeHolders = {}
     for (const placeholder of this.dom.querySelectorAll("template[jmb-placeholder]")) {
       this.placeHolders[placeholder.getAttribute("jmb-placeholder")] = placeholder
     }
-    for (const placeholder of this.dom.querySelectorAll("[jmb\:name]")) {
+    for (const placeholder of this.dom.querySelectorAll("[jmb\\:name]")) {
       this.placeHolders[placeholder.getAttribute("jmb:name")] = placeholder
     }
   }
@@ -63,6 +65,7 @@ class JembeClient {
   constructor(doc = document) {
     this.document = doc
     this.components = this.getComponentsFromDocument()
+    this.initComponentsAPI()
     this.commands = []
     this.domParser = new DOMParser()
     this.xRequestUrl = null
@@ -187,6 +190,7 @@ class JembeClient {
         processingExecNames.push(placeHolderName)
       }
     }
+    this.initComponentsAPI()
   }
   /**
    * Replaces component dom in this.document
@@ -274,7 +278,7 @@ class JembeClient {
     this.xRequestUrl = url
   }
   executeCommands() {
-    const url = this.xRequestUrl !== null ? this.xRequestUrl: window.location.href
+    const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
     // fetch request and process response
     fetch(url, {
       method: "POST",
@@ -282,7 +286,7 @@ class JembeClient {
       credentials: "same-origin",
       redirect: "follow",
       referrer: "no-referrer",
-      headers: {'X-JEMBE': true},
+      headers: { 'X-JEMBE': true },
       body: this.getXRequestJson()
     }).then(
       response => {
@@ -293,12 +297,27 @@ class JembeClient {
         }
       }
     ).catch(error => {
-        console.error("Error in request", error)
+      console.error("Error in request", error)
     }).then(
-      json=> this.getComponentsFromXResponse(json)
+      json => this.getComponentsFromXResponse(json)
     ).then(
       components => this.updateDocument(components)
     )
+  }
+  initComponentsAPI() {
+    for (const component of Object.values(this.components)) {
+      if (component.api === null) {
+        component.api = new JembeComponentAPI(this, component)
+      }
+    }
+  }
+  /**
+   * Used for geting jembeCompoentApi usually attached to document or window.jembeComponent 
+   * @param {*} domNode 
+   */
+  component(domNode) {
+    const componentExecName = domNode.closest('[jmb\\:name]').getAttribute('jmb:name')
+    return this.components[componentExecName].api
   }
 }
 

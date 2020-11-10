@@ -1,8 +1,9 @@
 import { expect } from "@jest/globals";
 import { JembeClient } from "../../jembe/static/js/jembeClient.js";
+import { buildDocument } from "./utils.js";
 
 test('identify component on simple page', () => {
-  const doc = (new DOMParser()).parseFromString(
+  buildDocument(
     `<!DOCTYPE html>
     <html lang="en" jmb:name="/simple_page" jmb:data='{"changesUrl":true,"state":{},"url":"/simple_page"}'>
     <head>
@@ -11,13 +12,11 @@ test('identify component on simple page', () => {
     <body>
       <h1>Simple page</h1> 
     </body>
-    </html>`, "text/html"
+    </html>`
   )
-  const jembeClient = new JembeClient(doc)
+  expect(Object.keys(window.jembeClient.components).length).toBe(1)
 
-  expect(Object.keys(jembeClient.components).length).toBe(1)
-
-  const simplePageCompRef = jembeClient.components["/simple_page"]
+  const simplePageCompRef = window.jembeClient.components["/simple_page"]
   expect(simplePageCompRef.execName).toBe('/simple_page')
   expect(simplePageCompRef.state).toEqual({})
   expect(simplePageCompRef.changesUrl).toBe(true)
@@ -25,7 +24,7 @@ test('identify component on simple page', () => {
 })
 
 test('indentify components on page with counter', () => {
-  const doc = (new DOMParser()).parseFromString(`
+  buildDocument(`
     <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
     <html jmb:name="/cpage" jmb:data='{"changesUrl":true,"state":{},"url":"/cpage"}'>
       <head></head>
@@ -37,12 +36,11 @@ test('indentify components on page with counter', () => {
         </div>
       </body>
     </html>
-  `, "text/html")
-  const jembeClient = new JembeClient(doc)
+  `)
 
-  expect(doc.documentElement.outerHTML).toContain(`<html jmb:name="/cpage">`)
-  expect(doc.documentElement.outerHTML).toContain(`<div jmb:name="/cpage/counter">`)
-  expect(Object.keys(jembeClient.components).length).toBe(2)
+  expect(document.documentElement.outerHTML).toContain(`<html jmb:name="/cpage">`)
+  expect(document.documentElement.outerHTML).toContain(`<div jmb:name="/cpage/counter">`)
+  expect(Object.keys(window.jembeClient.components).length).toBe(2)
 
   const cPageCompRef = jembeClient.components["/cpage"]
   expect(cPageCompRef.execName).toBe('/cpage')
@@ -135,10 +133,10 @@ test('indentify components from x-jembe response - page component', () => {
 // capp tasks with subtasks and all)
 
 test('update document with x-response - page component', () => {
-  const doc = (new DOMParser()).parseFromString(`
+  buildDocument(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page"}'>
       <head><title>Test</title></head>
-      <body>Test</body></html>`, "text/html")
+      <body>Test</body></html>`)
   const xResponse = [
     {
       "execName": "/page1",
@@ -150,15 +148,14 @@ test('update document with x-response - page component', () => {
       <body>Test1</body></html>`
     },
   ]
-  const jembeClient = new JembeClient(doc)
-  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
-  expect(doc.documentElement.outerHTML).toBe(
+  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
     `<html jmb:name="/page1"><head><title>Test1</title></head>
       <body>Test1</body></html>`
   )
 })
 test('update document with x-response', () => {
-  const doc = (new DOMParser()).parseFromString(`
+  buildDocument(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
       <head>
         <title jmb:name="/page/title" jmb:data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title"}'>
@@ -172,7 +169,7 @@ test('update document with x-response', () => {
         </div>
       </body>
     </html>
-  `, "text/html")
+  `)
   const xResponse = [
     {
       "execName": "/page",
@@ -203,9 +200,8 @@ test('update document with x-response', () => {
       "dom": `<div>Task 1</div>`,
     }
   ]
-  const jembeClient = new JembeClient(doc)
-  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
-  expect(doc.documentElement.outerHTML).toBe(
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
     `<html jmb:name="/page"><head>
         <title jmb:name="/page/title">Task</title>
       </head>
@@ -214,7 +210,7 @@ test('update document with x-response', () => {
       
     </body></html>`
   )
-  jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(
     [
       {
         "execName": "/page",
@@ -239,7 +235,7 @@ test('update document with x-response', () => {
       }
     ]
   ))
-  expect(doc.documentElement.outerHTML).toBe(
+  expect(document.documentElement.outerHTML).toBe(
     `<html jmb:name="/page"><head>
         <title jmb:name="/page/title">Title changed</title>
       </head>
@@ -251,7 +247,7 @@ test('update document with x-response', () => {
 })
 
 test('build initialise and display command', () => {
-  const doc = (new DOMParser()).parseFromString(`
+  buildDocument(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
       <head>
       </head>
@@ -262,14 +258,13 @@ test('build initialise and display command', () => {
         </div>
       </body>
     </html>
-  `, "text/html")
-  const jembeClient = new JembeClient(doc)
-  jembeClient.addInitialiseCommand(
+  `)
+  window.jembeClient.addInitialiseCommand(
     "/page/tasks",
     { "page": 1, "page_size": 10 }
   )
-  jembeClient.addCallCommand("/page/tasks", "display", [], {})
-  expect(jembeClient.getXRequestJson()).toBe(JSON.stringify(
+  window.jembeClient.addCallCommand("/page/tasks", "display", [], {})
+  expect(window.jembeClient.getXRequestJson()).toBe(JSON.stringify(
     {
       "components": [
         { "execName": "/page", "state": {} },
@@ -292,9 +287,8 @@ test('build initialise and display command', () => {
     }
   ))
 })
-// initialise same component called two times
 test('initialise same component two times', () => {
-  const doc = (new DOMParser()).parseFromString(`
+  buildDocument(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
       <head>
       </head>
@@ -305,17 +299,16 @@ test('initialise same component two times', () => {
         </div>
       </body>
     </html>
-  `, "text/html")
-  const jembeClient = new JembeClient(doc)
-  jembeClient.addInitialiseCommand(
+  `)
+  window.jembeClient.addInitialiseCommand(
     "/page/tasks",
     { "page": 1, }
   )
-  jembeClient.addInitialiseCommand(
+  window.jembeClient.addInitialiseCommand(
     "/page/tasks",
     { "page_size": 5 }
   )
-  expect(jembeClient.getXRequestJson()).toBe(JSON.stringify(
+  expect(window.jembeClient.getXRequestJson()).toBe(JSON.stringify(
     {
       "components": [
         { "execName": "/page", "state": {} },
