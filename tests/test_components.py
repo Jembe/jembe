@@ -519,7 +519,7 @@ def test_dynamic_add_remove_counters(jmb, client):
             # uses $jmb.set to increase and redisplay counter
             # puts logic in template which is not very good but it can be done
             return self.render_template_string(
-                """<div>Counter ({{key}}): {{value}}<button onclick="$jmb.set('value', {{value + 1}})">Increase</button></div>"""
+                """<div>Counter ({{key}}): {{value}}<button jmb:on.click="$jmb.set('value', {{value + 1}})">Increase</button></div>"""
             )
 
     @jmb.page("cpage", Component.Config(components={"counter": Counter}))
@@ -549,9 +549,9 @@ def test_dynamic_add_remove_counters(jmb, client):
             return self.render_template_string(
                 "<html><head></head><body>"
                 """<input jmb:ref="key" name="key" value="">"""
-                """<button onclick="$jmb.call('add_counter', $jmb.ref('key').value)">Add counter</button>"""
+                """<button jmb:on.click="$jmb.call('add_counter', $jmb.ref('key').value)">Add counter</button>"""
                 """{% for counter in counters %}"""
-                """<div>{{component("counter").key(counter)}}<button onclick="$jmb.call('remove_counter', '{{counter}}')">Remove</div></div>"""
+                """<div>{{component("counter").key(counter)}}<button jmb:on.click="$jmb.call('remove_counter', '{{counter}}')">Remove</div></div>"""
                 "{% endfor %}"
                 "</body></html>"
             )
@@ -564,7 +564,7 @@ def test_dynamic_add_remove_counters(jmb, client):
         "\n"
         """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         "</body></html>"
     ).encode("utf-8")
 
@@ -576,9 +576,9 @@ def test_dynamic_add_remove_counters(jmb, client):
         "\n"
         """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
-        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
+        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
         "</body></html>"
     ).encode("utf-8")
 
@@ -608,14 +608,14 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert json_response[0]["dom"] == (
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.first"
     assert json_response[1]["dom"] == (
-        """<div>Counter (first): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+        """<div>Counter (first): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
     )
 
     r = client.post(
@@ -646,16 +646,16 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert json_response[0]["dom"] == (
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
     assert json_response[1]["dom"] == (
-        """<div>Counter (second): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+        """<div>Counter (second): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
     )
     # increase and add counter
     r = client.post(
@@ -699,22 +699,22 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert json_response[0]["dom"] == (
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         """<div><template jmb-placeholder="/cpage/counter.third"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'third')">Remove</div></div>"""
         "</body></html>"
     )
     assert json_response[1]["execName"] == "/cpage/counter.second"
     assert json_response[1]["dom"] == (
-        """<div>Counter (second): 1<button onclick="$jmb.set('value', 2)">Increase</button></div>"""
+        """<div>Counter (second): 1<button jmb:on.click="$jmb.set('value', 2)">Increase</button></div>"""
     )
     assert json_response[2]["execName"] == "/cpage/counter.third"
     assert json_response[2]["dom"] == (
-        """<div>Counter (third): 0<button onclick="$jmb.set('value', 1)">Increase</button></div>"""
+        """<div>Counter (third): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
     )
 
     # increase second counter
@@ -754,7 +754,7 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert len(json_response) == 1
     assert json_response[0]["execName"] == "/cpage/counter.second"
     assert json_response[0]["dom"] == (
-        """<div>Counter (second): 2<button onclick="$jmb.set('value', 3)">Increase</button></div>"""
+        """<div>Counter (second): 2<button jmb:on.click="$jmb.set('value', 3)">Increase</button></div>"""
     )
 
     # remove counter
@@ -791,11 +791,11 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert json_response[0]["dom"] == (
         """<html><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
-        """<button onclick="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+        """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         """<div><template jmb-placeholder="/cpage/counter.first"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</div></div>"""
         """<div><template jmb-placeholder="/cpage/counter.second"></template>"""
-        """<button onclick="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
+        """<button jmb:on.click="$jmb.call('remove_counter', 'second')">Remove</div></div>"""
         "</body></html>"
     )
 

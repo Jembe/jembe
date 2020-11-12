@@ -1,20 +1,12 @@
 /*
-  TODO
-  On page load register all components and its states.
-    - jmb:name jmb:data {changes_url, state, url}
-  Genrate new commands with:
-    # $jmb.call(<method_name>, params)[.redisplay(force=True)]
-    # $jmb.emit(<event_name>, event_params).to(<selector>)
-    # $jmb.set(<state_praam_name>, value).deferred()
-    # <comand_name>() (call action on current component)
-    # $jmb.component(<component_name>, <state_params>).key(<key>).[call|emit|component]
   Supported tags:
     # jmb:on.<eventname>.<modifier>.<modifier>
     # jmb:model=
     <button jmb:on.click="$jmb.call('increase',10)"
+  TODO
   On x-jembe response update page:  
-    - update components refs in JembeClient.compoennts
     - update only changed html of received components html
+    - update window location
 
 
     build commands, send it and process response
@@ -257,13 +249,14 @@ class JembeClient {
       }
     )
   }
-  addEmitCommand(execName, eventName, params) {
+  addEmitCommand(execName, eventName, kwargs={}, to=null) {
     this.commands.push(
       {
         "type": "emit",
         "componentExecName": execName,
         "eventName": eventName,
-        "params": params,
+        "params": kwargs,
+        "to": to
       }
     )
 
@@ -307,7 +300,7 @@ class JembeClient {
   initComponentsAPI() {
     for (const component of Object.values(this.components)) {
       if (component.api === null) {
-        component.api = new JembeComponentAPI(this, component)
+        component.api = new JembeComponentAPI(this, component.execName)
       }
     }
   }

@@ -133,25 +133,31 @@ class _SubComponentRenderer:
                 return v
             return "'{}'".format(v)
 
-        return Markup("$jmb.component('{name}'{kwargs}){key}{action}".format(
-            name=self.name,
-            key=".key('{}')".format(self._key) if self._key else "",
-            action=".call('{name}'{args}{kwargs})".format(
-                name=self.action,
-                args="".join((",{}".format(_prep_v(v)) for v in self.action_args)),
-                kwargs="".join(
-                    (
-                        ",{}={}".format(k, _prep_v(v))
-                        for k, v in self.action_kwargs.items()
+        return Markup(
+            "$jmb.component('{name}'{kwargs}{key}){action}".format(
+                name=self.name,
+                key=",key='{}'".format(self._key) if self._key else "",
+                action=".call('{name}',{{{kwargs}}},[{args}])".format(
+                    name=self.action,
+                    args=",".join((_prep_v(v) for v in self.action_args)),
+                    kwargs=",".join(
+                        (
+                            "{}:{}".format(k, _prep_v(v))
+                            for k, v in self.action_kwargs.items()
+                        )
+                    ),
+                )
+                if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
+                else ".display()",
+                kwargs=",{{{}}}".format(
+                    ",".join(
+                        ("{}:{}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
                     )
-                ),
+                )
+                if self.kwargs
+                else "",
             )
-            if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
-            else "",
-            kwargs="".join(
-                (",{}={}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
-            )
-        ))
+        )
 
     @cached_property
     def exec_name(self) -> str:
@@ -188,7 +194,9 @@ class _SubComponentRenderer:
                 ),
                 end=True,
             )
-        return Markup('<template jmb-placeholder="{}"></template>'.format(self.exec_name))
+        return Markup(
+            '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
+        )
 
     def key(self, key: str) -> "_SubComponentRenderer":
         self._key = key
@@ -283,7 +291,7 @@ class Component(metaclass=ComponentMeta):
     def __init__(self):
         self.__key: str = ""
         self.__exec_name: str
-        self.__has_action_or_listener_executed:bool = False
+        self.__has_action_or_listener_executed: bool = False
 
     @property
     def key(self) -> str:
@@ -313,6 +321,7 @@ class Component(metaclass=ComponentMeta):
         name_key = exec_name.strip("/").split("/")[-1].split(".")
         if len(name_key) == 2:
             self.__key = name_key[1]
+
     @property
     def has_action_or_listener_executed(self) -> bool:
         return self.__has_action_or_listener_executed
@@ -320,7 +329,9 @@ class Component(metaclass=ComponentMeta):
     @has_action_or_listener_executed.setter
     def has_action_or_listener_executed(self, value: bool):
         if value != True:
-            raise JembeError("Cannot reset action or listener execution status on component")
+            raise JembeError(
+                "Cannot reset action or listener execution status on component"
+            )
         self.__has_action_or_listener_executed = True
 
     def set_parent_exec_name(self, parent_exec_name: str):

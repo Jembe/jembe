@@ -3,7 +3,8 @@
     "test": "jest --watch"
   },
   "devDependencies": {
+    "@babel/plugin-transform-modules-commonjs": "^7.12.1",
     "jest": "^26.6.2",
-    "@babel/plugin-transform-modules-commonjs": "^7.12.1"
+    "path-browserify": "^1.0.1"
   }
 }
