@@ -1,4 +1,4 @@
-import { JembeClient } from "../../jembe/static/js/jembeClient"
+import { JembeClient } from "../../jembe/static/js/client"
 
 function buildDocument(docStr) {
   const doc = (new DOMParser()).parseFromString(docStr, "text/html")
@@ -7,4 +7,6 @@ function buildDocument(docStr) {
   document.documentElement.setAttribute("jmb:data", doc.documentElement.getAttribute("jmb:data"))
   window.jembeClient = new JembeClient(document)
 }
-export {buildDocument}
+
+
+export {buildDocument }

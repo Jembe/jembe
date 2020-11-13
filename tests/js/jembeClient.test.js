@@ -1,5 +1,5 @@
 import { expect } from "@jest/globals";
-import { JembeClient } from "../../jembe/static/js/jembeClient.js";
+import { JembeClient } from "../../jembe/static/js/client.js";
 import { buildDocument } from "./utils.js";
 
 test('identify component on simple page', () => {

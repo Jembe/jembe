@@ -249,7 +249,7 @@ class JembeClient {
       }
     )
   }
-  addEmitCommand(execName, eventName, kwargs={}, to=null) {
+  addEmitCommand(execName, eventName, kwargs = {}, to = null) {
     this.commands.push(
       {
         "type": "emit",

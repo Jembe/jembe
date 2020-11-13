@@ -1,4 +1,5 @@
-import { JembeClient } from "./jembeClient"
+import { JembeClient } from "./client"
+import { walkComponentDom, AsyncFunction } from "./utils";
 import { isAbsolute, join } from "path";
 /**
  * jembeClient.component(this).set('paramName', paramValue)
@@ -18,14 +19,17 @@ import { isAbsolute, join } from "path";
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
  */
 class JembeComponentAPI {
-  constructor(jembeClient, componentExecName) {
+  constructor(jembeClient, componentExecName, initListeners = true) {
     /** @type {JembeClient} */
     this.jembeClient = jembeClient
     /** @type {ComponentRef} */
     this.execName = componentExecName
-    this.commands = []
+    if (initListeners) {
+      this.initialiseJmbOnListeners()
+    }
+    this.refs = {}
   }
-  call(actionName, kwargs={}, args=[]) {
+  call(actionName, kwargs = {}, args = []) {
     this.jembeClient.addCallCommand(
       this.execName,
       actionName,
@@ -42,7 +46,7 @@ class JembeComponentAPI {
       params
     )
   }
-  emit(eventName, kwargs={}, to=null) {
+  emit(eventName, kwargs = {}, to = null) {
     this.jembeClient.addEmitCommand(
       this.execName,
       eventName,
@@ -83,7 +87,62 @@ class JembeComponentAPI {
       )
       index++
     }
-    return new JembeComponentAPI(this.jembeClient, execName)
+    return new JembeComponentAPI(this.jembeClient, execName, false)
+  }
+  init(relativeExecName, kwargs = {}) {
+    return this.component(relativeExecName, kwargs)
+  }
+  ref(referenceName) {
+    return this.refs[referenceName]
+  }
+  initialiseJmbOnListeners() {
+    /** @type {ComponentRef} */
+    const componentRef = this.jembeClient.components[this.execName]
+    if (componentRef !== undefined) {
+      // TODO walk dom and select elements
+      walkComponentDom(componentRef.dom, el => {
+        // initialise event listeneres for jmb:on. attributes
+        if (el.hasAttributes()) {
+          for (const attribute of el.attributes) {
+            this._processDomAttribute(el, attribute.name, attribute.value)
+          }
+        }
+      })
+    }
+  }
+  _processDomAttribute(el, attrName, attrValue) {
+    attrName = attrName.toLowerCase()
+    if (attrName.startsWith('jmb:on.')) {
+      let [jmbOn, eventName, ...decorators] = attrName.split(".")
+
+      // support deferred decorator
+      const deferred = decorators.indexOf("deferred") >= 0 ? "" : 'window.jembeClient.executeCommands()'
+
+      let expression = `${attrValue};${deferred}`
+
+      el.addEventListener(eventName, (event) => {
+        let helpers = {
+          "$jmb": this,
+          "$event": event,
+          "$el": el
+        }
+        let scope = {
+        }
+        return Promise.resolve(
+          (
+            new AsyncFunction(
+              ['scope', ...Object.keys(helpers)],
+              `with(scope) { ${expression} }`
+            )
+          )(
+            scope,...Object.values(helpers)
+          )
+        )
+      })
+
+    } else if (attrName === "jmb:ref") {
+      this.refs[attrValue] = el
+    }
   }
 }
 export { JembeComponentAPI }
