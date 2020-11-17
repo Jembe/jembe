@@ -1,6 +1,6 @@
 import os
 from flask import Flask
-from . import jmb, db
+from . import jmb, db, commands
 
 def create_app(config=None):
     from . import models, views, pages
@@ -22,5 +22,6 @@ def create_app(config=None):
     jmb.init_jembe(app)
     db.init_db(app)
     views.init_views(app)
+    commands.init_commands(app)
 
     return app

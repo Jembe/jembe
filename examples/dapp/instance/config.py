@@ -1,2 +1,2 @@
-SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+SQLALCHEMY_DATABASE_URI = "sqlite:///../data/dapp.sqlite"
 SQLALCHEMY_TRACK_MODIFICATIONS = False
