@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict
+from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict, Union
 from jembe import Component
 from flask import json
 from jembe import (
@@ -11,6 +11,9 @@ from jembe import (
     Unauthorized,
     BadRequest,
 )
+
+if TYPE_CHECKING:
+    from flask import Response
 
 
 def test_counter(jmb, client):
@@ -1123,7 +1126,7 @@ def test_error_handling_with_listener_on_display_with_deferred_action(client, jm
 
     @config(Component.Config(components=dict(b=B)))
     class A(Component):
-        def __init__(self, b_has_error:bool=False):
+        def __init__(self, b_has_error: bool = False):
             # self.b_has_error = False
             super().__init__()
 
@@ -1331,6 +1334,48 @@ def test_update_window_location(jmb, client):
     assert json_response[4]["execName"] == "/page/c2"
     assert json_response[4]["url"] == "/page/c2"
     assert json_response[4]["changesUrl"] == True
+
+
+def test_url_get_query_params(jmb, client):
+    class AComponent(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div></div>")
+
+    @jmb.page(
+        "list",
+        Component.Config(
+            url_query_params=dict(p="page", ps="page_size"),
+            components=dict(a=AComponent),
+        ),
+    )
+    class ListComponent(Component):
+        def __init__(self, page: Optional[int] = None, page_size: int = 10) -> None:
+            if self.state.page is None:
+                self.state.page = 0
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<html><body></body></html>")
+
+    r = client.get("/list")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
+    ).encode("utf-8")
+
+    r = client.get("/list?p=3&ps=20")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":3,"page_size":20},"url":"/list?p=3&amp;ps=20"}\'><body></body></html>"""
+    ).encode("utf-8")
+    r = client.get("/list/a?p=100&ps=100")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
+    ).encode("utf-8")
 
 
 # TODO test counter with configurable increment

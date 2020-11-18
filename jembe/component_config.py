@@ -332,6 +332,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         ] = None,  # TODO
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
+        url_query_params: Optional[Dict[str,str]] = None,
         _component_class: Optional[Type["Component"]] = None,
         _parent: Optional["ComponentConfig"] = None,
     ):
@@ -342,6 +343,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         inject_into_components: Callable to inject init params into subcomponents
         redisplay: Flag to define when componnet will be redisplayed on client depending of its state
         changes_url: Does this component changes location url and allow back browser navigation to it
+        url_query_params: Mapping from GET Query params to state params used when component is called directly via regular http get request dict(<name of get queryparam> = <name of state param>)
 
         _component_class, _parent: used internally by jembe library
         """
@@ -351,6 +353,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._inject_into_components = inject_into_components
         self._redisplay_temp = redisplay
         self.changes_url = changes_url
+        self.url_query_params = url_query_params if url_query_params is not None else dict()
 
         if not self.changes_url:
             # set changes_url to False to all its children components

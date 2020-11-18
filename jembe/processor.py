@@ -19,12 +19,13 @@ from collections import deque
 from itertools import accumulate, chain
 from functools import cached_property
 from operator import add
+from urllib.parse import unquote_plus
 from flask.globals import current_app
 from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
-from .common import exec_name_to_full_name, is_page_exec_name, parent_exec_name
+from .common import convert_to_annotated_type, exec_name_to_full_name, is_page_exec_name, parent_exec_name
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
@@ -663,8 +664,8 @@ class InitialiseCommand(Command):
         return True
 
     def execute(self):
-        # create new component if component with identical exec_name
-        # does not exist
+        # create new component if component with identical exec_name does not exist
+        # or component with identical exec_name has not action or listener executed
         if self._must_do_init:
             component = self.processor.components.get(self.component_exec_name, None)
             existing_params = (
@@ -903,7 +904,7 @@ class Processor:
         raise NotImplementedError()
 
     def __create_commands(self, component_full_name: str):
-        if self._is_x_jembe_request():
+        if self._is_x_jembe_request:
             # x-jembe ajax request
             data = json.loads(self.request.data)
             # init components from data["components"]
@@ -970,6 +971,27 @@ class Processor:
                     up.name: self.request.view_args[up.identifier]
                     for up in cconfig._url_params
                 }
+                if (
+                    not self._is_x_jembe_request
+                    and exec_name_to_full_name(exec_name) == component_full_name
+                ):
+                    # do mapping for get query url params
+                    for (
+                        url_param_name,
+                        state_param_name,
+                    ) in cconfig.url_query_params.items():
+                        value = self.request.args.get(url_param_name, None)
+                        if value is not None:
+                            try:
+                                init_params[state_param_name] = convert_to_annotated_type(
+                                    unquote_plus(self.request.args[url_param_name]),
+                                    cconfig.component_class._jembe_init_signature.parameters[
+                                        state_param_name
+                                    ]
+                                )
+                            except ValueError:
+                                pass
+                        
                 self.add_command(
                     self._x_jembe_command_factory(
                         dict(
@@ -1178,7 +1200,7 @@ class Processor:
 
     def build_response(self) -> "Response":
         # compose full page
-        if self._is_x_jembe_request():
+        if self._is_x_jembe_request:
             ajax_responses = []
             for (
                 exec_name,
@@ -1307,6 +1329,7 @@ class Processor:
                     div.append(child)
             return doc[0]
 
+    @cached_property
     def _is_x_jembe_request(self) -> bool:
         return bool(self.request.headers.get(self.jembe.X_JEMBE, False))
 

@@ -10,6 +10,7 @@ from typing import (
     get_args,
     Type,
 )
+from urllib.parse import quote_plus
 from functools import cached_property
 from copy import deepcopy
 from abc import ABCMeta
@@ -355,7 +356,16 @@ class Component(metaclass=ComponentMeta):
         Returns url of this component build using url_path of parent
         components and url_path of this component
         """
-        return self._config.build_url(self.exec_name)
+        url = self._config.build_url(self.exec_name)
+        url_get_params = []
+        for url_param_name, state_param_name in self._config.url_query_params.items():
+            if self.state.get(state_param_name, None) is not None:
+                url_get_params.append(
+                    "{}={}".format(url_param_name, quote_plus(str(self.state[state_param_name])))
+                )
+        if url_get_params:
+            url = "{}?{}".format(url, "&".join(url_get_params))
+        return url
 
     @classmethod
     def encode_param(cls, param_name: str, param_value: Any) -> Any:

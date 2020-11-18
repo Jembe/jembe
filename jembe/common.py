@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any
+from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
+import inspect
 from importlib import import_module
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -54,3 +55,32 @@ def import_by_name(object_name: str) -> Any:
     except:
         raise ValueError("Import with name {} doesn't exist".format(object_name))
     return object_type
+
+
+def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
+    def get_type(annotation):
+        if get_origin(annotation) is Union and type(None) in get_args(annotation):
+            # is_optional
+            return get_args(annotation)[0]
+        else:
+            return annotation
+
+    converted_type = get_type(param.annotation)
+    try:
+        if converted_type == int:
+            return int(value)
+        elif converted_type == str:
+            return str(value)
+        elif converted_type == bool:
+            return value.upper() == "TRUE"
+        elif converted_type == float:
+            return float(value)
+    except Exception as e:
+        raise ValueError(
+            "Cant convert url query param {}={}: {}".format(param.name, value, e)
+        )
+
+    raise ValueError(
+        "Unsuported url query param type. Supported types are int, float, bool and string"
+    )
+
