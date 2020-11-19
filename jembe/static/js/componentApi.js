@@ -37,6 +37,9 @@ class JembeComponentAPI {
       kwargs
     )
   }
+  display() {
+    this.call("display")
+  }
   set(stateName, value) {
     //TODO set deep parameters
     params = {}

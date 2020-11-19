@@ -368,7 +368,7 @@ class Component(metaclass=ComponentMeta):
         return url
 
     @classmethod
-    def encode_param(cls, param_name: str, param_value: Any) -> Any:
+    def encode_param(cls, name: str, value: Any) -> Any:
         """
         Encode state param for sending to client (encoded param will be  transformed to json).
 
@@ -377,10 +377,10 @@ class Component(metaclass=ComponentMeta):
         - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None
 
         """
-        return param_value
+        return value
 
     @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
+    def decode_param(cls, name: str, value: Any) -> Any:
         """
         Decode state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
@@ -421,16 +421,16 @@ class Component(metaclass=ComponentMeta):
             return True
 
         if current_app.debug or current_app.testing:
-            if param_name in cls._jembe_init_signature.parameters:
+            if name in cls._jembe_init_signature.parameters:
                 # check if param hint is supported
-                param_hint = cls._jembe_init_signature.parameters[param_name]
+                param_hint = cls._jembe_init_signature.parameters[name]
                 if not _supported_hint(param_hint):
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json encode/decode "
                         "nor custom encoding/decoding logic is defined in encode_param/decode_param."
                         "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
                         "init- & float-derivated Enums, bool, Optional".format(
-                            param_name, cls.__module__, cls.__name__, param_hint
+                            name, cls.__module__, cls.__name__, param_hint
                         )
                     )
             else:
@@ -439,11 +439,11 @@ class Component(metaclass=ComponentMeta):
                     "nor custom encoding/decoding logic is defined in encode_param/decode_param."
                     "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
                     "init- & float-derivated Enums, bool, Optional".format(
-                        param_name, cls.__module__, cls.__name__
+                        name, cls.__module__, cls.__name__
                     )
                 )
 
-        return param_value
+        return value
 
     def inject(self) -> Dict[str, Any]:
         """

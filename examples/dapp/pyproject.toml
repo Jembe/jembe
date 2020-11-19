@@ -9,6 +9,7 @@ jembe = {path="../.."}
 python = "^3.8"
 python-dotenv = "^0.14.0"
 Flask-SQLAlchemy = "^2.4.4"
+WTForms-SQLAlchemy = "^0.2"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.782"

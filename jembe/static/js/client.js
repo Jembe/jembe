@@ -102,6 +102,8 @@ class JembeClient {
         template.content.appendChild(div)
       }
       // add jmb:name tag
+      // TODO check is it needed to add souranding DIV tag
+      // crate test and implement
       template.content.firstChild.setAttribute("jmb:name", execName)
       return template.content.firstChild
     } else {

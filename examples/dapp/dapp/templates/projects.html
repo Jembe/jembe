@@ -6,12 +6,27 @@
     <title>Projects</title>
 </head>
 <body>
-    <ul>
+    {% if mode is none %}
+    <table>
+        <thead>
+            <tr>
+                <th>Project</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
         {% for project in projects %}
-        <li>{{project.name}} {{project.id}}</li> 
+        <tr>
+            <td>{{project.name}}</td> 
+            <td>
+                <button jmb:on.click="{{component('edit', project_id=project.id).jrl}}">Edit</button>
+            </td>
+        </tr>
         {% endfor %}
-    </ul>
-    
-   <script type="module" src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+    </table>
+   {% elif mode == "edit" %}
+    {{component("edit")}}
+   {% endif %} 
+
+   <script src="{{ url_for('jembe.static', filename='js/dist/jembe.js') }}"></script>
 </body>
 </html>
