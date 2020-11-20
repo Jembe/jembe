@@ -341,7 +341,6 @@ class JembeClient {
       if (replace) {
         history.replaceState(historyState, '', topComponent.url)
       } else {
-        console.info(topComponent.url)
         history.pushState(historyState, '', topComponent.url)
       }
     }

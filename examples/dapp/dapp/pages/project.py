@@ -1,8 +1,12 @@
+"""
+Creates Project/Tasks application component by component
+with JUST MAKE IT WORK mindset. 
+"""
 from jembe.exceptions import BadRequest
 from typing import Optional, TYPE_CHECKING, Union, Any
 from jembe.component_config import action, listener
 from jembe import Component
-from dapp.models import Project
+from dapp.models import Project, Task
 from dapp.jmb import jmb
 from dapp.db import db
 from wtforms_sqlalchemy.orm import model_form
@@ -13,6 +17,7 @@ if TYPE_CHECKING:
     from jembe import Event
 
 ProjectForm = model_form(Project, db, exclude=("tasks",))
+TaskForm = model_form(Task, db, exclude=("project",))
 
 
 class EditProject(Component):
