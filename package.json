@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test": "jest --watch"
+    "test": "jest --watch",
+    "watch": "parcel watch jembe/src/js/jembe.js -d jembe/static/js/ --public-url ./"
   },
   "browserslist": ["last 2 Chrome versions"],
   "devDependencies": {

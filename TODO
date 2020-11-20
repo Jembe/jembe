@@ -6,7 +6,7 @@ Public Dev Lunch:
     ✔ How to update page title or other header tags??? without introducing new logic @done(20-10-30 07:35)
     ✔ Deffered actions?? @done(20-10-30 07:35)
     ☐ design and create javascript rendering part and updateing window.location
-    ☐ design and create javascript execution part
+    ✔ design and create javascript execution part @done(20-11-20 08:18)
     ☐ Flash messages
     ✔ Create page counter @done(20-10-30 07:35)
     ✔ Create page with coutner component @done(20-10-30 07:35)

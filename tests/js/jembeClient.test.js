@@ -1,5 +1,5 @@
 import { expect } from "@jest/globals";
-import { JembeClient } from "../../jembe/static/js/client.js";
+import { JembeClient } from "../../jembe/src/js/client.js";
 import { buildDocument } from "./utils.js";
 
 test('identify component on simple page', () => {
@@ -323,4 +323,67 @@ test('initialise same component two times', () => {
       ]
     }
   ))
+})
+
+
+test('update x-response dom with souranding div', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <body></body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page/test1",
+      "state": {},
+      "url": "/page/test1",
+      "changesUrl": true,
+      "dom": `<div></div>`
+    },
+    {
+      "execName": "/page/test2",
+      "state": {},
+      "url": "/page/test2",
+      "changesUrl": true,
+      "dom": `<div>1</div><div>2</div>`,
+    },
+    {
+      "execName": "/page/test3",
+      "state": {},
+      "url": "/page/test3",
+      "changesUrl": true,
+      "dom": `Test 3`,
+    }
+  ]
+  let components = window.jembeClient.getComponentsFromXResponse(xResponse)
+  expect(components["/page/test1"].dom.outerHTML).toBe('<div jmb:name="/page/test1"></div>')
+  expect(components["/page/test2"].dom.outerHTML).toBe('<div jmb:name="/page/test2"><div>1</div><div>2</div></div>')
+  expect(components["/page/test3"].dom.outerHTML).toBe('<div jmb:name="/page/test3">Test 3</div>')
+})
+
+test('update window.location on x-response', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <body></body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page",
+      "state": {},
+      "url": "/page",
+      "changesUrl": true,
+      "dom": `<html><body><template jmb-placeholder="/page/test"></template></body></html>`
+    },
+    {
+      "execName": "/page/test",
+      "state": {},
+      "url": "/page/test",
+      "changesUrl": true,
+      "dom": `<div>Test</div>`,
+    },
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateLocation()
+  expect(window.location.pathname).toBe("/page/test")
 })

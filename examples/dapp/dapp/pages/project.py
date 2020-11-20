@@ -38,7 +38,7 @@ class EditProject(Component):
     @classmethod
     def decode_param(cls, name: str, value: Any) -> Any:
         if name == "form":
-            return ProjectForm(value)
+            return ProjectForm(data=value)
         return super().decode_param(name, value)
 
     @action

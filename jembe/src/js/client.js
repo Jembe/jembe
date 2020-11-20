@@ -31,6 +31,7 @@ class ComponentRef {
     this.onDocument = onDocument
     this.getPlaceHolders()
     this.api = null
+    this.hierarchyLevel = execName.split("/").length
   }
 
   getPlaceHolders() {
@@ -58,9 +59,12 @@ class JembeClient {
     this.document = doc
     this.components = this.getComponentsFromDocument()
     this.initComponentsAPI()
+    this.updateLocation(true)
     this.commands = []
     this.domParser = new DOMParser()
     this.xRequestUrl = null
+
+    window.onpopstate = this.onHistoryPopState
   }
   /**
    * Finds all jmb:name and associate jmb:data tags in document 
@@ -101,11 +105,19 @@ class JembeClient {
         }
         template.content.appendChild(div)
       }
+      // check is it needed to add souranding DIV tag
       // add jmb:name tag
-      // TODO check is it needed to add souranding DIV tag
-      // crate test and implement
-      template.content.firstChild.setAttribute("jmb:name", execName)
-      return template.content.firstChild
+      if (template.content.childNodes.length > 1 || template.content.firstChild.nodeType === Node.TEXT_NODE) {
+        let div = this.document.createElement("div")
+        for (const child of template.content.childNodes) {
+          div.appendChild(child)
+        }
+        div.setAttribute("jmb:name", execName)
+        return div
+      } else {
+        template.content.firstChild.setAttribute("jmb:name", execName)
+        return template.content.firstChild
+      }
     } else {
       const doc = this.domParser.parseFromString(domString, "text/html")
       doc.documentElement.setAttribute("jmb:name", execName)
@@ -192,7 +204,7 @@ class JembeClient {
    */
   mergeComponent(componentRef) {
     if (this.isPageExecName(componentRef.execName)) {
-      // if page component is alrady on document dont do nothing
+      // if page component is already on document do nothing
       if (!componentRef.onDocument) {
         this.document.documentElement.innerHTML = componentRef.dom.innerHTML
         componentRef.dom = this.document.documentElement
@@ -272,8 +284,11 @@ class JembeClient {
   setXRequestUrl(url) {
     this.xRequestUrl = url
   }
-  executeCommands() {
+  executeCommands(updateLocation=true) {
     const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
+    const requestBody = this.getXRequestJson()
+    // reset commads since we create request body from it
+    this.commands = []
     // fetch request and process response
     fetch(url, {
       method: "POST",
@@ -282,7 +297,7 @@ class JembeClient {
       redirect: "follow",
       referrer: "no-referrer",
       headers: { 'X-JEMBE': true },
-      body: this.getXRequestJson()
+      body: requestBody
     }).then(
       response => {
         if (response.ok) {
@@ -296,7 +311,12 @@ class JembeClient {
     }).then(
       json => this.getComponentsFromXResponse(json)
     ).then(
-      components => this.updateDocument(components)
+      components => {
+        this.updateDocument(components)
+        if (updateLocation) {
+          this.updateLocation()
+        }
+      }
     )
   }
   initComponentsAPI() {
@@ -304,6 +324,37 @@ class JembeClient {
       if (component.api === null) {
         component.api = new JembeComponentAPI(this, component.execName)
       }
+    }
+  }
+  updateLocation(replace=false) {
+    let topComponent = null
+    let level = -1
+    let historyState = []
+    for (const component of Object.values(this.components)) {
+      if (component.hierarchyLevel > level) {
+        topComponent = component
+        level = component.hierarchyLevel
+      }
+      historyState.push({ execName: component.execName, state: component.state })
+    }
+    if (topComponent !== null) {
+      if (replace) {
+        history.replaceState(historyState, '', topComponent.url)
+      } else {
+        console.info(topComponent.url)
+        history.pushState(historyState, '', topComponent.url)
+      }
+    }
+  }
+  onHistoryPopState(event) {
+    if (event.state === null) {
+      window.location = document.location
+    } else {
+      for (const comp of event.state) {
+        this.jembeClient.addInitialiseCommand(comp.execName, comp.state)
+        this.jembeClient.addCallCommand(comp.execName, "display")
+      }
+      this.jembeClient.executeCommands(false)
     }
   }
   /**

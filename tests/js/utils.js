@@ -1,4 +1,4 @@
-import { JembeClient } from "../../jembe/static/js/client"
+import { JembeClient } from "../../jembe/src/js/client"
 
 function buildDocument(docStr) {
   const doc = (new DOMParser()).parseFromString(docStr, "text/html")
