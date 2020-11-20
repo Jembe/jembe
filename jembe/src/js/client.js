@@ -107,7 +107,9 @@ class JembeClient {
       }
       // check is it needed to add souranding DIV tag
       // add jmb:name tag
-      if (template.content.childNodes.length > 1 || template.content.firstChild.nodeType === Node.TEXT_NODE) {
+      if (template.content.childNodes.length > 1 ||
+          template.content.childNodes.length === 0 ||
+          template.content.firstChild.nodeType === Node.TEXT_NODE) {
         let div = this.document.createElement("div")
         for (const child of template.content.childNodes) {
           div.appendChild(child)
@@ -284,7 +286,7 @@ class JembeClient {
   setXRequestUrl(url) {
     this.xRequestUrl = url
   }
-  executeCommands(updateLocation=true) {
+  executeCommands(updateLocation = true) {
     const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
     const requestBody = this.getXRequestJson()
     // reset commads since we create request body from it
@@ -326,7 +328,7 @@ class JembeClient {
       }
     }
   }
-  updateLocation(replace=false) {
+  updateLocation(replace = false) {
     let topComponent = null
     let level = -1
     let historyState = []

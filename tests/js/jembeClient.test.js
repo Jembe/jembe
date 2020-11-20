@@ -353,12 +353,20 @@ test('update x-response dom with souranding div', () => {
       "url": "/page/test3",
       "changesUrl": true,
       "dom": `Test 3`,
+    },
+    {
+      "execName": "/page/test4",
+      "state": {},
+      "url": "/page/test3",
+      "changesUrl": true,
+      "dom": ``,
     }
   ]
   let components = window.jembeClient.getComponentsFromXResponse(xResponse)
   expect(components["/page/test1"].dom.outerHTML).toBe('<div jmb:name="/page/test1"></div>')
   expect(components["/page/test2"].dom.outerHTML).toBe('<div jmb:name="/page/test2"><div>1</div><div>2</div></div>')
   expect(components["/page/test3"].dom.outerHTML).toBe('<div jmb:name="/page/test3">Test 3</div>')
+  expect(components["/page/test4"].dom.outerHTML).toBe('<div jmb:name="/page/test4"></div>')
 })
 
 test('update window.location on x-response', () => {
