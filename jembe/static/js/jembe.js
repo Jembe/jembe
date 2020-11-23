@@ -757,8 +757,7 @@ class JembeComponentAPI {
       index++;
     }
 
-    index = 0; // TODO not work for $jmb.component("..", {mode:null}).display()
-    // create test and implment changes
+    index = 0;
 
     while (index < componentNames.length) {
       this.jembeClient.addInitialiseCommand([startWith.join("/"), componentNames.slice(0, index + 1).join("/")].join("/"), index == componentNames.length - 1 ? kwargs : {});
@@ -1254,7 +1253,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "38917" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40107" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

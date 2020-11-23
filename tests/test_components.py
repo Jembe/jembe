@@ -14,6 +14,7 @@ from jembe import (
 
 if TYPE_CHECKING:
     from flask import Response
+    from jembe import Event
 
 
 def test_counter(jmb, client):
@@ -1376,6 +1377,138 @@ def test_url_get_query_params(jmb, client):
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
         """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
     ).encode("utf-8")
+
+
+def test_client_emit_event_handling(jmb, client):
+    class TestComponent(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                """<div><button jmb:on.click="$jmb.emit('cancel')">Cancel</button></div>"""
+            )
+
+    @jmb.page("page", Component.Config(components=dict(test=TestComponent)))
+    class Page(Component):
+        def __init__(self) -> None:
+            self.canceled = False
+            super().__init__()
+
+        @listener(event="cancel", source="./*")
+        def on_cancel(self, event: "Event"):
+            self.canceled = True
+
+        @redisplay(when_executed=True)
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component('test')}}<div>{{canceled}}</div></body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/test" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/test"}\'>"""
+        """<button jmb:on.click="$jmb.emit(\'cancel\')">Cancel</button>"""
+        """</div>"""
+        """<div>False</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r = client.post(
+        "/page/test",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict()),
+                    dict(execName="/page/test", state=dict()),
+                ],
+                commands=[
+                    dict(type="init", componentExecName="/page", initParams=dict(),),
+                    dict(
+                        type="emit",
+                        componentExecName="/page/test",
+                        eventName="cancel",
+                        params=dict(),
+                        to=None,
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["dom"] == (
+        """<html><body>"""
+        """<template jmb-placeholder="/page/test"></template>"""
+        """<div>True</div>"""
+        """</body></html>"""
+    )
+
+
+def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client):
+    class A(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div></div>")
+
+    @jmb.page("page", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        def __init__(self) -> None:
+            super().__init__()
+            self.events: List[str] = []
+
+        @listener(source="./a")
+        def on_a_events(self, event):
+            self.events.append(event.name)
+
+        @redisplay(when_executed=True)
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component('a')}}<div>{{events|safe}}</div></body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
+        """<div>[]</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+    r = client.post(
+        "/page/a",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict()),
+                    dict(execName="/page/a", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="emit",
+                        componentExecName="/page/a",
+                        eventName="cancel",
+                        params=dict(),
+                        to=None,
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["dom"] == (
+        """<html><body>"""
+        """<template jmb-placeholder="/page/a"></template>"""
+        """<div>['cancel']</div>"""
+        """</body></html>"""
+    )
 
 
 # TODO test counter with configurable increment

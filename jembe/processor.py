@@ -25,7 +25,12 @@ from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, Response
-from .common import convert_to_annotated_type, exec_name_to_full_name, is_page_exec_name, parent_exec_name
+from .common import (
+    convert_to_annotated_type,
+    exec_name_to_full_name,
+    is_page_exec_name,
+    parent_exec_name,
+)
 from .exceptions import JembeError
 from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
 
@@ -362,12 +367,18 @@ class CallListenerCommand(Command):
 class EmitCommand(Command):
     # TODO match listner extract as method
     def __init__(
-        self, component_exec_name: str, event_name: str, params: dict,
+        self,
+        component_exec_name: str,
+        event_name: str,
+        params: dict,
+        to: Optional[Union[str, Sequence[str]]] = None,
     ):
         super().__init__(component_exec_name)
         self.event_name = event_name
         self.params = params
         self._to: Tuple[str, ...] = ()
+        if to is not None:
+            self.to(to)
 
         self.primary_execution = True
 
@@ -572,7 +583,12 @@ class EmitCommand(Command):
             listener_source: Optional[str],
         ) -> bool:
             return (
-                (listener_event_name is None or listener_event_name == event_name)
+                (
+                    # if listener_event_name is None only catch user event but not
+                    # jembe system events that starts with underscore (_)
+                    (listener_event_name is None and not event_name.startswith("_"))
+                    or listener_event_name == event_name
+                )
                 and cls._glob_match_exec_name(
                     # match emit.to with compoenent name
                     source_exec_name,
@@ -901,6 +917,13 @@ class Processor:
                 command_data["args"],
                 command_data["kwargs"],
             )
+        elif command_data["type"] == "emit":
+            return EmitCommand(
+                command_data["componentExecName"],
+                command_data["eventName"],
+                command_data["params"],
+                command_data["to"],
+            )
         raise NotImplementedError()
 
     def __create_commands(self, component_full_name: str):
@@ -983,15 +1006,17 @@ class Processor:
                         value = self.request.args.get(url_param_name, None)
                         if value is not None:
                             try:
-                                init_params[state_param_name] = convert_to_annotated_type(
+                                init_params[
+                                    state_param_name
+                                ] = convert_to_annotated_type(
                                     unquote_plus(self.request.args[url_param_name]),
                                     cconfig.component_class._jembe_init_signature.parameters[
                                         state_param_name
-                                    ]
+                                    ],
                                 )
                             except ValueError:
                                 pass
-                        
+
                 self.add_command(
                     self._x_jembe_command_factory(
                         dict(

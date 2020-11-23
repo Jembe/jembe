@@ -2,9 +2,9 @@
 Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
-from jembe.exceptions import BadRequest
-from typing import Optional, TYPE_CHECKING, Union, Any
-from jembe.component_config import action, listener
+from typing import Optional, TYPE_CHECKING, Union, Any, Tuple
+from jembe.exceptions import BadRequest, JembeError
+from jembe.component_config import action, config, listener
 from jembe import Component
 from dapp.models import Project, Task
 from dapp.jmb import jmb
@@ -19,9 +19,18 @@ if TYPE_CHECKING:
 ProjectForm = model_form(Project, db, exclude=("tasks",))
 TaskForm = model_form(Task, db, exclude=("project",))
 
+@config(Component.Config(changes_url=False, template="confirmation.html"))
+class ConfirmationDialog(Component):
+    def __init__(self, title:str = "", question:str="", reemit:Optional[str]=None, params:Optional[dict]=None) -> None:
+        if params is None:
+            self.state.params = dict()
+        if reemit is None:
+            raise JembeError("Reemit parameter is required")
+        super().__init__()
 
+@config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
 class EditProject(Component):
-    def __init__(self, project_id: int, form: Optional["Form"] = None) -> None:
+    def __init__(self, project_id: int, form: Optional["Form"] = None, confirmation:Optional[Tuple[str, str, str, dict]]=None) -> None:
         self._mounted = False
         super().__init__()
 
@@ -46,8 +55,21 @@ class EditProject(Component):
             return ProjectForm(data=value)
         return super().decode_param(name, value)
 
+    @listener(source="./confirmation")
+    def on_confirmation(self, event:"Event"):
+        import pdb; pdb.set_trace()
+        if event.name == "ok":
+            self.emit(event.params["reemit"], **event.params["reemit_params"])
+        # event.stop_propagate()
+        self.state.confirmation = None
+
+    @action
+    def cancel(self):
+        self.state.confirmation = ("Cancel edit", "All changes will be lost", "cancel", dict())
+
     @action
     def save(self) -> Optional[bool]:
+        self.mount()
         if self.state.form.validate():
             self.state.form.populate_obj(self.project)
             db.commit()
@@ -79,8 +101,12 @@ class ProjectsPage(Component):
         super().__init__()
 
     @listener(event="_display", source="./*")
-    def on_display_child(self, event: "Event"):
+    def on_child_display(self, event: "Event"):
         self.state.mode = event.source_name
+
+    @listener(event="cancel", source="./*")
+    def on_child_cancel(self, event: "Event"):
+        self.state.mode = None
 
     def display(self) -> Union[str, "Response"]:
         if self.state.mode is None:

@@ -86,9 +86,8 @@ class JembeComponentAPI {
       }
       index++
     }
+
     index = 0
-    // TODO not work for $jmb.component("..", {mode:null}).display()
-    // create test and implment changes
     while (index < componentNames.length) {
       this.jembeClient.addInitialiseCommand(
         [
