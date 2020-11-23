@@ -232,3 +232,46 @@ test('call nested component actions', () => {
     }
   ))
 })
+
+test("back button", () =>{
+  buildDocument(`
+    <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{"mode":"edit"},"url":"/tasks"}'>
+      <body>
+        <div jmb:name="/tasks/edit" 
+            jmb:data='{"changesUrl":true,"state":{"record_id":1},"url":"/tasks/edit/1"}'>
+            <button jmb:on.click="$jmb.component('..',{mode:'list'}).display()">
+                Back
+            </button>
+        </div>
+      </body>
+    </html>
+  `)
+
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('button').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/tasks", "state": {"mode":"edit"} },
+        { "execName": "/tasks/edit", "state": {"record_id":1} },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/tasks",
+          "initParams": {"mode":"list"},
+        },
+        {
+          "type": "call",
+          "componentExecName": "/tasks",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        }
+      ]
+    }
+  ))
+})

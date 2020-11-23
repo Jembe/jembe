@@ -69,7 +69,14 @@ class JembeComponentAPI {
     let execNameSplit = execName.split("/")
     let thisExecNameSplit = this.execName.split("/")
     while (index < execNameSplit.length) {
-      if (equalSoFar === true && execNameSplit[index] !== thisExecNameSplit[index]) {
+      if (equalSoFar === true &&
+        (
+          // if execName is different (including key) we need to genereate init command
+          execNameSplit[index] !== thisExecNameSplit[index] ||
+          // alsy if kwargs are specified for last component we need do generate init command
+          (index === execNameSplit.length - 1 && kwargs !== {})
+        )
+      ) {
         equalSoFar = false
       }
       if (!equalSoFar) {
@@ -140,7 +147,7 @@ class JembeComponentAPI {
               `with(scope) { ${expression} }`
             )
           )(
-            scope,...Object.values(helpers)
+            scope, ...Object.values(helpers)
           )
         )
       })
