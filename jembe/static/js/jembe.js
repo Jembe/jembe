@@ -1173,7 +1173,7 @@ class JembeClient {
     let historyState = [];
 
     for (const component of Object.values(this.components)) {
-      if (component.hierarchyLevel > level) {
+      if (component.hierarchyLevel > level && component.changesUrl === true) {
         topComponent = component;
         level = component.hierarchyLevel;
       }
@@ -1186,9 +1186,9 @@ class JembeClient {
 
     if (topComponent !== null) {
       if (replace) {
-        history.replaceState(historyState, '', topComponent.url);
+        window.history.replaceState(historyState, '', topComponent.url);
       } else {
-        history.pushState(historyState, '', topComponent.url);
+        window.history.pushState(historyState, '', topComponent.url);
       }
     }
   }
@@ -1253,7 +1253,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40107" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "32769" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

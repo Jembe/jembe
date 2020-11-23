@@ -312,7 +312,7 @@ test('initialise same component two times', () => {
     {
       "components": [
         { "execName": "/page", "state": {} },
-        { "execName": "/page/tasks", "state": { "page": 0, "page_size": 10, "filter":null } },
+        { "execName": "/page/tasks", "state": { "page": 0, "page_size": 10, "filter": null } },
       ],
       "commands": [
         {
@@ -394,4 +394,48 @@ test('update window.location on x-response', () => {
   window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
   window.jembeClient.updateLocation()
   expect(window.location.pathname).toBe("/page/test")
+})
+
+test("update url when change_url is false", () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+      <body>
+        <div jmb:name="/page/tasks" 
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             Tasks
+        </div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page/tasks",
+      "state": { "page": 0, "page_size": 10 },
+      "url": "/page/tasks",
+      "changesUrl": true,
+      "dom": `<div>Tasks<template jmb-placeholder="/page/tasks/confirm"></template></div>`,
+    },
+    {
+      "execName": "/page/tasks/confirm",
+      "state": {},
+      "url": "/page/tasks/confirm",
+      "changesUrl": false,
+      "dom": `<div>Confirm</div>`,
+    }
+  ]
+  const components = window.jembeClient.getComponentsFromXResponse(xResponse)
+  window.jembeClient.updateDocument(components)
+  window.history.pushState =jest.fn((state,title, url)=>{
+    return url
+  })
+  window.jembeClient.updateLocation()
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page"><head></head><body>
+        <div jmb:name="/page/tasks">Tasks<div jmb:name="/page/tasks/confirm">Confirm</div></div>
+      
+    
+  </body></html>`
+  )
+  expect(window.history.pushState.mock.calls.length).toBe(1)
+  expect(window.history.pushState.mock.results[0].value).toBe("/page/tasks")
 })

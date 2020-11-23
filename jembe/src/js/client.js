@@ -333,7 +333,7 @@ class JembeClient {
     let level = -1
     let historyState = []
     for (const component of Object.values(this.components)) {
-      if (component.hierarchyLevel > level) {
+      if (component.hierarchyLevel > level && component.changesUrl === true) {
         topComponent = component
         level = component.hierarchyLevel
       }
@@ -341,9 +341,9 @@ class JembeClient {
     }
     if (topComponent !== null) {
       if (replace) {
-        history.replaceState(historyState, '', topComponent.url)
+        window.history.replaceState(historyState, '', topComponent.url)
       } else {
-        history.pushState(historyState, '', topComponent.url)
+        window.history.pushState(historyState, '', topComponent.url)
       }
     }
   }

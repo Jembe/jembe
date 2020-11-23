@@ -4,5 +4,5 @@
 <button jmb:on.click="$jmb.call('cancel')">Cancel</button>
 <button jmb:on.click="$jmb.component('..',{mode:null}).display()">Back</button>
 {% if confirmation %}
-{{component("confirmation", title=confirmation[0], question=confirmation[1], reemit=confirmation[2], params=confirmation[3])}}
+{{component("confirmation", title="Cancel edit", question="Are you sure, all changes will be lost?", reemit="cancel", params=dict())}}
 {% endif %}

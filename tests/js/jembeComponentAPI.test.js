@@ -175,9 +175,6 @@ test('call nested component actions', () => {
     </html>
   `)
 
-  window.jembeClient.executeCommands = jest.fn(() => {
-    return window.jembeClient.getXRequestJson()
-  })
   document.querySelector('button').click()
   expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
   expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
@@ -232,7 +229,6 @@ test('call nested component actions', () => {
     }
   ))
 })
-
 test("back button", () =>{
   buildDocument(`
     <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{"mode":"edit"},"url":"/tasks"}'>

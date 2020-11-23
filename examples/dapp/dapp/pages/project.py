@@ -33,7 +33,7 @@ class ConfirmationDialog(Component):
 
 @config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
 class EditProject(Component):
-    def __init__(self, project_id: int, form: Optional["Form"] = None, confirmation:Optional[Tuple[str, str, str, dict]]=None) -> None:
+    def __init__(self, project_id: int, form: Optional["Form"] = None, confirmation:Optional[str]=None) -> None:
         self._mounted = False
         super().__init__()
 
@@ -68,7 +68,7 @@ class EditProject(Component):
 
     @action
     def cancel(self):
-        self.state.confirmation = ("Cancel edit", "All changes will be lost", "cancel", dict())
+        self.state.confirmation = "cancel"
 
     @action
     def save(self) -> Optional[bool]:
