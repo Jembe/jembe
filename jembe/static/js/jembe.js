@@ -832,16 +832,6 @@ var _componentApi = require("./componentApi.js");
     # jmb:on.<eventname>.<modifier>.<modifier>
     # jmb:model=
     <button jmb:on.click="$jmb.call('increase',10)"
-  TODO
-  On x-jembe response update page:  
-    - update only changed html of received components html
-    - update window location
-
-
-    build commands, send it and process response
-    initialise ClientApi for every component
-    add handles for jmb:on...
-    $jmb (clientApi) avaiable in jmb:on... scripts
 */
 
 /**

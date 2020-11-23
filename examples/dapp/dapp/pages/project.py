@@ -20,7 +20,6 @@ ProjectForm = model_form(Project, db, exclude=("tasks",))
 TaskForm = model_form(Task, db, exclude=("project",))
 
 @config(Component.Config(changes_url=False, template="confirmation.html"))
-# TODO changes_url=False should not change url
 # TODO prams:Optional[dict] are not decoded properly (check how annotation check is done last time I used it)
 # TODO confirm dialog should have click outside set to cancel it
 class ConfirmationDialog(Component):
@@ -60,10 +59,8 @@ class EditProject(Component):
 
     @listener(source="./confirmation")
     def on_confirmation(self, event:"Event"):
-        import pdb; pdb.set_trace()
         if event.name == "ok":
             self.emit(event.params["reemit"], **event.params["reemit_params"])
-        # event.stop_propagate()
         self.state.confirmation = None
 
     @action

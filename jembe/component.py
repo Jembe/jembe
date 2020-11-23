@@ -8,13 +8,15 @@ from typing import (
     List,
     Tuple,
     get_args,
+    get_origin,
     Type,
 )
+from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
 from functools import cached_property
 from copy import deepcopy
 from abc import ABCMeta
-from inspect import isclass, isfunction, signature, getmembers
+from inspect import Parameter, isclass, isfunction, signature, getmembers, Signature
 from .exceptions import JembeError, NotFound
 from flask import render_template, render_template_string, current_app
 from markupsafe import Markup
@@ -31,7 +33,6 @@ from .common import exec_name_to_full_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Response
-    from inspect import Signature
 
 
 class ComponentState(dict):
@@ -361,7 +362,9 @@ class Component(metaclass=ComponentMeta):
         for url_param_name, state_param_name in self._config.url_query_params.items():
             if self.state.get(state_param_name, None) is not None:
                 url_get_params.append(
-                    "{}={}".format(url_param_name, quote_plus(str(self.state[state_param_name])))
+                    "{}={}".format(
+                        url_param_name, quote_plus(str(self.state[state_param_name]))
+                    )
                 )
         if url_get_params:
             url = "{}?{}".format(url, "&".join(url_get_params))
@@ -393,57 +396,93 @@ class Component(metaclass=ComponentMeta):
               because hint checking can be expensive)
         """
 
-        def _supported_hint(param_hint):
-            # TODO Grrr not good hint checking, need to learn more before making it good
-            valid_annotations = ("str", "int", "NoneType")
-            if isinstance(param_hint.annotation, ForwardRef):
-                return False
-            elif isfunction(param_hint.annotation):
-                # should handle annoation with new type
-                # or raise exception
-                return param_hint.annotation.__supertype__.__name__ in valid_annotations
-            elif isclass(param_hint.annotation):
-                return param_hint.annotation.__name__ in valid_annotations
-            else:
-                hint_args = get_args(param_hint.annotation)
-                if not hint_args:
-                    raise NotImplementedError()
-                for arg in hint_args:
-                    if isinstance(arg, ForwardRef):
-                        return False
-                    elif isfunction(arg):
-                        return (
-                            param_hint.annotation.__supertype__.__name__
-                            in valid_annotations
-                        )
-                    elif isclass(arg) and not arg.__name__ in valid_annotations:
-                        return False
-            return True
+        def _decode_supported_types(value, param_hint):
+            """ returns decoded value or raise ValueError"""
+            # TODO add support for multiple annotation types Union[a,b,c] etc
+            def _get_annotation_type(annotation):
+                """ returns tuple(annotation_type, is_optional)"""
+                def _geta(annotation):
+                    if isfunction(annotation):
+                        # handling typing.NewType
+                        # TODO make it robust and to cover all cases
+                        return annotation.__supertype__
+                    else:
+                        return annotation
+                
+                if get_origin(annotation) is Union and type(None) in get_args(
+                    annotation
+                ):
+                    # is_optional
+                    return (_geta(get_args(annotation)[0]), True)
+                else:
+                    return (_geta(annotation), False)
 
-        if current_app.debug or current_app.testing:
-            if name in cls._jembe_init_signature.parameters:
-                # check if param hint is supported
-                param_hint = cls._jembe_init_signature.parameters[name]
-                if not _supported_hint(param_hint):
+            if param_hint.annotation == Parameter.empty:
+                raise ValueError("Parameter without annotation")
+            atype, is_optional = _get_annotation_type(param_hint.annotation)
+            try:
+                if atype == int:
+                    return None if (is_optional and value is None) else int(value)
+                elif atype == str:
+                    return None if (is_optional and value is None) else str(value)
+                elif atype == float:
+                    return None if (is_optional and value is None) else float(value)
+                elif atype == dict or get_origin(atype) == dict:
+                    return None if (is_optional and value is None) else dict(value)
+                elif atype == tuple or get_origin(atype) == tuple:
+                    return None if (is_optional and value is None) else tuple(value)
+                elif get_origin(atype) == collectionsSequence:
+                    return None if (is_optional and value is None) else tuple(value)
+                import pdb; pdb.set_trace()
+            except Exception as e:
+                raise ValueError(e)
+
+            raise ValueError("Unsuported annotation type")
+
+        if name in cls._jembe_init_signature.parameters:
+            try:
+                return _decode_supported_types(
+                    value, cls._jembe_init_signature.parameters[name]
+                )
+            except ValueError as e:
+                if current_app.debug or current_app.testing:
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json encode/decode "
-                        "nor custom encoding/decoding logic is defined in encode_param/decode_param."
+                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) "
                         "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
                         "init- & float-derivated Enums, bool, Optional".format(
-                            name, cls.__module__, cls.__name__, param_hint
+                            name,
+                            cls.__module__,
+                            cls.__name__,
+                            cls._jembe_init_signature.parameters[name],
+                            e
                         )
                     )
-            else:
-                raise JembeError(
-                    "State param {} of {}.{} does not have supported json encode/decode type hint "
-                    "nor custom encoding/decoding logic is defined in encode_param/decode_param."
-                    "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
-                    "init- & float-derivated Enums, bool, Optional".format(
-                        name, cls.__module__, cls.__name__
-                    )
-                )
-
         return value
+        # if current_app.debug or current_app.testing:
+        #     if name in cls._jembe_init_signature.parameters:
+        #         # check if param hint is supported
+        #         param_hint = cls._jembe_init_signature.parameters[name]
+        #         if not _supported_hint(param_hint):
+        #             raise JembeError(
+        #                 "State param {} of {}.{} with hint {} is not supported for json encode/decode "
+        #                 "nor custom encoding/decoding logic is defined in encode_param/decode_param."
+        #                 "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
+        #                 "init- & float-derivated Enums, bool, Optional".format(
+        #                     name, cls.__module__, cls.__name__, param_hint
+        #                 )
+        #             )
+        #     else:
+        #         raise JembeError(
+        #             "State param {} of {}.{} does not have supported json encode/decode type hint "
+        #             "nor custom encoding/decoding logic is defined in encode_param/decode_param."
+        #             "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
+        #             "init- & float-derivated Enums, bool, Optional".format(
+        #                 name, cls.__module__, cls.__name__
+        #             )
+        #         )
+
+        # return value
 
     def inject(self) -> Dict[str, Any]:
         """

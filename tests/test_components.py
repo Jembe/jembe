@@ -1,4 +1,14 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Sequence, List, Dict, Union
+from typing import (
+    Any,
+    NewType,
+    TYPE_CHECKING,
+    Optional,
+    Tuple,
+    Sequence,
+    List,
+    Dict,
+    Union,
+)
 from jembe import Component
 from flask import json
 from jembe import (
@@ -1509,6 +1519,57 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
         """<div>['cancel']</div>"""
         """</body></html>"""
     )
+
+
+def test_component_default_encode_decode_params(app_ctx):
+    # - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None, via
+    UrlPath = NewType("UrlPath", str)
+
+    class C(Component):
+        def __init__(
+            self,
+            i: int = 1,
+            oi: Optional[int] = None,
+            s: str = "",
+            os: Optional[str] = None,
+            f: float = 1,
+            of: Optional[float] = None,
+            od1: Optional[dict] = None,
+            od2: Optional[Dict[str, Any]] = None,
+            ts: Tuple[str, ...] = (),
+            ots: Optional[Tuple[str, ...]] = None,
+            sq: Sequence[Any] = (),
+            urlpath: UrlPath = UrlPath(""),
+            ourlpath: Optional[UrlPath] = None
+        ) -> None:
+
+            super().__init__()
+
+    with app_ctx:
+        assert C.decode_param("i", 1) == 1
+        assert C.decode_param("oi", None) == None
+        assert C.decode_param("oi", 1) == 1
+        assert C.decode_param("s", "test") == "test"
+        assert C.decode_param("os", None) == None
+        assert C.decode_param("os", "test") == "test"
+        assert C.decode_param("f", 1.0) == 1.0
+        assert C.decode_param("of", None) == None
+        assert C.decode_param("of", 1) == 1
+        assert C.decode_param("od1", None) == None
+        assert C.decode_param("od1", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.decode_param("od1", {1: "1", 2: 20}) == {1: "1", 2: 20}
+        assert C.decode_param("od2", None) == None
+        assert C.decode_param("od2", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.decode_param("ts", ("1", "2")) == ("1", "2")
+        assert C.decode_param("ots", None) == None
+        assert C.decode_param("ots", ("1", "b")) == ("1", "b")
+        assert C.decode_param("sq", ()) == ()
+        assert C.decode_param("sq", (1, 2)) == (1, 2)
+        assert C.decode_param("sq", [1, "2"]) == (1, "2")
+        assert C.decode_param("urlpath", "test") == "test"
+        assert C.decode_param("urlpath", "test") == UrlPath("test")
+        assert C.decode_param("ourlpath", None) == None
+        assert C.decode_param("ourlpath", "test") == UrlPath("test")
 
 
 # TODO test counter with configurable increment

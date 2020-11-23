@@ -174,7 +174,9 @@ test('call nested component actions', () => {
       </body>
     </html>
   `)
-
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
   document.querySelector('button').click()
   expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
   expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
