@@ -2,6 +2,7 @@
 Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
+from jembe.app import get_processor
 from typing import Optional, TYPE_CHECKING, Union, Any, Tuple
 from jembe.exceptions import BadRequest, JembeError
 from jembe.component_config import action, config, listener
@@ -19,20 +20,26 @@ if TYPE_CHECKING:
 ProjectForm = model_form(Project, db, exclude=("tasks",))
 TaskForm = model_form(Task, db, exclude=("project",))
 
+
 @config(Component.Config(changes_url=False, template="confirmation.html"))
-# TODO prams:Optional[dict] are not decoded properly (check how annotation check is done last time I used it)
 # TODO confirm dialog should have click outside set to cancel it
 class ConfirmationDialog(Component):
-    def __init__(self, title:str = "", question:str="", reemit:Optional[str]=None, params:Optional[dict]=None) -> None:
-        if params is None:
-            self.state.params = dict()
-        if reemit is None:
-            raise JembeError("Reemit parameter is required")
+    def __init__(
+        self, title: str = "", question: str = "", action: Optional[str] = None
+    ) -> None:
+        if action is None:
+            raise JembeError("action:str parameter is required")
         super().__init__()
+
 
 @config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
 class EditProject(Component):
-    def __init__(self, project_id: int, form: Optional["Form"] = None, confirmation:Optional[str]=None) -> None:
+    def __init__(
+        self,
+        project_id: int,
+        form: Optional["Form"] = None,
+        confirm_action: Optional[str] = None,
+    ) -> None:
         self._mounted = False
         super().__init__()
 
@@ -58,14 +65,15 @@ class EditProject(Component):
         return super().decode_param(name, value)
 
     @listener(source="./confirmation")
-    def on_confirmation(self, event:"Event"):
-        if event.name == "ok":
-            self.emit(event.params["reemit"], **event.params["reemit_params"])
-        self.state.confirmation = None
+    def on_action_confirmation(self, event: "Event"):
+        self.state.confirm_action = None
+        if event.params["action"] == "cancel" and event.name == "ok":
+            self.emit("cancel")
+            return False  # don't execute display
 
     @action
     def cancel(self):
-        self.state.confirmation = "cancel"
+        self.state.confirm_action = "cancel"
 
     @action
     def save(self) -> Optional[bool]:
@@ -83,6 +91,7 @@ class EditProject(Component):
         return super().display()
 
 
+# TODO join back and cancel buttons on edit taking account is form changed
 # TODO add rename/edit project, add project delete project as modals
 # TODO add tasks list, add, edit, delete and mark completed
 @jmb.page(

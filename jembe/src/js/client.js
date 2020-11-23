@@ -210,6 +210,7 @@ class JembeClient {
         comp => Object.keys(comp.placeHolders).includes(componentRef.execName)
       )[0]
       parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom)
+      parentComponent.placeHolders[componentRef.execName] = componentRef.dom
       componentRef.onDocument = true
     }
   }
