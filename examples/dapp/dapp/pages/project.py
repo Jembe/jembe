@@ -20,6 +20,9 @@ ProjectForm = model_form(Project, db, exclude=("tasks",))
 TaskForm = model_form(Task, db, exclude=("project",))
 
 @config(Component.Config(changes_url=False, template="confirmation.html"))
+# TODO changes_url=False should not change url
+# TODO prams:Optional[dict] are not decoded properly (check how annotation check is done last time I used it)
+# TODO confirm dialog should have click outside set to cancel it
 class ConfirmationDialog(Component):
     def __init__(self, title:str = "", question:str="", reemit:Optional[str]=None, params:Optional[dict]=None) -> None:
         if params is None:
