@@ -42,7 +42,7 @@ class JembeComponentAPI {
   }
   set(stateName, value) {
     //TODO set deep parameters
-    params = {}
+    let params = {}
     params[stateName] = value
     this.jembeClient.addInitialiseCommand(
       this.execName,

@@ -80,9 +80,10 @@ class EditProject(Component):
         self.mount()
         if self.state.form.validate():
             self.state.form.populate_obj(self.project)
-            db.commit()
+            db.session.commit()
+            self.emit("save", project=self.project, project_id=self.state.project_id)
             # dont execute display
-            return False
+            # return False
         # execute display if state is changed
         return None
 
@@ -90,7 +91,8 @@ class EditProject(Component):
         self.mount()
         return super().display()
 
-
+# TODO save should work when input is changed
+# TODO successfull save should show notification to user (undo operation is quite complex to implement so skip that for now)
 # TODO join back and cancel buttons on edit taking account is form changed
 # TODO add rename/edit project, add project delete project as modals
 # TODO add tasks list, add, edit, delete and mark completed

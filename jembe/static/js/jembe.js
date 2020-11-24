@@ -718,7 +718,7 @@ class JembeComponentAPI {
 
   set(stateName, value) {
     //TODO set deep parameters
-    params = {};
+    let params = {};
     params[stateName] = value;
     this.jembeClient.addInitialiseCommand(this.execName, params);
   }
@@ -977,7 +977,8 @@ class JembeClient {
       components[xComp.execName] = new ComponentRef(xComp.execName, {
         "url": xComp.url,
         "changesUrl": xComp.changesUrl,
-        "state": xComp.state
+        "state": xComp.state,
+        "actions": xComp.actions
       }, this.transformXResponseDom(xComp.execName, xComp.dom), false);
     }
 

@@ -132,6 +132,7 @@ class JembeClient {
           "url": xComp.url,
           "changesUrl": xComp.changesUrl,
           "state": xComp.state,
+          "actions": xComp.actions
         },
         this.transformXResponseDom(xComp.execName, xComp.dom),
         false
