@@ -124,6 +124,8 @@ class JembeComponentAPI {
   _processDomAttribute(el, attrName, attrValue) {
     attrName = attrName.toLowerCase()
     if (attrName.startsWith('jmb:on.')) {
+      /** @type {Array<string>} */
+      const actions = this.jembeClient.components[this.execName].actions
       let [jmbOn, eventName, ...decorators] = attrName.split(".")
 
       // support deferred decorator
@@ -137,6 +139,13 @@ class JembeComponentAPI {
           "$event": event,
           "$el": el
         }
+        // allow action functions to be called directly 
+        for (const action of actions) {
+          helpers[action] = (kwargs ={}, args=[]) => {
+            this.call(action, kwargs, args)
+          }
+        }
+
         let scope = {
         }
         return Promise.resolve(

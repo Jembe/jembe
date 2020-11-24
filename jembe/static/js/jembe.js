@@ -796,6 +796,8 @@ class JembeComponentAPI {
     attrName = attrName.toLowerCase();
 
     if (attrName.startsWith('jmb:on.')) {
+      /** @type {Array<string>} */
+      const actions = this.jembeClient.components[this.execName].actions;
       let [jmbOn, eventName, ...decorators] = attrName.split("."); // support deferred decorator
 
       const deferred = decorators.indexOf("deferred") >= 0 ? "" : 'window.jembeClient.executeCommands()';
@@ -805,7 +807,14 @@ class JembeComponentAPI {
           "$jmb": this,
           "$event": event,
           "$el": el
-        };
+        }; // allow action functions to be called directly 
+
+        for (const action of actions) {
+          helpers[action] = (kwargs = {}, args = []) => {
+            this.call(action, kwargs, args);
+          };
+        }
+
         let scope = {};
         return Promise.resolve(new _utils.AsyncFunction(['scope', ...Object.keys(helpers)], `with(scope) { ${expression} }`)(scope, ...Object.values(helpers)));
       });
@@ -843,6 +852,7 @@ class ComponentRef {
     this.state = data.state;
     this.url = data.url;
     this.changesUrl = data.changesUrl;
+    this.actions = data.actions !== undefined ? data.actions : [];
     this.dom = dom;
     this.placeHolders = {};
     this.onDocument = onDocument;
@@ -1244,7 +1254,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "32769" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "46253" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

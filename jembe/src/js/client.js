@@ -16,6 +16,7 @@ class ComponentRef {
     this.state = data.state
     this.url = data.url
     this.changesUrl = data.changesUrl
+    this.actions = data.actions !== undefined ? data.actions : []
     this.dom = dom
     this.placeHolders = {}
     this.onDocument = onDocument

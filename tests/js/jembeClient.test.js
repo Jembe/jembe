@@ -5,7 +5,7 @@ import { buildDocument } from "./utils.js";
 test('identify component on simple page', () => {
   buildDocument(
     `<!DOCTYPE html>
-    <html lang="en" jmb:name="/simple_page" jmb:data='{"changesUrl":true,"state":{},"url":"/simple_page"}'>
+    <html lang="en" jmb:name="/simple_page" jmb:data='{"changesUrl":true,"state":{},"url":"/simple_page","actions":[]}'>
     <head>
         <title>Simple page</title>
     </head>
@@ -26,11 +26,11 @@ test('identify component on simple page', () => {
 test('indentify components on page with counter', () => {
   buildDocument(`
     <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-    <html jmb:name="/cpage" jmb:data='{"changesUrl":true,"state":{},"url":"/cpage"}'>
+    <html jmb:name="/cpage" jmb:data='{"changesUrl":true,"state":{},"url":"/cpage","actions":[]}'>
       <head></head>
       <body>
         <div jmb:name="/cpage/counter" 
-             jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter"}'>
+             jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter","actions":[]}'>
           <div>Count: 0</div>
           <a jmb:click="increase()">increase</a>
         </div>
@@ -134,7 +134,7 @@ test('indentify components from x-jembe response - page component', () => {
 
 test('update document with x-response - page component', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
       <head><title>Test</title></head>
       <body>Test</body></html>`)
   const xResponse = [
@@ -156,15 +156,15 @@ test('update document with x-response - page component', () => {
 })
 test('update document with x-response', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
-        <title jmb:name="/page/title" jmb:data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title"}'>
+        <title jmb:name="/page/title" jmb:data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title","actions":[]}'>
           Title
         </title>
       </head>
       <body>
         <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -248,12 +248,12 @@ test('update document with x-response', () => {
 
 test('build initialise and display command', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
         <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -289,12 +289,12 @@ test('build initialise and display command', () => {
 })
 test('initialise same component two times', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
         <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks"}'>
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -328,7 +328,7 @@ test('initialise same component two times', () => {
 
 test('update x-response dom with souranding div', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -371,7 +371,7 @@ test('update x-response dom with souranding div', () => {
 
 test('update window.location on x-response', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -398,10 +398,10 @@ test('update window.location on x-response', () => {
 
 test("update url when change_url is false", () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page"}'>
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body>
         <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks"}'>
+             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>

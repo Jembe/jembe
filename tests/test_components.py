@@ -50,7 +50,7 @@ def test_counter(jmb, client):
 
     # call page
     counter0_page_html = b"""<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body><div jmb:name="/cpage/counter" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter"}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
+<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body><div jmb:name="/cpage/counter" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"value":0},"url":"/cpage/counter"}\'><div>Count: 0</div> <a jmb:click="increase()">increase</a></div></body></html>"""
     r = client.get("/cpage")
     assert r.status_code == 200
     assert r.data == counter0_page_html
@@ -161,18 +161,18 @@ def test_multi_counter(jmb, client):
     assert r.status_code == 200
     test_r_data = (
         '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n'
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
+        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
+        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
@@ -186,18 +186,18 @@ def test_multi_counter(jmb, client):
     assert r.status_code == 200
     test_r_data = (
         '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n'
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.first" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.first"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
+        """<div jmb:name="/cpage/counter.second" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.second"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
         """</div>"""
-        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
+        """<div jmb:name="/cpage/counter.third" jmb:data=\'{"actions":["increase","set_increment"],"changesUrl":true,"state":{"increment":1,"value":0},"url":"/cpage/counter.third"}\'>"""
         """<div>Count: 0</div>"""
         """<input jmb:change="set_increment($elm.value)" value="1">"""
         """<a jmb:click="increase()">increase</a>"""
@@ -576,7 +576,7 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
         "</body></html>"
@@ -588,10 +588,10 @@ def test_dynamic_add_remove_counters(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
         """<input jmb:ref="key" name="key" value="">"""
         """<button jmb:on.click="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
-        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
+        """<div><div jmb:name="/cpage/counter.first" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button jmb:on.click="$jmb.set('value', 1)">Increase</button></div>"""
         """<button jmb:on.click="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
         "</body></html>"
     ).encode("utf-8")
@@ -839,8 +839,8 @@ def test_initialising_listener(jmb, client):
     html = (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter" jmb:data=\'{"changesUrl":true,"state":{"value":10},"url":"/cpage/counter"}\'>10</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"value":10},"url":"/cpage/counter"}\'>10</div>"""
         "</body></html>"
     ).encode("utf-8")
     r = client.get("/cpage")
@@ -893,9 +893,9 @@ def test_counter_data_on_server(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>10</div>"""
-        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>10</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
         "</body></html>"
     ).encode("utf-8")
     # increase counter
@@ -933,14 +933,13 @@ def test_counter_data_on_server(jmb, client):
 
     # request get counter with wrong key should reinitialise counter with correct key
     r = client.get("/cpage/counter.1/2")
-    print(r.data)
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>11</div>"""
-        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
+        """<div jmb:name="/cpage/counter.1" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"id":1},"url":"/cpage/counter.1/1"}\'>11</div>"""
+        """<div jmb:name="/cpage/counter.2" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"id":2},"url":"/cpage/counter.2/2"}\'>20</div>"""
         "</body></html>"
     ).encode("utf-8")
 
@@ -1016,7 +1015,7 @@ def test_catch_exception_by_parent_and_ignore_it(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body></body></html>"""
+        """<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body></body></html>"""
     ).encode("utf-8")
 
 
@@ -1054,7 +1053,7 @@ def test_catch_errors_while_rendering(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{},"url":"/list"}\'><body>"""
+        """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/list"}\'><body>"""
         "<div>edit 1</div><div>view 2</div>"
         """</body></html>"""
     ).encode("utf-8")
@@ -1081,7 +1080,7 @@ def test_error_handling_leaves_empty_placeholder(client, jmb):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body></body></html>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body></body></html>"""
     ).encode("utf-8")
 
 
@@ -1111,8 +1110,8 @@ def test_error_handling_leaves_empty_placeholder_deep(client, jmb):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
         """</body></html>"""
     ).encode("utf-8")
 
@@ -1165,9 +1164,9 @@ def test_error_handling_with_listener_on_display_with_deferred_action(client, jm
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/c" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/c"}\'>errors 1</div>"""
-        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{"b_has_error":true},"url":"/page/a"}\'>b has error</div>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/c" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/c"}\'>errors 1</div>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"b_has_error":true},"url":"/page/a"}\'>b has error</div>"""
         """</body></html>"""
     ).encode("utf-8")
     r2 = client.get("/page/c")
@@ -1229,7 +1228,7 @@ def test_inject_init_params_to_component(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
         "\n"
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>1 Jembe 1</body></html>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>1 Jembe 1</body></html>"""
     ).encode("utf-8")
 
     # ignore injected params
@@ -1372,20 +1371,20 @@ def test_url_get_query_params(jmb, client):
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
-        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
+        """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
     ).encode("utf-8")
 
     r = client.get("/list?p=3&ps=20")
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
-        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":3,"page_size":20},"url":"/list?p=3&amp;ps=20"}\'><body></body></html>"""
+        """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":3,"page_size":20},"url":"/list?p=3&amp;ps=20"}\'><body></body></html>"""
     ).encode("utf-8")
     r = client.get("/list/a?p=100&ps=100")
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
-        """<html jmb:name="/list" jmb:data=\'{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
+        """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
     ).encode("utf-8")
 
 
@@ -1416,8 +1415,8 @@ def test_client_emit_event_handling(jmb, client):
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/test" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/test"}\'>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/test" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/test"}\'>"""
         """<button jmb:on.click="$jmb.emit(\'cancel\')">Cancel</button>"""
         """</div>"""
         """<div>False</div>"""
@@ -1482,8 +1481,8 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
     assert r.status_code == 200
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
-        """<html jmb:name="/page" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
-        """<div jmb:name="/page/a" jmb:data=\'{"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
         """<div>[]</div>"""
         """</body></html>"""
     ).encode("utf-8")
@@ -1540,7 +1539,7 @@ def test_component_default_encode_decode_params(app_ctx):
             ots: Optional[Tuple[str, ...]] = None,
             sq: Sequence[Any] = (),
             urlpath: UrlPath = UrlPath(""),
-            ourlpath: Optional[UrlPath] = None
+            ourlpath: Optional[UrlPath] = None,
         ) -> None:
 
             super().__init__()
@@ -1570,6 +1569,64 @@ def test_component_default_encode_decode_params(app_ctx):
         assert C.decode_param("urlpath", "test") == UrlPath("test")
         assert C.decode_param("ourlpath", None) == None
         assert C.decode_param("ourlpath", "test") == UrlPath("test")
+
+
+def test_add_actions_data_in_response(jmb, client):
+    class A(Component):
+        @action
+        def action1(self):
+            pass
+
+        @action
+        def action2(self):
+            pass
+        @redisplay(when_executed=True)
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div></div>")
+
+    @jmb.page("page", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component('a')}}</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"actions":["action1","action2"],"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+    r = client.post(
+        "/page/a",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict()),
+                    dict(execName="/page/a", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/page/a",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/page/a"
+    assert json_response[0]["dom"] == ("""<div></div>""")
+    assert json_response[0]["actions"] == ["action1", "action2"]
 
 
 # TODO test counter with configurable increment

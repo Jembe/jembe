@@ -1243,6 +1243,13 @@ class Processor:
                             dom=html,
                             url=url,
                             changesUrl=changes_url,
+                            actions=[
+                                action_name
+                                for action_name in self.jembe.get_component_config(
+                                    exec_name
+                                ).component_actions.keys()
+                                if action_name != ComponentConfig.DEFAULT_DISPLAY_ACTION
+                            ],
                         )
                     )
             return jsonify(ajax_responses)
@@ -1321,11 +1328,18 @@ class Processor:
                 "jmb:data",
                 json.dumps(
                     dict(
+                        actions=[
+                            action_name
+                            for action_name in self.jembe.get_component_config(
+                                exec_name
+                            ).component_actions.keys()
+                            if action_name != ComponentConfig.DEFAULT_DISPLAY_ACTION
+                        ],
+                        changesUrl=changes_url,
                         state=state.tojsondict(
                             self.jembe.get_component_config(exec_name).component_class
                         ),
                         url=url,
-                        changesUrl=changes_url,
                     ),
                     separators=(",", ":"),
                     sort_keys=True,
