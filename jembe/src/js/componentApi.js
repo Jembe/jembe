@@ -40,8 +40,16 @@ class JembeComponentAPI {
   display() {
     this.call("display")
   }
+  /**
+   *  Change state param of current component,
+   *  by addig initialise command with only state param 
+   *  defined by stateName changed to newlly provided value
+   * stateName can use dots (.) to set attribure of object
+   * Examples: "someObject.paramName" 
+   * @param {string} stateName 
+   * @param {*} value 
+   */
   set(stateName, value) {
-    //TODO set deep parameters
     let params = {}
     params[stateName] = value
     this.jembeClient.addInitialiseCommand(
@@ -128,10 +136,10 @@ class JembeComponentAPI {
       const actions = this.jembeClient.components[this.execName].actions
       let [jmbOn, eventName, ...decorators] = attrName.split(".")
 
-      // support deferred decorator
-      const deferred = decorators.indexOf("deferred") >= 0 ? "" : 'window.jembeClient.executeCommands()'
+      // support defer decorator
+      const defer = decorators.indexOf("defer") >= 0 ? "" : 'window.jembeClient.executeCommands()'
 
-      let expression = `${attrValue};${deferred}`
+      let expression = `${attrValue};${defer}`
 
       el.addEventListener(eventName, (event) => {
         let helpers = {

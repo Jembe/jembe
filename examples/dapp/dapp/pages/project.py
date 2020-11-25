@@ -91,7 +91,6 @@ class EditProject(Component):
         self.mount()
         return super().display()
 
-# TODO save should work when input is changed
 # TODO successfull save should show notification to user (undo operation is quite complex to implement so skip that for now)
 # TODO join back and cancel buttons on edit taking account is form changed
 # TODO add rename/edit project, add project delete project as modals

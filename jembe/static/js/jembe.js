@@ -124,6 +124,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.walkComponentDom = walkComponentDom;
+exports.deepCopy = deepCopy;
 exports.AsyncFunction = void 0;
 
 function elIsNewComponent(el) {
@@ -148,6 +149,25 @@ function walkComponentDom(el, callback) {
 
 let AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 exports.AsyncFunction = AsyncFunction;
+
+function deepCopy(inObject) {
+  let outObject, value, key;
+
+  if (typeof inObject !== "object" || inObject === null) {
+    return inObject; // Return the value if inObject is not an object
+  } // Create an array or object to hold the values
+
+
+  outObject = Array.isArray(inObject) ? [] : {};
+
+  for (key in inObject) {
+    value = inObject[key]; // Recursively (deep) copy for nested objects, including arrays
+
+    outObject[key] = deepCopy(value);
+  }
+
+  return outObject;
+}
 },{}],"../../../node_modules/process/browser.js":[function(require,module,exports) {
 
 // shim for using process in browser
@@ -715,9 +735,18 @@ class JembeComponentAPI {
   display() {
     this.call("display");
   }
+  /**
+   *  Change state param of current component,
+   *  by addig initialise command with only state param 
+   *  defined by stateName changed to newlly provided value
+   * stateName can use dots (.) to set attribure of object
+   * Examples: "someObject.paramName" 
+   * @param {string} stateName 
+   * @param {*} value 
+   */
+
 
   set(stateName, value) {
-    //TODO set deep parameters
     let params = {};
     params[stateName] = value;
     this.jembeClient.addInitialiseCommand(this.execName, params);
@@ -798,10 +827,10 @@ class JembeComponentAPI {
     if (attrName.startsWith('jmb:on.')) {
       /** @type {Array<string>} */
       const actions = this.jembeClient.components[this.execName].actions;
-      let [jmbOn, eventName, ...decorators] = attrName.split("."); // support deferred decorator
+      let [jmbOn, eventName, ...decorators] = attrName.split("."); // support defer decorator
 
-      const deferred = decorators.indexOf("deferred") >= 0 ? "" : 'window.jembeClient.executeCommands()';
-      let expression = `${attrValue};${deferred}`;
+      const defer = decorators.indexOf("defer") >= 0 ? "" : 'window.jembeClient.executeCommands()';
+      let expression = `${attrValue};${defer}`;
       el.addEventListener(eventName, event => {
         let helpers = {
           "$jmb": this,
@@ -835,6 +864,8 @@ Object.defineProperty(exports, "__esModule", {
 exports.JembeClient = void 0;
 
 var _componentApi = require("./componentApi.js");
+
+var _utils = require("./utils.js");
 
 /*
   Supported tags:
@@ -1077,24 +1108,53 @@ class JembeClient {
     const exisitingInitCommands = this.commands.filter(x => x.type === "init" && x.componentExecName === execName);
 
     if (exisitingInitCommands.length > 0) {
-      for (const key of Object.keys(initParams)) {
-        exisitingInitCommands[0].initParams[key] = initParams[key];
+      for (const [paramName, paramValue] of Object.entries(initParams)) {
+        exisitingInitCommands[0].initParams = this._updateParam(exisitingInitCommands[0].initParams, paramName, paramValue); // exisitingInitCommands[0].initParams[paramName] = initParams[paramName]
       }
-    } else if (this.components[execName] !== undefined) {
-      this.commands.push({
-        "type": "init",
-        "componentExecName": execName,
-        "initParams": { ...this.components[execName].state,
-          ...initParams
-        }
-      });
     } else {
+      let params = this.components[execName] !== undefined ? (0, _utils.deepCopy)(this.components[execName].state) : {};
+
+      for (const [paramName, paramValue] of Object.entries(initParams)) {
+        params = this._updateParam(params, paramName, paramValue);
+      }
+
       this.commands.push({
         "type": "init",
         "componentExecName": execName,
-        "initParams": initParams
+        "initParams": params
       });
     }
+  }
+  /**
+   * Update params with [paramName] =  paramValue
+   * paramName can contain dots (.) to separate object attributes
+   * @param {dict} params 
+   * @param {string} paramName 
+   * @param {*} paramValue 
+   */
+
+
+  _updateParam(params, paramName, paramValue) {
+    if (paramName.startsWith('.') || paramName.endsWith(".")) {
+      throw "paramName cant start or end in dot (.)";
+    }
+
+    return this._updateParamR(params, paramName.split("."), paramValue);
+  }
+
+  _updateParamR(params, paramNames, paramValue) {
+    let pName = paramNames[0];
+
+    if (paramNames.length === 1) {
+      // last element
+      params[pName] = paramValue;
+    } else if (params[pName] === undefined) {
+      params[pName] = this._updateParamR({}, paramNames.slice(1), paramValue);
+    } else {
+      params[pName] = this._updateParamR(params[pName], paramNames.slice(1), paramValue);
+    }
+
+    return params;
   }
 
   addCallCommand(execName, actionName, args, kwargs) {
@@ -1221,7 +1281,7 @@ class JembeClient {
 }
 
 exports.JembeClient = JembeClient;
-},{"./componentApi.js":"componentApi.js"}],"jembe.js":[function(require,module,exports) {
+},{"./componentApi.js":"componentApi.js","./utils.js":"utils.js"}],"jembe.js":[function(require,module,exports) {
 "use strict";
 
 var _client = require("./client.js");
@@ -1255,7 +1315,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "46253" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "36617" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

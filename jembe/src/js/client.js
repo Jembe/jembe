@@ -5,6 +5,7 @@
     <button jmb:on.click="$jmb.call('increase',10)"
 */
 import { JembeComponentAPI } from "./componentApi.js";
+import { deepCopy } from "./utils.js";
 
 /**
  * Reference to component html with associated data
@@ -99,8 +100,8 @@ class JembeClient {
       // check is it needed to add souranding DIV tag
       // add jmb:name tag
       if (template.content.childNodes.length > 1 ||
-          template.content.childNodes.length === 0 ||
-          template.content.firstChild.nodeType === Node.TEXT_NODE) {
+        template.content.childNodes.length === 0 ||
+        template.content.firstChild.nodeType === Node.TEXT_NODE) {
         let div = this.document.createElement("div")
         for (const child of template.content.childNodes) {
           div.appendChild(child)
@@ -225,26 +226,50 @@ class JembeClient {
       x => x.type === "init" && x.componentExecName === execName
     )
     if (exisitingInitCommands.length > 0) {
-      for (const key of Object.keys(initParams)) {
-        exisitingInitCommands[0].initParams[key] = initParams[key]
+      for (const [paramName, paramValue] of Object.entries(initParams)) {
+        exisitingInitCommands[0].initParams = this._updateParam(
+          exisitingInitCommands[0].initParams, paramName, paramValue
+        )
+        // exisitingInitCommands[0].initParams[paramName] = initParams[paramName]
       }
-    } else if (this.components[execName] !== undefined) {
-      this.commands.push(
-        {
-          "type": "init",
-          "componentExecName": execName,
-          "initParams": { ...(this.components[execName].state), ...initParams }
-        }
-      )
     } else {
+      let params = (this.components[execName] !== undefined) ?  deepCopy(this.components[execName].state)  : {}
+      for (const [paramName, paramValue] of Object.entries(initParams)) {
+        params = this._updateParam(params, paramName, paramValue)
+      }
       this.commands.push(
         {
           "type": "init",
           "componentExecName": execName,
-          "initParams": initParams
+          "initParams": params
         }
       )
     }
+  }
+  /**
+   * Update params with [paramName] =  paramValue
+   * paramName can contain dots (.) to separate object attributes
+   * @param {dict} params 
+   * @param {string} paramName 
+   * @param {*} paramValue 
+   */
+  _updateParam(params, paramName, paramValue) {
+    if (paramName.startsWith('.') || paramName.endsWith(".")) {
+      throw "paramName cant start or end in dot (.)"
+    }
+    return this._updateParamR(params, paramName.split("."), paramValue)
+  }
+  _updateParamR(params, paramNames, paramValue) {
+    let pName = paramNames[0]
+    if (paramNames.length === 1) {
+      // last element
+      params[pName] = paramValue
+    } else if (params[pName] === undefined) {
+      params[pName] = this._updateParamR({}, paramNames.slice(1), paramValue)
+    } else {
+      params[pName] = this._updateParamR(params[pName], paramNames.slice(1), paramValue)
+    }
+    return params
   }
 
   addCallCommand(execName, actionName, args, kwargs) {
