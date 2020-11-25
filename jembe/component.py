@@ -431,9 +431,10 @@ class Component(metaclass=ComponentMeta):
                     return None if (is_optional and value is None) else dict(value)
                 elif atype == tuple or get_origin(atype) == tuple:
                     return None if (is_optional and value is None) else tuple(value)
+                elif atype == list or get_origin(atype) == list:
+                    return None if (is_optional and value is None) else list(value)
                 elif get_origin(atype) == collectionsSequence:
                     return None if (is_optional and value is None) else tuple(value)
-                import pdb; pdb.set_trace()
             except Exception as e:
                 raise ValueError(e)
 

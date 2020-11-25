@@ -26,6 +26,7 @@
    {% elif mode == "edit" %}
     {{component("edit")}}
    {% endif %} 
+   {{component("notifications")}}
 
    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
 </body>

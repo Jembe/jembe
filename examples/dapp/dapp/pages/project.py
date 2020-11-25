@@ -3,7 +3,8 @@ Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
 from jembe.app import get_processor
-from typing import Optional, TYPE_CHECKING, Union, Any, Tuple
+from typing import List, Optional, TYPE_CHECKING, Union, Any, Tuple
+from dataclasses import dataclass
 from jembe.exceptions import BadRequest, JembeError
 from jembe.component_config import action, config, listener
 from jembe import Component
@@ -30,6 +31,25 @@ class ConfirmationDialog(Component):
         if action is None:
             raise JembeError("action:str parameter is required")
         super().__init__()
+
+
+@dataclass
+class Notification:
+    message: str
+    timer: Optional[int] = None
+    level: str = "info"
+
+
+@config(Component.Config(changes_url=False, template="notifications.html"))
+class Notifications(Component):
+    def __init__(self, notifications: List[Notification] = []) -> None:
+        super().__init__()
+
+    @listener(event="pushNotification")
+    def on_push_notification(self, event):
+        self.state.notifications.append(
+            event.params.get("notification", Notification("Undefined message"))
+        )
 
 
 @config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
@@ -82,6 +102,7 @@ class EditProject(Component):
             self.state.form.populate_obj(self.project)
             db.session.commit()
             self.emit("save", project=self.project, project_id=self.state.project_id)
+            self.emit("pushNotification", notification=Notification("Save successfull", 2000))
             # dont execute display
             # return False
         # execute display if state is changed
@@ -91,6 +112,8 @@ class EditProject(Component):
         self.mount()
         return super().display()
 
+# TODO make notiications timer work: jmb:on.init event fired add remove polyfil in js (??), make $jmb.set('notification[index].timer', 0) work
+# TODO notifications should have state time to update timers on post and redisplay when has messages 
 # TODO successfull save should show notification to user (undo operation is quite complex to implement so skip that for now)
 # TODO join back and cancel buttons on edit taking account is form changed
 # TODO add rename/edit project, add project delete project as modals
@@ -98,7 +121,7 @@ class EditProject(Component):
 @jmb.page(
     "projects",
     Component.Config(
-        components=dict(edit=EditProject),
+        components=dict(edit=EditProject, notifications=Notifications),
         url_query_params=dict(p="page", ps="page_size"),
     ),
 )
@@ -110,11 +133,11 @@ class ProjectsPage(Component):
             raise BadRequest()
         super().__init__()
 
-    @listener(event="_display", source="./*")
+    @listener(event="_display", source="./edit")
     def on_child_display(self, event: "Event"):
         self.state.mode = event.source_name
 
-    @listener(event="cancel", source="./*")
+    @listener(event="cancel", source="./edit")
     def on_child_cancel(self, event: "Event"):
         self.state.mode = None
 
