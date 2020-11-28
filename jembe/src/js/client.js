@@ -24,6 +24,7 @@ class ComponentRef {
     this.getPlaceHolders()
     this.api = null
     this.hierarchyLevel = execName.split("/").length
+    this.previousJmbComponentApi = null
   }
 
   getPlaceHolders() {
@@ -39,6 +40,13 @@ class ComponentRef {
     return {
       "execName": this.execName,
       "state": this.state
+    }
+  }
+  mount(jembeClient) {
+    if (this.api === null) {
+      this.api = new JembeComponentAPI(jembeClient, this.execName, true, this.previousJmbComponentApi)
+      this.dom.jmbComponentApi = this.api
+      this.previousJmbComponentApi = null
     }
   }
 }
@@ -201,6 +209,10 @@ class JembeClient {
     if (this.isPageExecName(componentRef.execName)) {
       // if page component is already on document do nothing
       if (!componentRef.onDocument) {
+        if (this.document.documentElement.jmbComponentApi !== undefined) {
+          this.document.documentElement.jmbComponentApi.unmount()
+          componentRef.previousJmbComponentApi = this.document.documentElement.jmbComponentApi
+        }
         this.document.documentElement.innerHTML = componentRef.dom.innerHTML
         componentRef.dom = this.document.documentElement
         componentRef.dom.setAttribute("jmb:name", componentRef.execName)
@@ -212,6 +224,10 @@ class JembeClient {
       let parentComponent = Object.values(this.components).filter(
         comp => Object.keys(comp.placeHolders).includes(componentRef.execName)
       )[0]
+      if (parentComponent.placeHolders[componentRef.execName].jmbComponentApi !== undefined) {
+        parentComponent.placeHolders[componentRef.execName].jmbComponentApi.unmount()
+        componentRef.previousJmbComponentApi = parentComponent.placeHolders[componentRef.execName].jmbComponentApi
+      }
       parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom)
       parentComponent.placeHolders[componentRef.execName] = componentRef.dom
       componentRef.onDocument = true
@@ -341,9 +357,10 @@ class JembeClient {
   }
   initComponentsAPI() {
     for (const component of Object.values(this.components)) {
-      if (component.api === null) {
-        component.api = new JembeComponentAPI(this, component.execName)
-      }
+      component.mount(this)
+      // if (component.api === null) {
+      //   component.api = new JembeComponentAPI(this, component.execName)
+      // }
     }
   }
   updateLocation(replace = false) {

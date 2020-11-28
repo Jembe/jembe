@@ -2,8 +2,8 @@
 Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
-from jembe.app import get_processor
-from typing import List, Optional, TYPE_CHECKING, Union, Any, Tuple
+from typing import Optional, TYPE_CHECKING, Union, Any, Tuple, Dict
+from uuid import uuid1
 from dataclasses import dataclass
 from jembe.exceptions import BadRequest, JembeError
 from jembe.component_config import action, config, listener
@@ -41,15 +41,20 @@ class Notification:
 
 @config(Component.Config(changes_url=False, template="notifications.html"))
 class Notifications(Component):
-    def __init__(self, notifications: List[Notification] = []) -> None:
-        print(self.state)
+    def __init__(self, notifications: Optional[Dict[str, Notification]] = None) -> None:
+        self.state.notifications = (
+            {id: n for id, n in notifications.items() if n is not None}
+            if notifications is not None
+            else dict()
+        )
         super().__init__()
 
     @listener(event="pushNotification")
     def on_push_notification(self, event):
-        self.state.notifications.append(
-            event.params.get("notification", Notification("Undefined message"))
+        self.state.notifications[str(uuid1())] = event.params.get(
+            "notification", Notification("Undefined message")
         )
+
     def display(self) -> Union[str, "Response"]:
         print("display")
         return super().display()
@@ -105,7 +110,10 @@ class EditProject(Component):
             self.state.form.populate_obj(self.project)
             db.session.commit()
             self.emit("save", project=self.project, project_id=self.state.project_id)
-            self.emit("pushNotification", notification=Notification("Save successfull"))
+            self.emit(
+                "pushNotification",
+                notification=Notification("{} saved.".format(self.project.name)),
+            )
             # dont execute display
             # return False
         # execute display if state is changed
@@ -115,12 +123,12 @@ class EditProject(Component):
         self.mount()
         return super().display()
 
-# TODO make notiications timer work: jmb:on.init event fired add remove polyfil in js (??), make $jmb.set('notification[index].timer', 0) work
-# TODO notifications should have state time to update timers on post and redisplay when has messages 
-# TODO successfull save should show notification to user (undo operation is quite complex to implement so skip that for now)
+
 # TODO join back and cancel buttons on edit taking account is form changed
 # TODO add rename/edit project, add project delete project as modals
 # TODO add tasks list, add, edit, delete and mark completed
+# TODO add more fields to project and task
+# TODO  add remove polyfil in js (??)
 @jmb.page(
     "projects",
     Component.Config(

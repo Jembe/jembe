@@ -348,19 +348,21 @@ test("test setting nested component init params", () => {
   ))
 })
 test("test on ready event", () => {
-  window.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => [] }))
+  window.fetch = jest.fn(() => {return Promise.resolve({ ok: true, json: async () => [] })})
   buildDocument(`
     <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
+        <p jmb:on.ready="$el.remove()"></p>
         <div jmb:on.ready="$el.innerText='test'"></div>
         <span jmb:on.ready.defer="$el.innerText='test'"></span>
       </body>
     </html>
   `)
 
+  expect(document.querySelector('p')).toBe(null)
   expect(document.querySelector('div').innerText).toBe('test')
   expect(document.querySelector('span').innerText).toBe('test')
-  // expect(window.fetch).toHaveBeenCalledTimes(1)
+  // expect(window.fetch).toHaveBeenCalledTimes(2)
 })
 test("test on delay event modifier", () => {
   jest.useFakeTimers()
@@ -387,4 +389,73 @@ test("test on delay event modifier", () => {
   expect(setTimeout).toHaveBeenNthCalledWith(4, expect.any(Function), 2000)
   jest.runAllTimers()
 
+})
+test("test on refresh delay clears all timers", () => {
+  jest.useFakeTimers()
+  document.test = undefined
+  buildDocument(`
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div id="one" jmb:on.ready.delay.5ms.defer="document.test='one'"></div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/test",
+      "state": {},
+      "url": "/test",
+      "changesUrl": true,
+      "actions": [],
+      "dom": `
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div id="one" jmb:on.ready.delay.3ms.defer="document.test='two'"></div>
+      </body>
+    </html>
+    `},
+  ]
+  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(setTimeout).toHaveBeenCalledTimes(2)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 50)
+  expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 30)
+  jest.advanceTimersByTime(30)
+  expect(document.test).toBe('two')
+  jest.advanceTimersByTime(50)
+  expect(document.test).toBe('two')
+
+})
+test("test on refresh delay continue named timers", () => {
+  jest.useFakeTimers()
+  document.test = undefined
+  buildDocument(`
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='one'"></div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/test",
+      "state": {},
+      "url": "/test",
+      "changesUrl": true,
+      "actions": [],
+      "dom": `
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='two'"></div>
+      </body>
+    </html>
+    `},
+  ]
+  jest.advanceTimersByTime(100)
+  expect(document.test).toBe(undefined)
+  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(setTimeout).toHaveBeenCalledTimes(2)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 500)
+  expect(setTimeout.mock.calls[1][1]).toBeLessThan(500) 
+  jest.advanceTimersByTime(500)
+  expect(document.test).toBe('two')
 })

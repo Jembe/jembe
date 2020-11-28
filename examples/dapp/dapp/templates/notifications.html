@@ -1,10 +1,6 @@
 <div>
-{% for note in notifications %}
-    {# <div jmb:on.ready.delay.200ms="setTimeout(() => {$el.remove(), $jmb.set('notifications[{{loop.index0}}].timer', 0)}, {{note.timer}})">
-        {{note.message}} : {{note.timer}} : {{note.level}}
-    </div> #}
-    {# <div jmb:on.ready.delay.200ms.defer="$el.innerText='OLE'"> #}
-    <div jmb:on.ready.delay.200ms="$state.notifications.splice({{loop.index0}},1); $jmb.set('notifications', $state.notifications)">
+{% for noteId, note in notifications.items() %}
+    <div jmb:on.ready.delay.200ms.defer:{{noteId}}="$jmb.set('notifications.{{noteId}}', null);$el.remove();">
         {{note.message}} : {{note.level}}
     </div>
 {% endfor %}
