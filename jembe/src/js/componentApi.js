@@ -1,5 +1,5 @@
 import { JembeClient } from "./client"
-import { walkComponentDom, AsyncFunction } from "./utils";
+import { walkComponentDom, AsyncFunction, deepCopy } from "./utils";
 import { isAbsolute, join } from "path";
 /**
  * jembeClient.component(this).set('paramName', paramValue)
@@ -9,7 +9,7 @@ import { isAbsolute, join } from "path";
  * jembeClient.component(this).init('componentRelativeOrFullName', {kwargs})
  * jembeClient.executeCommands()
  * 
- * Short form that needs to be support for jmb:on.<eventName>[.deferred]:
+ * Short form that needs to be support for jmb:on.<eventName>[.defer]:
  * $jmb.set('paramName', paramValue)
  * $jmb.call('actionName', {kwargs}) or actionName({kwargs})
  * $jmb.display() // call('display',{})
@@ -132,45 +132,75 @@ class JembeComponentAPI {
   _processDomAttribute(el, attrName, attrValue) {
     attrName = attrName.toLowerCase()
     if (attrName.startsWith('jmb:on.')) {
-      /** @type {Array<string>} */
-      const actions = this.jembeClient.components[this.execName].actions
-      let [jmbOn, eventName, ...decorators] = attrName.split(".")
-
-      // support defer decorator
-      const defer = decorators.indexOf("defer") >= 0 ? "" : 'window.jembeClient.executeCommands()'
-
-      let expression = `${attrValue};${defer}`
-
-      el.addEventListener(eventName, (event) => {
-        let helpers = {
-          "$jmb": this,
-          "$event": event,
-          "$el": el
-        }
-        // allow action functions to be called directly 
-        for (const action of actions) {
-          helpers[action] = (kwargs ={}, args=[]) => {
-            this.call(action, kwargs, args)
-          }
-        }
-
-        let scope = {
-        }
-        return Promise.resolve(
-          (
-            new AsyncFunction(
-              ['scope', ...Object.keys(helpers)],
-              `with(scope) { ${expression} }`
-            )
-          )(
-            scope, ...Object.values(helpers)
-          )
-        )
-      })
-
+      this._processJmbOnAttribute(el, attrName, attrValue)
     } else if (attrName === "jmb:ref") {
-      this.refs[attrValue] = el
+      this._processJmbRefAttribute(el, attrName, attrValue)
     }
+  }
+  _processJmbOnAttribute(el, attrName, attrValue) {
+
+    let [jmbOn, eventName, ...decorators] = attrName.split(".")
+
+    let expression = `${attrValue}`
+
+    // support defer decorator
+    if (decorators.indexOf("defer") < 0) {
+      expression += ';window.jembeClient.executeCommands();'
+    }
+    //support delay decorator
+    // must be last decorator
+    const delayIndexOf = decorators.indexOf("delay")
+    if (delayIndexOf >= 0) {
+      let timer = 1000
+      if (delayIndexOf +1 < decorators.length && decorators[delayIndexOf + 1].endsWith('ms')) {
+        timer = parseInt(decorators[delayIndexOf + 1].substr(0, decorators[delayIndexOf + 1].length - 2)) * 10
+      }
+      expression = `setTimeout(function() {${expression}}, ${timer})`
+    }
+
+    if (eventName === 'ready') {
+      // support on.ready event, that is executed when component is rendered
+      // that means execute it right now
+      this._executeJmbOnLogic(el, null, expression)
+    } else {
+      // support for browser events
+      el.addEventListener(eventName, (event) => {
+        this._executeJmbOnLogic(el, event, expression)
+      })
+    }
+
+  }
+  _processJmbRefAttribute(el, attrName, attrValue) {
+    this.refs[attrValue] = el
+  }
+  _executeJmbOnLogic(el, event, expression) {
+    /** @type {Array<string>} */
+    const actions = this.jembeClient.components[this.execName].actions
+    let helpers = {
+      "$jmb": this,
+      "$state": deepCopy(this.jembeClient.components[this.execName].state),
+      "$event": event,
+      "$el": el
+    }
+    // allow action functions to be called directly 
+    for (const action of actions) {
+      helpers[action] = (kwargs = {}, args = []) => {
+        this.call(action, kwargs, args)
+      }
+    }
+
+    let scope = {
+    }
+    return Promise.resolve(
+      (
+        new AsyncFunction(
+          ['scope', ...Object.keys(helpers)],
+          `with(scope) { ${expression} }`
+        )
+      )(
+        scope, ...Object.values(helpers)
+      )
+    )
   }
 }
 export { JembeComponentAPI }

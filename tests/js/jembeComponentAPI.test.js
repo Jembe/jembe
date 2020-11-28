@@ -347,3 +347,44 @@ test("test setting nested component init params", () => {
     }
   ))
 })
+test("test on ready event", () => {
+  window.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => [] }))
+  buildDocument(`
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div jmb:on.ready="$el.innerText='test'"></div>
+        <span jmb:on.ready.defer="$el.innerText='test'"></span>
+      </body>
+    </html>
+  `)
+
+  expect(document.querySelector('div').innerText).toBe('test')
+  expect(document.querySelector('span').innerText).toBe('test')
+  // expect(window.fetch).toHaveBeenCalledTimes(1)
+})
+test("test on delay event modifier", () => {
+  jest.useFakeTimers()
+  buildDocument(`
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+      <body>
+        <div id="one" jmb:on.ready.delay="$el.innerText='one'"></div>
+        <div id="two" jmb:on.ready.delay.200ms="$el.innerText='one'"></div>
+        <button id="three" jmb:on.click.delay.defer="$el.innerText='three'"></button>
+        <button id="four" jmb:on.click.delay.200ms.defer="$el.innerText='four'"></button>
+      </body>
+    </html>
+  `)
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('#three').click()
+  document.querySelector('#four').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(0)
+  expect(setTimeout).toHaveBeenCalledTimes(4)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 1000)
+  expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 2000)
+  expect(setTimeout).toHaveBeenNthCalledWith(3, expect.any(Function), 1000)
+  expect(setTimeout).toHaveBeenNthCalledWith(4, expect.any(Function), 2000)
+  jest.runAllTimers()
+
+})

@@ -1,7 +1,11 @@
 <div>
 {% for note in notifications %}
-    <div jmb:on.init="setTimeout(() => {$el.remove(), $jmb.set('notifications[{{loop.index0}}].timer', 0)}, {{note.timer}})">
+    {# <div jmb:on.ready.delay.200ms="setTimeout(() => {$el.remove(), $jmb.set('notifications[{{loop.index0}}].timer', 0)}, {{note.timer}})">
         {{note.message}} : {{note.timer}} : {{note.level}}
+    </div> #}
+    {# <div jmb:on.ready.delay.200ms.defer="$el.innerText='OLE'"> #}
+    <div jmb:on.ready.delay.200ms="$state.notifications.splice({{loop.index0}},1); $jmb.set('notifications', $state.notifications)">
+        {{note.message}} : {{note.level}}
     </div>
 {% endfor %}
 </div>

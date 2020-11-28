@@ -36,13 +36,13 @@ class ConfirmationDialog(Component):
 @dataclass
 class Notification:
     message: str
-    timer: Optional[int] = None
     level: str = "info"
 
 
 @config(Component.Config(changes_url=False, template="notifications.html"))
 class Notifications(Component):
     def __init__(self, notifications: List[Notification] = []) -> None:
+        print(self.state)
         super().__init__()
 
     @listener(event="pushNotification")
@@ -50,6 +50,9 @@ class Notifications(Component):
         self.state.notifications.append(
             event.params.get("notification", Notification("Undefined message"))
         )
+    def display(self) -> Union[str, "Response"]:
+        print("display")
+        return super().display()
 
 
 @config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
@@ -102,7 +105,7 @@ class EditProject(Component):
             self.state.form.populate_obj(self.project)
             db.session.commit()
             self.emit("save", project=self.project, project_id=self.state.project_id)
-            self.emit("pushNotification", notification=Notification("Save successfull", 2000))
+            self.emit("pushNotification", notification=Notification("Save successfull"))
             # dont execute display
             # return False
         # execute display if state is changed

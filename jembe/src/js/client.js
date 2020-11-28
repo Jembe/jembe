@@ -310,7 +310,7 @@ class JembeClient {
     // reset commads since we create request body from it
     this.commands = []
     // fetch request and process response
-    fetch(url, {
+    window.fetch(url, {
       method: "POST",
       cache: "no-cache",
       credentials: "same-origin",
