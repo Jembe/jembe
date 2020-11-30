@@ -7,6 +7,7 @@
 </head>
 <body>
     {% if mode is none %}
+    <button jmb:on.click="{{component('add').jrl}}">Add project</button>
     <table>
         <thead>
             <tr>
@@ -19,14 +20,35 @@
             <td>{{project.name}}</td> 
             <td>
                 <button jmb:on.click="{{component('edit', project_id=project.id).jrl}}">Edit</button>
+                <button jmb:on.click="delete_project({project_id:{{project.id}}})">Delete</button>
             </td>
         </tr>
         {% endfor %}
     </table>
-   {% elif mode == "edit" %}
-    {{component("edit")}}
-   {% endif %} 
-   {{component("notifications")}}
+    <nav>
+        {% if page > 0 %}
+            <button jmb:on.click="$jmb.set('page', {{page}} - 1);$jmb.display()">Prev</button>
+        {% endif %}
+        Page {{page}} of {{total_pages}} ({{projects_count}} projects)
+        {% if total_pages > page %}
+            <button jmb:on.click="$jmb.set('page', {{page}} + 1);$jmb.display()">Next</button>
+        {% endif %}
+    </nav>
+    {% elif mode == "edit" %}
+        {% if goto %}
+            {{component("edit", project_id=goto)}}
+        {% else %}
+            {{component("edit")}}
+        {% endif %}
+    {% elif mode == "add" %}
+        {{component("add")}}
+    {% endif %} 
+
+    {% if confirmation %}
+        {{component("confirmation", title=confirmation.title, question=confirmation.question, action=confirmation.action, action_params=confirmation.action_params)}}
+    {% endif %}
+
+    {{component("notifications")}}
 
    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
 </body>

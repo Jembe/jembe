@@ -1,6 +1,6 @@
 <div>
 <h2>{{title}}</h2>
 <p>{{question}}</p>
-<button jmb:on.click='$jmb.emit("ok", {action:"{{action}}"},"..")'>OK</button>
-<button jmb:on.click="$jmb.emit('cancel', {action:'{{action}}'}, '..')">Cancel</button>
+<button jmb:on.click='ok()'>OK</button>
+<button jmb:on.click="cancel()">Cancel</button>
 </div>

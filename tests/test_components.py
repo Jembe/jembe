@@ -1387,6 +1387,57 @@ def test_url_get_query_params(jmb, client):
         """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
     ).encode("utf-8")
 
+def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
+    @jmb.page(
+        "list",
+        Component.Config(
+            url_query_params=dict(p="page", ps="page_size"),
+        ),
+    )
+    class ListComponent(Component):
+        def __init__(self, page: Optional[int] = None, page_size: int = 10) -> None:
+            if self.state.page is None:
+                self.state.page = 0
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<html><body></body></html>")
+
+    r = client.get("/list")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
+    ).encode("utf-8")
+    r = client.post(
+        "/list?p=0&ps=10",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/list", state=dict(page=0, page_size=10))
+                ],
+                commands=[
+                    dict(type="init", componentExecName="/list", initParams=dict(page=1, page_size=10)),
+                    dict(
+                        type="call",
+                        componentExecName="/list",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/list"
+    assert json_response[0]["url"] == "/list?p=1&ps=10"
+    assert json_response[0]["changesUrl"] == True
+    assert json_response[0]["state"] == dict(page=1, page_size=10)
+
 
 def test_client_emit_event_handling(jmb, client):
     class TestComponent(Component):
