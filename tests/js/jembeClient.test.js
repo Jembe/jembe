@@ -425,7 +425,7 @@ test("update url when change_url is false", () => {
   ]
   const components = window.jembeClient.getComponentsFromXResponse(xResponse)
   window.jembeClient.updateDocument(components)
-  window.history.pushState =jest.fn((state,title, url)=>{
+  window.history.pushState = jest.fn((state, title, url) => {
     return url
   })
   window.jembeClient.updateLocation()
@@ -438,4 +438,63 @@ test("update url when change_url is false", () => {
   )
   expect(window.history.pushState.mock.calls.length).toBe(1)
   expect(window.history.pushState.mock.results[0].value).toBe("/page/tasks")
+})
+test("update keyed components", () => {
+  buildDocument(`
+    <html jmb:name="/projects" jmb:data='{"changesUrl":true,"state":{},"url":"/tasks","actions":[]}'>
+      <body>
+        <div jmb:name="/projects/edit" jmb:data='{"changesUrl":true,"state":{"id":1},"url":"/projects/edit/1","actions":[]}'>
+          <div jmb:name="/projects/edit/tasks" jmb:data='{"changesUrl":true,"state":{},"url":"/projects/edit/1/tasks","actions":[]}'>
+            <div jmb:name="/projects/edit/tasks/view.1" jmb:data='{"changesUrl":false,"state":{"id":1},"url":"/projects/edit/1/tasks/view.1/1","actions":[]}'>Task 1</div>
+            <div jmb:name="/projects/edit/tasks/view.2" jmb:data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.2/2","actions":[]}'>Task 2</div>
+            <div jmb:name="/projects/edit/tasks/view.3" jmb:data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.3/3","actions":[]}'>Task 3</div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/projects/edit/tasks",
+      "state": {},
+      "url": "/projects/edit/1/tasks",
+      "changesUrl": true,
+      "dom": `
+       <html>
+        <body>
+          <template jmb-placeholder="/projects/edit/tasks/add"></template>
+          <template jmb-placeholder="/projects/edit/tasks/view.1"></template>
+          <template jmb-placeholder="/projects/edit/tasks/view.2"></template>
+          <template jmb-placeholder="/projects/edit/tasks/view.3"></template>
+        </body>
+       </html>`,
+       "actions":[]
+    },
+    {
+      "execName": "/projects/edit/tasks/add",
+      "state": {},
+      "url": "/projects/edit/1/tasks/add",
+      "changesUrl": false,
+      "dom": `<div>Add task</div>`,
+      "actions":[]
+    }
+  ]
+  const components = window.jembeClient.getComponentsFromXResponse(xResponse)
+  window.jembeClient.updateDocument(components)
+  expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/projects"><head></head><body>
+        <div jmb:name="/projects/edit">
+          <div jmb:name="/projects/edit/tasks">
+       
+        
+          <div jmb:name="/projects/edit/tasks/add">Add task</div>
+          <div jmb:name="/projects/edit/tasks/view.1">Task 1</div>
+          <div jmb:name="/projects/edit/tasks/view.2">Task 2</div>
+          <div jmb:name="/projects/edit/tasks/view.3">Task 3</div>
+        
+       </div>
+        </div>
+      
+    
+  </body></html>`
+  )
 })

@@ -29,11 +29,31 @@ class ComponentRef {
 
   getPlaceHolders() {
     this.placeHolders = {}
+    // walkDom(
+    //   this.dom,
+    //   (el) => {},
+    //   (el) => {
+    //     if (el.hasAttribute('jmb:name')) {
+    //       // placeHolders[el.getAttribute('jmb:name')] = el
+    //       return true
+    //     } else if (el.hasAttribute('jmb-placeholder')) {
+    //       // this.placeHolders[el.getAttribute('jmb-placeholder')] = el
+    //       return true
+    //     }
+    //     return false
+    //   }
+    // )
     for (const placeholder of this.dom.querySelectorAll("template[jmb-placeholder]")) {
-      this.placeHolders[placeholder.getAttribute("jmb-placeholder")] = placeholder
+      let pName = placeholder.getAttribute("jmb-placeholder")
+      if (pName.split("/").length == this.execName.split("/").length + 1) {
+        this.placeHolders[pName] = placeholder
+      }
     }
     for (const placeholder of this.dom.querySelectorAll("[jmb\\:name]")) {
-      this.placeHolders[placeholder.getAttribute("jmb:name")] = placeholder
+      let pName = placeholder.getAttribute("jmb:name")
+      if (pName.split("/").length == this.execName.split("/").length + 1) {
+        this.placeHolders[pName] = placeholder
+      }
     }
   }
   toJsonRequest() {

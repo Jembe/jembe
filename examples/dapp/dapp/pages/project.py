@@ -105,7 +105,7 @@ class ViewTask(Component):
         )
 
 
-@config(Component.Config(template="tasks/add.html"))
+@config(Component.Config(template="tasks/add.html", components=dict(confirmation=ConfirmationDialog)))
 class AddTask(FormEncodingSupportMixin, Component):
     def __init__(self, project_id: int, form: Optional["Form"] = None) -> None:
         super().__init__()
@@ -114,6 +114,25 @@ class AddTask(FormEncodingSupportMixin, Component):
     def mount(self):
         if self.state.form is None:
             self.state.form = TaskForm(obj=Task(project_id=self.state.project_id))
+            
+    @listener(source="./confirmation")
+    def on_confirmation(self, event: "Event"):
+        if event.action == "cancel" and event.name == "ok":
+            return self.cancel(True)
+        return True
+
+    @action
+    def cancel(self, confirmed=False):
+        if self._is_task_modified() and not confirmed:
+            self.confirmation = dict(
+                title="Cancel Add",
+                question="Are you sure, all changes will be lost?",
+                action="cancel",
+            )
+            return True  # force redisplay to show confirmation dialog
+        else:
+            self.emit("cancel")
+            return False  # don't execute display
 
     @action
     def save(self):
@@ -147,6 +166,16 @@ class AddTask(FormEncodingSupportMixin, Component):
         self.mount()
         return super().display()
 
+    def _is_task_modified(self) -> bool:
+        self.mount()
+        task = Task(project_id=self.state.project_id)
+        self.state.form.populate_obj(task)
+        empty_task = Task()
+        for column_name in task.__table__.columns.keys():
+            if getattr(task, column_name) != getattr(empty_task, column_name):
+                return True
+        return False
+
 
 @config(
     Component.Config(
@@ -171,6 +200,10 @@ class Tasks(Component):
     def on_child_display(self, event: "Event"):
         if event.source_name in ("add",):
             self.state.mode = event.source_name
+
+    @listener(event="cancel", source=["./add"])
+    def on_child_cancel(self, event: "Event"):
+        self.state.mode = None
 
     def display(self) -> Union[str, "Response"]:
         if self.state.mode == "add":

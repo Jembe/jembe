@@ -3,7 +3,6 @@ function elIsNewComponent(el) {
 }
 
 function walkComponentDom(el, callback) {
-
   if (!elIsNewComponent(el)) {
     callback(el)
   }
