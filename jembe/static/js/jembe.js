@@ -1118,6 +1118,11 @@ class JembeComponentAPI {
     let expression = `${attrValue}`; // support defer decorator
 
     if (decorators.indexOf("defer") < 0) {
+      if (expression.includes("$jmb.set(")) {
+        // if action is not deferred and has $jmb.set then call display
+        expression += ";$jmb.display();";
+      }
+
       expression += ';window.jembeClient.executeCommands();';
     } //support delay decorator
     // must be last decorator

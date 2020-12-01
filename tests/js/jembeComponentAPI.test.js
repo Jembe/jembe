@@ -342,6 +342,13 @@ test("test setting nested component init params", () => {
             obj: { "a": "AAA", "b": { 1: "1" } },
             ar: []
           }
+        },
+        {
+          type: "call",
+          componentExecName: "/test",
+          actionName: "display",
+          args: [],
+          kwargs: {}
         }
       ]
     }
@@ -490,6 +497,60 @@ test("test call action without named params", () => {
           args: ["test"],
           kwargs: {}
         }
+      ]
+    }
+  ))
+})
+test("$jmb.set not deferred shout call display", () => {
+  buildDocument(`
+    <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
+      <body>
+          <button id="test1" jmb:on.click="$jmb.set('a', 1)">Test 1</button>
+          <button id="test2" jmb:on.click.defer="$jmb.set('a', 2)">Test 2</button>
+      </body>
+    </html>
+  `)
+
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('#test1').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/tasks", "state": { "a": 0 } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/tasks",
+          "initParams": { "a": 1 },
+        },
+        {
+          "type": "call",
+          "componentExecName": "/tasks",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        }
+      ]
+    }
+  ))
+  window.jembeClient.commands = []
+  document.querySelector('#test2').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.getXRequestJson()).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/tasks", "state": { "a": 0 } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/tasks",
+          "initParams": { "a": 2 },
+        },
       ]
     }
   ))
