@@ -1387,12 +1387,10 @@ def test_url_get_query_params(jmb, client):
         """<html jmb:name="/list" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/list?p=0&amp;ps=10"}\'><body></body></html>"""
     ).encode("utf-8")
 
+
 def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
     @jmb.page(
-        "list",
-        Component.Config(
-            url_query_params=dict(p="page", ps="page_size"),
-        ),
+        "list", Component.Config(url_query_params=dict(p="page", ps="page_size"),),
     )
     class ListComponent(Component):
         def __init__(self, page: Optional[int] = None, page_size: int = 10) -> None:
@@ -1413,11 +1411,13 @@ def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
         "/list?p=0&ps=10",
         data=json.dumps(
             dict(
-                components=[
-                    dict(execName="/list", state=dict(page=0, page_size=10))
-                ],
+                components=[dict(execName="/list", state=dict(page=0, page_size=10))],
                 commands=[
-                    dict(type="init", componentExecName="/list", initParams=dict(page=1, page_size=10)),
+                    dict(
+                        type="init",
+                        componentExecName="/list",
+                        initParams=dict(page=1, page_size=10),
+                    ),
                     dict(
                         type="call",
                         componentExecName="/list",
@@ -1631,6 +1631,7 @@ def test_add_actions_data_in_response(jmb, client):
         @action
         def action2(self):
             pass
+
         @redisplay(when_executed=True)
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string("<div></div>")
@@ -1678,6 +1679,8 @@ def test_add_actions_data_in_response(jmb, client):
     assert json_response[0]["execName"] == "/page/a"
     assert json_response[0]["dom"] == ("""<div></div>""")
     assert json_response[0]["actions"] == ["action1", "action2"]
+
+
 
 
 # TODO test counter with configurable increment

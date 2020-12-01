@@ -1,6 +1,6 @@
 <div>
     <h2>Tasks</h2>
-    <button jmb:on.click="{{component('add',project_id=project_id).jrl}}">Add task</button>
+    <button jmb:on.click="{{component('add').jrl}}">Add task</button>
     <table>
         <thead>
             <tr>
@@ -9,7 +9,7 @@
             </tr>
         </thead>
         {% if mode == "add" %}
-            {{component("add", project_id=project_id)}}
+            {{component("add")}}
         {% endif %}
         {% for task in tasks %}
             {{component("view", task_id=task.id, _task=task).key(task.id)}}

@@ -105,16 +105,26 @@ class ViewTask(Component):
         )
 
 
-@config(Component.Config(template="tasks/add.html", components=dict(confirmation=ConfirmationDialog)))
+@config(
+    Component.Config(
+        template="tasks/add.html",
+        components=dict(confirmation=ConfirmationDialog),
+        # changes_url=False,
+    )
+)
 class AddTask(FormEncodingSupportMixin, Component):
-    def __init__(self, project_id: int, form: Optional["Form"] = None) -> None:
+    def __init__(
+        self, project_id: Optional[int] = None, form: Optional["Form"] = None
+    ) -> None:
+        if project_id is None:
+            raise ValueError("project_id is required")
         super().__init__()
 
     @run_only_once
     def mount(self):
         if self.state.form is None:
             self.state.form = TaskForm(obj=Task(project_id=self.state.project_id))
-            
+
     @listener(source="./confirmation")
     def on_confirmation(self, event: "Event"):
         if event.action == "cancel" and event.name == "ok":
@@ -182,6 +192,9 @@ class AddTask(FormEncodingSupportMixin, Component):
         url_query_params=dict(p="page", ps="page_size"),
         template="tasks.html",
         components=dict(view=ViewTask, add=AddTask),
+        inject_into_components=lambda self, _config: dict(
+            project_id=self.state.project_id
+        ),
     )
 )
 class Tasks(Component):
@@ -192,6 +205,8 @@ class Tasks(Component):
         page: int = 0,
         page_size: int = 5,
     ) -> None:
+        if project_id is None:
+            raise ValueError("project_id is required")
         if mode not in (None, "add"):
             self.state.mode = None
         super().__init__()
@@ -199,16 +214,21 @@ class Tasks(Component):
     @listener(event="_display", source=["./add"])
     def on_child_display(self, event: "Event"):
         if event.source_name in ("add",):
+            if self.state.mode != event.source_name:
+                # when adding go to first page
+                # but allow navigation afterward
+                self.state.page = 1
             self.state.mode = event.source_name
 
     @listener(event="cancel", source=["./add"])
     def on_child_cancel(self, event: "Event"):
         self.state.mode = None
 
+    @listener(event="save", source=["./add"])
+    def on_child_save(self, event: "Event"):
+        self.state.mode = None
+
     def display(self) -> Union[str, "Response"]:
-        if self.state.mode == "add":
-            # Add will alywas add on top of first page
-            self.state.page = 1
 
         tasks = Task.query
         if self.state.project_id is not None:
@@ -221,7 +241,9 @@ class Tasks(Component):
         if self.state.page >= self.total_pages:
             self.state.page = self.total_pages
         start = (self.state.page - 1) * self.state.page_size
-        self.tasks = tasks.order_by(Task.id)[start : start + self.state.page_size]
+        self.tasks = tasks.order_by(Task.id.desc())[
+            start : start + self.state.page_size
+        ]
         return super().display()
 
 
@@ -301,7 +323,12 @@ class AddProject(FormEncodingSupportMixin, Component):
 
 
 @config(
-    Component.Config(components=dict(tasks=Tasks, confirmation=ConfirmationDialog),)
+    Component.Config(
+        components=dict(tasks=Tasks, confirmation=ConfirmationDialog),
+        inject_into_components=lambda self, _config: dict(
+            project_id=self.state.project_id
+        ),
+    )
 )
 class EditProject(FormEncodingSupportMixin, Component):
     def __init__(self, project_id: int, form: Optional["Form"] = None,) -> None:
@@ -361,9 +388,10 @@ class EditProject(FormEncodingSupportMixin, Component):
         db.session.rollback()
         return project_is_modified
 
-# TODO componentApi.js set if not deffered should call display implicitly
+
+# TODO inline add not geting url params on refresh
 # TODO client.js mergeComponent not working for inline tasks (not adding exising view task with key)
-# TODO add inline tasks refresh not working 
+# TODO add inline tasks refresh not working
 # TODO add tasks list, add, edit, delete and mark completed
 # TODO add more fields to project and task
 # TODO  add remove polyfil in js (??)
