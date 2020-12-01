@@ -361,6 +361,7 @@ class EditProject(FormEncodingSupportMixin, Component):
         db.session.rollback()
         return project_is_modified
 
+# TODO componentApi.js set if not deffered should call display implicitly
 # TODO client.js mergeComponent not working for inline tasks (not adding exising view task with key)
 # TODO add inline tasks refresh not working 
 # TODO add tasks list, add, edit, delete and mark completed

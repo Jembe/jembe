@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "jest --watch",
+    "test-debug": "jest --runInBand",
     "watch": "parcel watch jembe/src/js/jembe.js -d jembe/static/js/ --public-url ./",
     "build": "parcel build jembe/src/js/jembe.js -d jembe/static/js/ --public-url ./"
   },

@@ -20,23 +20,25 @@ import { clearTimeout } from "timers";
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
  */
 class JembeComponentAPI {
-  constructor(jembeClient, componentExecName, initListeners = true, previouseComponentApi = null) {
+  constructor(jembeClient, execName, componentRef) {
     /** @type {JembeClient} */
     this.jembeClient = jembeClient
     /** @type {ComponentRef} */
-    this.execName = componentExecName
+    this.componentRef = componentRef
+    this.execName = execName
     this.refs = {}
 
     // internal
     this.onReadyEvents = []
     this.unnamedTimers = []
     this.namedTimers = {}
-    this.previouseNamedTimers = previouseComponentApi !== null ? deepCopy(previouseComponentApi.namedTimers): {}
+    this.previouseNamedTimers = {}
+    if (componentRef !== undefined && componentRef.previousJmbComponentApi !== null) {
+      this.previouseNamedTimers = deepCopy(componentRef.previousJmbComponentApi.namedTimers) 
+    } 
 
     // initialistion
-    if (initListeners) {
-      this.initialiseJmbOnListeners()
-    }
+    this.initialiseJmbOnListeners()
   }
   call(actionName, ...params) {
     let kwargs = {}
@@ -122,7 +124,7 @@ class JembeComponentAPI {
       )
       index++
     }
-    return new JembeComponentAPI(this.jembeClient, execName, false)
+    return new JembeComponentAPI(this.jembeClient, execName)
   }
   init(relativeExecName, kwargs = {}) {
     return this.component(relativeExecName, kwargs)
@@ -131,19 +133,12 @@ class JembeComponentAPI {
     return this.refs[referenceName]
   }
   initialiseJmbOnListeners() {
-    /** @type {ComponentRef} */
-    const componentRef = this.jembeClient.components[this.execName]
-    if (componentRef !== undefined) {
+    if (this.componentRef !== undefined) {
       // TODO walk dom and select elements
       this.onReadyEvents = []
-      walkComponentDom(componentRef.dom, el => {
-        // initialise event listeneres for jmb:on. attributes
-        if (el.hasAttributes()) {
-          for (const attribute of el.attributes) {
-            this._processDomAttribute(el, attribute.name, attribute.value)
-          }
-        }
-      })
+      for (const jmbddattr of this.componentRef.jmbDoubleDotAttributes) {
+        this._processDomAttribute(jmbddattr.el, jmbddattr.name, jmbddattr.value)
+      }
       for (const eventFunction of this.onReadyEvents) {
         eventFunction()
       }
@@ -219,7 +214,7 @@ class JembeComponentAPI {
   }
   _executeJmbOnLogic(el, event, expression) {
     /** @type {Array<string>} */
-    const actions = this.jembeClient.components[this.execName].actions
+    const actions = this.componentRef.actions
     let helpers = {
       "$jmb": this,
       "$event": event,
@@ -247,7 +242,7 @@ class JembeComponentAPI {
   }
   unmount() {
     for (const timerId of this.unnamedTimers) {
-      window.clearTimeout(timerId) 
+      window.clearTimeout(timerId)
     }
     for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
       window.clearTimeout(timerInfo.id)

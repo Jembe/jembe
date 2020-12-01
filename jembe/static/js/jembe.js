@@ -127,23 +127,37 @@ exports.walkComponentDom = walkComponentDom;
 exports.deepCopy = deepCopy;
 exports.AsyncFunction = void 0;
 
+/**
+ * Return null or the execName of the component 
+ * @param {Element} el 
+ */
 function elIsNewComponent(el) {
-  return el.hasAttribute('jmb:name');
+  if (el.hasAttribute('jmb:name')) {
+    return el.getAttribute('jmb:name');
+  } else if (el.hasAttribute('jmb-placeholder')) {
+    return el.getAttribute('jmb-placeholder');
+  } else {
+    return null;
+  }
 }
 
-function walkComponentDom(el, callback) {
-  if (!elIsNewComponent(el)) {
-    callback(el);
+function walkComponentDom(el, callback, callbackOnNewComponent, myExecName) {
+  if (myExecName === undefined) {
+    myExecName = el.getAttribute('jmb:name');
   }
 
-  el = el.firstElementChild;
+  let componentExecName = elIsNewComponent(el);
 
-  while (el) {
-    if (!elIsNewComponent(el)) {
-      walkComponentDom(el, callback);
+  if (componentExecName !== null && componentExecName !== myExecName) {
+    callbackOnNewComponent(el, componentExecName);
+  } else {
+    callback(el);
+    el = el.firstElementChild;
+
+    while (el) {
+      walkComponentDom(el, callback, callbackOnNewComponent, myExecName);
+      el = el.nextElementSibling;
     }
-
-    el = el.nextElementSibling;
   }
 }
 
@@ -966,22 +980,26 @@ var _timers = require("timers");
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
  */
 class JembeComponentAPI {
-  constructor(jembeClient, componentExecName, initListeners = true, previouseComponentApi = null) {
+  constructor(jembeClient, execName, componentRef) {
     /** @type {JembeClient} */
     this.jembeClient = jembeClient;
     /** @type {ComponentRef} */
 
-    this.execName = componentExecName;
+    this.componentRef = componentRef;
+    this.execName = execName;
     this.refs = {}; // internal
 
     this.onReadyEvents = [];
     this.unnamedTimers = [];
     this.namedTimers = {};
-    this.previouseNamedTimers = previouseComponentApi !== null ? (0, _utils.deepCopy)(previouseComponentApi.namedTimers) : {}; // initialistion
+    this.previouseNamedTimers = {};
 
-    if (initListeners) {
-      this.initialiseJmbOnListeners();
-    }
+    if (componentRef !== undefined && componentRef.previousJmbComponentApi !== null) {
+      this.previouseNamedTimers = (0, _utils.deepCopy)(componentRef.previousJmbComponentApi.namedTimers);
+    } // initialistion
+
+
+    this.initialiseJmbOnListeners();
   }
 
   call(actionName, ...params) {
@@ -1058,7 +1076,7 @@ class JembeComponentAPI {
       index++;
     }
 
-    return new JembeComponentAPI(this.jembeClient, execName, false);
+    return new JembeComponentAPI(this.jembeClient, execName);
   }
 
   init(relativeExecName, kwargs = {}) {
@@ -1070,20 +1088,13 @@ class JembeComponentAPI {
   }
 
   initialiseJmbOnListeners() {
-    /** @type {ComponentRef} */
-    const componentRef = this.jembeClient.components[this.execName];
-
-    if (componentRef !== undefined) {
+    if (this.componentRef !== undefined) {
       // TODO walk dom and select elements
       this.onReadyEvents = [];
-      (0, _utils.walkComponentDom)(componentRef.dom, el => {
-        // initialise event listeneres for jmb:on. attributes
-        if (el.hasAttributes()) {
-          for (const attribute of el.attributes) {
-            this._processDomAttribute(el, attribute.name, attribute.value);
-          }
-        }
-      });
+
+      for (const jmbddattr of this.componentRef.jmbDoubleDotAttributes) {
+        this._processDomAttribute(jmbddattr.el, jmbddattr.name, jmbddattr.value);
+      }
 
       for (const eventFunction of this.onReadyEvents) {
         eventFunction();
@@ -1167,7 +1178,7 @@ class JembeComponentAPI {
 
   _executeJmbOnLogic(el, event, expression) {
     /** @type {Array<string>} */
-    const actions = this.jembeClient.components[this.execName].actions;
+    const actions = this.componentRef.actions;
     let helpers = {
       "$jmb": this,
       "$event": event,
@@ -1228,44 +1239,42 @@ class ComponentRef {
     this.actions = data.actions !== undefined ? data.actions : [];
     this.dom = dom;
     this.placeHolders = {};
+    this.jmbDoubleDotAttributes = [];
     this.onDocument = onDocument;
-    this.getPlaceHolders();
     this.api = null;
     this.hierarchyLevel = execName.split("/").length;
     this.previousJmbComponentApi = null;
   }
 
-  getPlaceHolders() {
-    this.placeHolders = {}; // walkDom(
-    //   this.dom,
-    //   (el) => {},
-    //   (el) => {
-    //     if (el.hasAttribute('jmb:name')) {
-    //       // placeHolders[el.getAttribute('jmb:name')] = el
-    //       return true
-    //     } else if (el.hasAttribute('jmb-placeholder')) {
-    //       // this.placeHolders[el.getAttribute('jmb-placeholder')] = el
-    //       return true
-    //     }
-    //     return false
-    //   }
-    // )
-
-    for (const placeholder of this.dom.querySelectorAll("template[jmb-placeholder]")) {
-      let pName = placeholder.getAttribute("jmb-placeholder");
-
-      if (pName.split("/").length == this.execName.split("/").length + 1) {
-        this.placeHolders[pName] = placeholder;
-      }
+  mount(jembeClient, force = false) {
+    if (this.api === null || force) {
+      this.getPlaceHoldersAndJmbAttributes();
+      this.api = new _componentApi.JembeComponentAPI(jembeClient, this.execName, this);
+      this.dom.jmbComponentApi = this.api;
+      this.previousJmbComponentApi = null;
     }
+  }
 
-    for (const placeholder of this.dom.querySelectorAll("[jmb\\:name]")) {
-      let pName = placeholder.getAttribute("jmb:name");
-
-      if (pName.split("/").length == this.execName.split("/").length + 1) {
-        this.placeHolders[pName] = placeholder;
+  getPlaceHoldersAndJmbAttributes() {
+    this.placeHolders = {};
+    this.jmbDoubleDotAttributes = [];
+    (0, _utils.walkComponentDom)(this.dom, el => {
+      // populate jmbDoubleDotAttributes
+      if (el.hasAttributes()) {
+        for (const attribute of el.attributes) {
+          if (attribute.name.startsWith("jmb:")) {
+            this.jmbDoubleDotAttributes.push({
+              el: el,
+              name: attribute.name,
+              value: attribute.value
+            });
+          }
+        }
       }
-    }
+    }, (el, execName) => {
+      // populate placeHolders
+      this.placeHolders[execName] = el;
+    });
   }
 
   toJsonRequest() {
@@ -1273,14 +1282,6 @@ class ComponentRef {
       "execName": this.execName,
       "state": this.state
     };
-  }
-
-  mount(jembeClient) {
-    if (this.api === null) {
-      this.api = new _componentApi.JembeComponentAPI(jembeClient, this.execName, true, this.previousJmbComponentApi);
-      this.dom.jmbComponentApi = this.api;
-      this.previousJmbComponentApi = null;
-    }
   }
 
 }
@@ -1293,8 +1294,8 @@ class ComponentRef {
 class JembeClient {
   constructor(doc = document) {
     this.document = doc;
-    this.components = this.getComponentsFromDocument();
-    this.initComponentsAPI();
+    this.components = {};
+    this.getComponentsFromDocument();
     this.updateLocation(true);
     this.commands = [];
     this.domParser = new DOMParser();
@@ -1309,17 +1310,17 @@ class JembeClient {
 
   getComponentsFromDocument() {
     // 
-    let components = {}; // TODO traverse dom dont use querySelectorAll
+    this.components = {}; // TODO traverse dom dont use querySelectorAll
 
     let componentsNodes = this.document.querySelectorAll("[jmb\\:name][jmb\\:data]");
 
     for (const componentNode of componentsNodes) {
       const execName = componentNode.getAttribute('jmb:name');
-      components[execName] = new ComponentRef(execName, eval(`(${componentNode.getAttribute('jmb:data')})`), componentNode, true);
+      const componentRef = new ComponentRef(execName, eval(`(${componentNode.getAttribute('jmb:data')})`), componentNode, true);
       componentNode.removeAttribute('jmb:data');
+      componentRef.mount(this);
+      this.components[execName] = componentRef;
     }
-
-    return components;
   }
 
   transformXResponseDom(execName, domString) {
@@ -1438,13 +1439,12 @@ class JembeClient {
       const currentCompoRef = currentComponents[currentExecName];
       this.mergeComponent(currentCompoRef);
       this.components[currentCompoRef.execName] = currentCompoRef;
+      currentCompoRef.mount(this);
 
       for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
         processingExecNames.push(placeHolderName);
       }
     }
-
-    this.initComponentsAPI();
   }
   /**
    * Replaces component dom in this.document
@@ -1464,7 +1464,7 @@ class JembeClient {
         this.document.documentElement.innerHTML = componentRef.dom.innerHTML;
         componentRef.dom = this.document.documentElement;
         componentRef.dom.setAttribute("jmb:name", componentRef.execName);
-        componentRef.getPlaceHolders(); // becouse we use innerHTML not appendChild
+        componentRef.mount(this, true); // because we use innerHTML not appendChild
 
         componentRef.onDocument = true;
       }
@@ -1479,6 +1479,7 @@ class JembeClient {
 
       parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom);
       parentComponent.placeHolders[componentRef.execName] = componentRef.dom;
+      componentRef.mount(this);
       componentRef.onDocument = true;
     }
   }
@@ -1604,14 +1605,6 @@ class JembeClient {
     });
   }
 
-  initComponentsAPI() {
-    for (const component of Object.values(this.components)) {
-      component.mount(this); // if (component.api === null) {
-      //   component.api = new JembeComponentAPI(this, component.execName)
-      // }
-    }
-  }
-
   updateLocation(replace = false) {
     let topComponent = null;
     let level = -1;
@@ -1698,7 +1691,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "33075" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "37189" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

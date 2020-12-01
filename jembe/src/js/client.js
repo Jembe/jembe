@@ -5,7 +5,7 @@
     <button jmb:on.click="$jmb.call('increase',10)"
 */
 import { JembeComponentAPI } from "./componentApi.js";
-import { deepCopy } from "./utils.js";
+import { deepCopy, walkComponentDom } from "./utils.js";
 
 /**
  * Reference to component html with associated data
@@ -20,53 +20,50 @@ class ComponentRef {
     this.actions = data.actions !== undefined ? data.actions : []
     this.dom = dom
     this.placeHolders = {}
+    this.jmbDoubleDotAttributes = []
     this.onDocument = onDocument
-    this.getPlaceHolders()
     this.api = null
     this.hierarchyLevel = execName.split("/").length
     this.previousJmbComponentApi = null
   }
+  mount(jembeClient, force = false) {
+    if (this.api === null || force) {
+      this.getPlaceHoldersAndJmbAttributes()
+      this.api = new JembeComponentAPI(jembeClient, this.execName, this)
+      this.dom.jmbComponentApi = this.api
+      this.previousJmbComponentApi = null
+    }
+  }
 
-  getPlaceHolders() {
+  getPlaceHoldersAndJmbAttributes() {
     this.placeHolders = {}
-    // walkDom(
-    //   this.dom,
-    //   (el) => {},
-    //   (el) => {
-    //     if (el.hasAttribute('jmb:name')) {
-    //       // placeHolders[el.getAttribute('jmb:name')] = el
-    //       return true
-    //     } else if (el.hasAttribute('jmb-placeholder')) {
-    //       // this.placeHolders[el.getAttribute('jmb-placeholder')] = el
-    //       return true
-    //     }
-    //     return false
-    //   }
-    // )
-    for (const placeholder of this.dom.querySelectorAll("template[jmb-placeholder]")) {
-      let pName = placeholder.getAttribute("jmb-placeholder")
-      if (pName.split("/").length == this.execName.split("/").length + 1) {
-        this.placeHolders[pName] = placeholder
+    this.jmbDoubleDotAttributes = []
+    walkComponentDom(
+      this.dom,
+      (el) => {
+        // populate jmbDoubleDotAttributes
+        if (el.hasAttributes()) {
+          for (const attribute of el.attributes) {
+            if (attribute.name.startsWith("jmb:")) {
+              this.jmbDoubleDotAttributes.push({
+                el: el,
+                name: attribute.name,
+                value: attribute.value
+              })
+            }
+          }
+        }
+      },
+      (el, execName) => {
+        // populate placeHolders
+        this.placeHolders[execName] = el
       }
-    }
-    for (const placeholder of this.dom.querySelectorAll("[jmb\\:name]")) {
-      let pName = placeholder.getAttribute("jmb:name")
-      if (pName.split("/").length == this.execName.split("/").length + 1) {
-        this.placeHolders[pName] = placeholder
-      }
-    }
+    )
   }
   toJsonRequest() {
     return {
       "execName": this.execName,
       "state": this.state
-    }
-  }
-  mount(jembeClient) {
-    if (this.api === null) {
-      this.api = new JembeComponentAPI(jembeClient, this.execName, true, this.previousJmbComponentApi)
-      this.dom.jmbComponentApi = this.api
-      this.previousJmbComponentApi = null
     }
   }
 }
@@ -77,8 +74,8 @@ class ComponentRef {
 class JembeClient {
   constructor(doc = document) {
     this.document = doc
-    this.components = this.getComponentsFromDocument()
-    this.initComponentsAPI()
+    this.components = {}
+    this.getComponentsFromDocument()
     this.updateLocation(true)
     this.commands = []
     this.domParser = new DOMParser()
@@ -92,20 +89,21 @@ class JembeClient {
    */
   getComponentsFromDocument() {
     // 
-    let components = {}
+    this.components = {}
     // TODO traverse dom dont use querySelectorAll
     let componentsNodes = this.document.querySelectorAll("[jmb\\:name][jmb\\:data]")
     for (const componentNode of componentsNodes) {
       const execName = componentNode.getAttribute('jmb:name')
-      components[execName] = new ComponentRef(
+      const componentRef = new ComponentRef(
         execName,
         eval(`(${componentNode.getAttribute('jmb:data')})`),
         componentNode,
         true
       )
       componentNode.removeAttribute('jmb:data')
+      componentRef.mount(this)
+      this.components[execName] = componentRef
     }
-    return components
   }
   transformXResponseDom(execName, domString) {
     // if html dom has only one child use that child to put jmb:name tag
@@ -215,11 +213,11 @@ class JembeClient {
       const currentCompoRef = currentComponents[currentExecName]
       this.mergeComponent(currentCompoRef)
       this.components[currentCompoRef.execName] = currentCompoRef
+      currentCompoRef.mount(this)
       for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
         processingExecNames.push(placeHolderName)
       }
     }
-    this.initComponentsAPI()
   }
   /**
    * Replaces component dom in this.document
@@ -236,7 +234,7 @@ class JembeClient {
         this.document.documentElement.innerHTML = componentRef.dom.innerHTML
         componentRef.dom = this.document.documentElement
         componentRef.dom.setAttribute("jmb:name", componentRef.execName)
-        componentRef.getPlaceHolders() // becouse we use innerHTML not appendChild
+        componentRef.mount(this, true) // because we use innerHTML not appendChild
         componentRef.onDocument = true
       }
     } else {
@@ -250,6 +248,7 @@ class JembeClient {
       }
       parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom)
       parentComponent.placeHolders[componentRef.execName] = componentRef.dom
+      componentRef.mount(this)
       componentRef.onDocument = true
     }
   }
@@ -374,14 +373,6 @@ class JembeClient {
         }
       }
     )
-  }
-  initComponentsAPI() {
-    for (const component of Object.values(this.components)) {
-      component.mount(this)
-      // if (component.api === null) {
-      //   component.api = new JembeComponentAPI(this, component.execName)
-      // }
-    }
   }
   updateLocation(replace = false) {
     let topComponent = null

@@ -1,17 +1,31 @@
+/**
+ * Return null or the execName of the component 
+ * @param {Element} el 
+ */
 function elIsNewComponent(el) {
-  return el.hasAttribute('jmb:name')
+  if (el.hasAttribute('jmb:name')) {
+    return el.getAttribute('jmb:name')
+  } else if (el.hasAttribute('jmb-placeholder')) {
+    return el.getAttribute('jmb-placeholder')
+  } else {
+    return null
+  }
 }
 
-function walkComponentDom(el, callback) {
-  if (!elIsNewComponent(el)) {
-    callback(el)
+function walkComponentDom(el, callback, callbackOnNewComponent, myExecName) {
+  if (myExecName === undefined) {
+    myExecName = el.getAttribute('jmb:name')
   }
-  el = el.firstElementChild
-  while (el) {
-    if (!elIsNewComponent(el)) {
-      walkComponentDom(el, callback)
+  let componentExecName = elIsNewComponent(el)
+  if (componentExecName !== null && componentExecName !== myExecName) {
+    callbackOnNewComponent(el, componentExecName)
+  } else {
+    callback(el)
+    el = el.firstElementChild
+    while (el) {
+      walkComponentDom(el, callback, callbackOnNewComponent, myExecName)
+      el = el.nextElementSibling
     }
-    el = el.nextElementSibling
   }
 }
 
