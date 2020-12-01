@@ -1,0 +1,10 @@
+<tr>
+    <td>{{form.name(**{"jmb:on.change.defer":"$jmb.set('form.name', $el.value)"})}}</td> 
+    <td>
+        <button jmb:on.click="save()">Save</button>
+        <button jmb:on.click="cancel()">Cancel</button>
+        {% if confirmation %}
+            {{component("confirmation", **confirmation)}}
+        {% endif %}
+    </td>
+</tr>

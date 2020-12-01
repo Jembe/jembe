@@ -1,0 +1,32 @@
+<div>
+    <h2>Tasks</h2>
+    <button jmb:on.click="{{component('add',project_id=project_id).jrl}}">Add task</button>
+    <table>
+        <thead>
+            <tr>
+                <th>Task</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        {% if mode == "add" %}
+            {{component("add", project_id=project_id)}}
+        {% endif %}
+        {% for task in tasks %}
+            {{component("view", task_id=task.id, _task=task).key(task.id)}}
+        {% endfor %}
+    </table>
+    <nav>
+        {% if page > 1 %}
+            <button jmb:on.click="$jmb.set('page', {{page}} - 1);$jmb.display()">Prev</button>
+        {% endif %}
+        Page {{page}} of {{total_pages}} ({{projects_count}} projects)
+        {% if total_pages > page %}
+            <button jmb:on.click="$jmb.set('page', {{page}} + 1);$jmb.display()">Next</button>
+        {% endif %}
+    </nav>
+
+    {# {% if confirmation %}
+        {{component("confirmation", **confirmation)}}
+    {% endif %} #}
+
+</div>

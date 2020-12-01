@@ -3,6 +3,6 @@
 {{form.name(**{"jmb:on.change.defer":"$jmb.set('form.name', $el.value)"})}}
 <button jmb:on.click="save()">Save</button>
 <button jmb:on.click="cancel()">Back</button>
-{% if confirm_action == "cancel" %}
-    {{component("confirmation", title="Cancel add", question="Are you sure, all changes will be lost?", action="cancel")}}
+{% if confirmation %}
+    {{component("confirmation", **confirmation)}}
 {% endif %}

@@ -459,3 +459,38 @@ test("test on refresh delay continue named timers", () => {
   jest.advanceTimersByTime(500)
   expect(document.test).toBe('two')
 })
+
+test("test call action without named params", () => {
+  buildDocument(`
+    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":["choose"]}'>
+      <body>
+          <button jmb:on.click="choose('test')">Test</button>
+      </body>
+    </html>
+  `)
+
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('button').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
+    {
+      components: [
+        {
+          execName: "/test",
+          state: {}
+        }
+      ],
+      commands: [
+        {
+          type: "call",
+          componentExecName: "/test",
+          actionName: "choose",
+          args: ["test"],
+          kwargs: {}
+        }
+      ]
+    }
+  ))
+})

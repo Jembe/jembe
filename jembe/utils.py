@@ -29,3 +29,22 @@ def page_url(exec_name: str, url_params: Optional[List[Dict[str, Any]]] = None):
                 url_values[url_key] = value
 
     return url_for(endpoint_name, **url_values)
+
+
+def run_only_once(_method):
+    """
+    decorator for class method to execute it only run once even if it is called 
+    multiple times with diferrent arguments.
+    NOTE: (WARNING) This decorator will cache return value nor will check method arguments
+    Usefull form mount() method
+    """
+    attrname = "_%s_once_result" % id(_method)
+
+    def decorator(self, *args, **kwargs):
+        try:
+            return getattr(self, attrname)
+        except AttributeError:
+            setattr(self, attrname, _method(self, *args, **kwargs))
+            return getattr(self, attrname)
+
+    return decorator

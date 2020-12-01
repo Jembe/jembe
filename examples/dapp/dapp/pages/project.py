@@ -2,17 +2,18 @@
 Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
-from typing import Optional, TYPE_CHECKING, Union, Any, Tuple, Dict
+from functools import cached_property
+from jembe.utils import run_only_once
+from typing import Optional, TYPE_CHECKING, Union, Any, Dict
 from uuid import uuid1
+from math import ceil
 from dataclasses import dataclass
-from jembe.exceptions import BadRequest, JembeError
-from jembe.component_config import action, config, listener
-from jembe import Component
+from jembe import Component, action, config, listener, BadRequest
 from sqlalchemy.exc import SQLAlchemyError
+from wtforms_sqlalchemy.orm import model_form
 from dapp.models import Project, Task
 from dapp.jmb import jmb
 from dapp.db import db
-from wtforms_sqlalchemy.orm import model_form
 
 if TYPE_CHECKING:
     from flask import Response
@@ -31,23 +32,21 @@ class ConfirmationDialog(Component):
         title: str = "",
         question: str = "",
         action: Optional[str] = None,
-        action_params: Optional[dict] = None,
+        params: Optional[dict] = None,
+        choices: Optional[Dict[str, str]] = None,
     ) -> None:
         if action is None:
-            raise JembeError("action:str parameter is required")
+            raise ValueError("action:str parameter is required")
+        if choices is None:
+            self.state.choices = dict(
+                ok=dict(title="Ok", css=""), cancel=dict(title="Cancel", css="")
+            )
         super().__init__()
 
     @action
-    def ok(self):
+    def choose(self, choice: str):
         self.emit(
-            "ok", action=self.state.action, action_params=self.state.action_params
-        )
-        return False
-
-    @action
-    def cancel(self):
-        self.emit(
-            "cancel", action=self.state.action, action_params=self.state.action_params
+            choice, action=self.state.action, params=self.state.params,
         )
         return False
 
@@ -75,57 +74,152 @@ class Notifications(Component):
         )
 
 
-@config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
-class AddProject(Component):
-    def __init__(
-        self, form: Optional["Form"] = None, confirm_action: Optional[str] = None,
-    ) -> None:
-        self._mounted = False
-        super().__init__()
-
-    def mount(self):
-        if self._mounted:
-            return
-        self._mounted = True
-
-        if self.state.form is None:
-            self.state.form = ProjectForm(obj=Project())
-
+class FormEncodingSupportMixin:
     @classmethod
     def encode_param(cls, name: str, value: Any) -> Any:
         if name == "form":
             return value.data if value is not None else dict()
-        return super().encode_param(name, value)
+        return super().encode_param(name, value)  # type:ignore
 
     @classmethod
     def decode_param(cls, name: str, value: Any) -> Any:
         if name == "form":
             return ProjectForm(data=value)
-        return super().decode_param(name, value)
+        return super().decode_param(name, value)  # type:ignore
 
-    @listener(source="./confirmation")
-    def on_action_confirmation(self, event: "Event"):
-        self.state.confirm_action = None
-        if event.params["action"] == "cancel" and event.name == "ok":
-            self.emit("cancel")
-            return False  # don't execute display
+
+# Tasks
+########
+@config(Component.Config(template="tasks/view.html", changes_url=False))
+class ViewTask(Component):
+    def __init__(self, task_id: int, _task: Optional[Task] = None) -> None:
+        self._task = _task
+        super().__init__()
+
+    @cached_property
+    def task(self) -> Task:
+        return (
+            self._task
+            if self._task is not None and self._task.id == self.state.task_id
+            else Task.query.get(self.state.task_id)
+        )
+
+
+@config(Component.Config(template="tasks/add.html"))
+class AddTask(FormEncodingSupportMixin, Component):
+    def __init__(self, project_id: int, form: Optional["Form"] = None) -> None:
+        super().__init__()
+
+    @run_only_once
+    def mount(self):
+        if self.state.form is None:
+            self.state.form = TaskForm(obj=Task(project_id=self.state.project_id))
 
     @action
-    def cancel(self):
+    def save(self):
         self.mount()
+        if self.state.form.validate():
+            try:
+                task = Task(project_id=self.state.project_id)
+                self.state.form.populate_obj(task)
+                db.session.add(task)
+                db.session.commit()
+                self.emit("save", task=task, task_id=task.id)
+                self.emit(
+                    "pushNotification",
+                    notification=Notification("{} saved.".format(task.name)),
+                )
+                # dont execute display
+                return False
+            except SQLAlchemyError as sql_error:
+                self.emit(
+                    "pushNotification",
+                    notification=Notification(
+                        str(getattr(sql_error, "orig", sql_error)), "error"
+                    ),
+                )
+                return True
 
-        project = Project()
-        self.state.form.populate_obj(project)
-        empty_project = Project()
-        project_is_modified = False
-        for column_name in project.__table__.columns.keys():
-            project_is_modified = getattr(project, column_name) != getattr(
-                empty_project, column_name
+        # execute display if state is changed
+        return None
+
+    def display(self) -> Union[str, "Response"]:
+        self.mount()
+        return super().display()
+
+
+@config(
+    Component.Config(
+        url_query_params=dict(p="page", ps="page_size"),
+        template="tasks.html",
+        components=dict(view=ViewTask, add=AddTask),
+    )
+)
+class Tasks(Component):
+    def __init__(
+        self,
+        mode: Optional[str] = None,
+        project_id: Optional[int] = None,
+        page: int = 0,
+        page_size: int = 5,
+    ) -> None:
+        if mode not in (None, "add"):
+            self.state.mode = None
+        super().__init__()
+
+    @listener(event="_display", source=["./add"])
+    def on_child_display(self, event: "Event"):
+        if event.source_name in ("add",):
+            self.state.mode = event.source_name
+
+    def display(self) -> Union[str, "Response"]:
+        if self.state.mode == "add":
+            # Add will alywas add on top of first page
+            self.state.page = 1
+
+        tasks = Task.query
+        if self.state.project_id is not None:
+            tasks = tasks.filter_by(project_id=self.state.project_id)
+
+        self.tasks_count = tasks.count()
+        self.total_pages = ceil(self.tasks_count / self.state.page_size)
+        if self.state.page < 1:
+            self.state.page = 1
+        if self.state.page >= self.total_pages:
+            self.state.page = self.total_pages
+        start = (self.state.page - 1) * self.state.page_size
+        self.tasks = tasks.order_by(Task.id)[start : start + self.state.page_size]
+        return super().display()
+
+
+# Projects
+##########
+@config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
+class AddProject(FormEncodingSupportMixin, Component):
+    def __init__(self, form: Optional["Form"] = None) -> None:
+        self.confirmation: Optional[dict] = None
+        super().__init__()
+
+    @run_only_once
+    def mount(self):
+        if self.state.form is None:
+            self.state.form = ProjectForm(obj=Project())
+
+    @listener(source="./confirmation")
+    def on_confirmation(self, event: "Event"):
+        if event.action == "cancel" and event.name == "ok":
+            return self.cancel(True)
+        return True
+
+    @action
+    def cancel(self, confirmed=False):
+        if self._is_project_modified() and not confirmed:
+            self.confirmation = dict(
+                title="Cancel Add",
+                question="Are you sure, all changes will be lost?",
+                action="cancel",
             )
-            if project_is_modified:
-                break
-        if project_is_modified:
-            self.state.confirm_action = "cancel"
+            return True  # force redisplay to show confirmation dialog
         else:
             self.emit("cancel")
             return False  # don't execute display
@@ -162,58 +256,49 @@ class AddProject(Component):
         self.mount()
         return super().display()
 
+    def _is_project_modified(self) -> bool:
+        self.mount()
+        project = Project()
+        self.state.form.populate_obj(project)
+        empty_project = Project()
+        for column_name in project.__table__.columns.keys():
+            if getattr(project, column_name) != getattr(empty_project, column_name):
+                return True
+        return False
 
-@config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
-class EditProject(Component):
-    def __init__(
-        self,
-        project_id: int,
-        form: Optional["Form"] = None,
-        confirm_action: Optional[str] = None,
-    ) -> None:
-        self._mounted = False
+
+@config(
+    Component.Config(components=dict(tasks=Tasks, confirmation=ConfirmationDialog),)
+)
+class EditProject(FormEncodingSupportMixin, Component):
+    def __init__(self, project_id: int, form: Optional["Form"] = None,) -> None:
+        self.confirmation: Optional[dict] = None
         super().__init__()
 
+    @run_only_once
     def mount(self):
-        if self._mounted:
-            return
-        self._mounted = True
-
         self.project = Project.query.get(self.state.project_id)
         if self.state.form is None:
             self.state.form = ProjectForm(obj=self.project)
 
-    @classmethod
-    def encode_param(cls, name: str, value: Any) -> Any:
-        if name == "form":
-            return value.data if value is not None else dict()
-        return super().encode_param(name, value)
-
-    @classmethod
-    def decode_param(cls, name: str, value: Any) -> Any:
-        if name == "form":
-            return ProjectForm(data=value)
-        return super().decode_param(name, value)
-
     @listener(source="./confirmation")
-    def on_action_confirmation(self, event: "Event"):
-        self.state.confirm_action = None
-        if event.params["action"] == "cancel" and event.name == "ok":
-            self.emit("cancel")
-            return False  # don't execute display
+    def on_confirmation(self, event: "Event"):
+        if event.action == "cancel" and event.name == "ok":
+            return self.cancel(True)
+        return True
 
     @action
-    def cancel(self):
-        self.mount()
-        db.session.begin_nested()
-        self.state.form.populate_obj(self.project)
-        project_is_modified = db.session.is_modified(self.project)
-        db.session.rollback()
-        if project_is_modified:
-            self.state.confirm_action = "cancel"
+    def cancel(self, confirmed=False):
+        if self._is_project_modified() and not confirmed:
+            self.confirmation = dict(
+                title="Cancel Edit",
+                question="Are you sure, all changes will be lost?",
+                action="cancel",
+            )
+            return True  # force redisplay to shown confirmation dialog
         else:
             self.emit("cancel")
-            return False  # don't execute display
+            return False
 
     @action
     def save(self) -> Optional[bool]:
@@ -235,8 +320,15 @@ class EditProject(Component):
         self.mount()
         return super().display()
 
+    def _is_project_modified(self) -> bool:
+        self.mount()
+        db.session.begin_nested()
+        self.state.form.populate_obj(self.project)
+        project_is_modified = db.session.is_modified(self.project)
+        db.session.rollback()
+        return project_is_modified
 
-# TODO Refactor confirmation in edit and add to match confirmation in project
+# TODO add inline tasks refresh not working 
 # TODO add tasks list, add, edit, delete and mark completed
 # TODO add more fields to project and task
 # TODO  add remove polyfil in js (??)
@@ -277,24 +369,26 @@ class ProjectsPage(Component):
 
     @listener(source="./confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.name == "ok":
-            if event.action == "delete_project":
-                return self.delete_project(event.action_params["project_id"], True)
+        if event.action == "delete_project" and event.name == "ok":
+            return self.delete_project(event.params["params"]["project_id"], True)
         return True
 
     @action
-    def delete_project(self, project_id: int, _confirmed: bool = False):
-        if not _confirmed:
+    def delete_project(self, project_id: int, confirmed: bool = False):
+        if not confirmed:
+            # display confirmation dialog
             self.confirmation = dict(
                 title="Delete project",
                 question="Are you sure?",
                 action="delete_project",
-                action_params=dict(project_id=project_id),
+                params=dict(project_id=project_id),
             )
         else:
+            # delete project
             project = Project.query.get(project_id)
             db.session.delete(project)
             db.session.commit()
+        # always redisplay this compomenonet
         return True
 
     def display(self) -> Union[str, "Response"]:
@@ -302,14 +396,13 @@ class ProjectsPage(Component):
             # if mode is display projects table
             # othervise instead of table subcomponent specified by mode will be displayd
             self.projects_count = Project.query.count()
-            self.total_pages = self.projects_count // self.state.page_size
-            if self.state.page < 0:
-                self.state.page = 0
-            if self.state.page > self.total_pages:
+            self.total_pages = ceil(self.projects_count / self.state.page_size)
+            if self.state.page < 1:
+                self.state.page = 1
+            if self.state.page >= self.total_pages:
                 self.state.page = self.total_pages
-            start = self.state.page * self.state.page_size
+            start = (self.state.page - 1) * self.state.page_size
             self.projects = Project.query.order_by(Project.id)[
                 start : start + self.state.page_size
             ]
-            self.projects_count = Project.query.count()
         return super().display()

@@ -598,7 +598,7 @@ class Component(metaclass=ComponentMeta):
             **{
                 property_name: getattr(self, property_name)
                 for property_name, property in getmembers(
-                    self.__class__, lambda o: isinstance(o, property)
+                    self.__class__, lambda o: isinstance(o, property) or isinstance(o, cached_property)
                 )
             },
             # command to render subcomponents

@@ -984,7 +984,16 @@ class JembeComponentAPI {
     }
   }
 
-  call(actionName, kwargs = {}, args = []) {
+  call(actionName, ...params) {
+    let kwargs = {};
+    let args = [];
+
+    if (params.length === 1 && params[0].constructor == Object) {
+      kwargs = params[0];
+    } else {
+      args = params;
+    }
+
     this.jembeClient.addCallCommand(this.execName, actionName, args, kwargs);
   }
 
@@ -1166,8 +1175,8 @@ class JembeComponentAPI {
     }; // allow action functions to be called directly 
 
     for (const action of actions) {
-      helpers[action] = (kwargs = {}, args = []) => {
-        this.call(action, kwargs, args);
+      helpers[action] = (...params) => {
+        this.call(action, ...params);
       };
     }
 
@@ -1668,7 +1677,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "44223" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "45863" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

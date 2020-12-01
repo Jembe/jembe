@@ -1,6 +1,7 @@
 <div>
 <h2>{{title}}</h2>
 <p>{{question}}</p>
-<button jmb:on.click='ok()'>OK</button>
-<button jmb:on.click="cancel()">Cancel</button>
+{% for choice, choice_info in choices.items()  %}
+    <button jmb:on.click='choose("{{choice}}")' class="{{choice_info.css}}">{{choice_info.title}}</button>
+{% endfor %}
 </div>
