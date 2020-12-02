@@ -24,4 +24,4 @@ htmlcov/
 .coverage
 .coverage.*
 *,cover
-./data
+data
