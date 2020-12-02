@@ -4,7 +4,7 @@ with JUST MAKE IT WORK mindset.
 """
 from functools import cached_property
 from jembe.utils import run_only_once
-from typing import Optional, TYPE_CHECKING, Union, Any, Dict
+from typing import List, Optional, Set, TYPE_CHECKING, Union, Any, Dict
 from uuid import uuid1
 from math import ceil
 from dataclasses import dataclass
@@ -90,7 +90,13 @@ class FormEncodingSupportMixin:
 
 # Tasks
 ########
-@config(Component.Config(template="tasks/view.html", changes_url=False))
+@config(
+    Component.Config(
+        template="tasks/view.html",
+        components=dict(confirmation=ConfirmationDialog),
+        changes_url=False,
+    )
+)
 class ViewTask(Component):
     def __init__(self, task_id: int, _task: Optional[Task] = None) -> None:
         self._task = _task
@@ -104,20 +110,129 @@ class ViewTask(Component):
             else Task.query.get(self.state.task_id)
         )
 
+    @listener(source="./confirmation")
+    def on_confirmation(self, event: "Event"):
+        if event.action == "delete_task" and event.name == "ok":
+            return self.delete_task(event.params["params"]["task_id"], True)
+        return True
+
+    @action
+    def delete_task(self, task_id: int, confirmed: bool = False):
+        if not confirmed:
+            # display confirmation dialog
+            self.confirmation = dict(
+                title="Delete task",
+                question="Are you sure?",
+                action="delete_task",
+                params=dict(task_id=task_id),
+            )
+            # redisplay this compomenonet
+            return True
+        else:
+            # delete task
+            task = Task.query.get(task_id)
+            db.session.delete(task)
+            db.session.commit()
+            self.emit("delete", task=task, task_id=task_id)
+            self.emit(
+                "pushNotification",
+                notification=Notification("{} deleted.".format(task.name)),
+            )
+            return False
+
+
+@config(
+    Component.Config(
+        template="tasks/edit.html",
+        components=dict(confirmation=ConfirmationDialog),
+        changes_url=False,
+    )
+)
+class EditTask(FormEncodingSupportMixin, Component):
+    def __init__(
+        self, task_id: int, form: Optional["Form"] = None, _task: Optional[Task] = None
+    ) -> None:
+        self._task = _task
+        super().__init__()
+
+    @run_only_once
+    def mount(self):
+        self.task = (
+            Task.query.get(self.state.task_id) if self._task is None else self._task
+        )
+        if self.state.form is None:
+            self.state.form = TaskForm(obj=self.task)
+
+    @listener(source="./confirmation")
+    def on_confirmation(self, event: "Event"):
+        if event.action == "cancel" and event.name == "ok":
+            return self.cancel(True)
+        return True
+
+    @action
+    def cancel(self, confirmed=False):
+        if self._is_task_modified() and not confirmed:
+            self.confirmation = dict(
+                title="Cancel Edit",
+                question="Are you sure, all changes will be lost?",
+                action="cancel",
+            )
+            print("redisplay")
+            return True  # force redisplay to show confirmation dialog
+        else:
+            self.emit("cancel")
+            return False  # don't execute display
+
+    @action
+    def save(self):
+        self.mount()
+        if self.state.form.validate():
+            try:
+                self.state.form.populate_obj(self.task)
+                db.session.commit()
+                self.emit("save", task=self.task, task_id=self.task.id)
+                self.emit(
+                    "pushNotification",
+                    notification=Notification("{} saved.".format(self.task.name)),
+                )
+                # dont execute display
+                return False
+            except SQLAlchemyError as sql_error:
+                self.emit(
+                    "pushNotification",
+                    notification=Notification(
+                        str(getattr(sql_error, "orig", sql_error)), "error"
+                    ),
+                )
+                return True
+
+        # execute display if state is changed
+        return None
+
+    def display(self) -> Union[str, "Response"]:
+        self.mount()
+        return super().display()
+
+    def _is_task_modified(self) -> bool:
+        self.mount()
+        db.session.begin_nested()
+        self.state.form.populate_obj(self.task)
+        task_is_modified = db.session.is_modified(self.task)
+        db.session.rollback()
+        return task_is_modified
+
 
 @config(
     Component.Config(
         template="tasks/add.html",
         components=dict(confirmation=ConfirmationDialog),
-        # changes_url=False,
+        changes_url=False,
     )
 )
 class AddTask(FormEncodingSupportMixin, Component):
     def __init__(
         self, project_id: Optional[int] = None, form: Optional["Form"] = None
     ) -> None:
-        if project_id is None:
-            raise ValueError("project_id is required")
         super().__init__()
 
     @run_only_once
@@ -180,7 +295,7 @@ class AddTask(FormEncodingSupportMixin, Component):
         self.mount()
         task = Task(project_id=self.state.project_id)
         self.state.form.populate_obj(task)
-        empty_task = Task()
+        empty_task = Task(project_id=self.state.project_id)
         for column_name in task.__table__.columns.keys():
             if getattr(task, column_name) != getattr(empty_task, column_name):
                 return True
@@ -191,7 +306,7 @@ class AddTask(FormEncodingSupportMixin, Component):
     Component.Config(
         url_query_params=dict(p="page", ps="page_size"),
         template="tasks.html",
-        components=dict(view=ViewTask, add=AddTask),
+        components=dict(view=ViewTask, add=AddTask, edit=EditTask),
         inject_into_components=lambda self, _config: dict(
             project_id=self.state.project_id
         ),
@@ -200,33 +315,46 @@ class AddTask(FormEncodingSupportMixin, Component):
 class Tasks(Component):
     def __init__(
         self,
-        mode: Optional[str] = None,
         project_id: Optional[int] = None,
+        mode: Optional[str] = None,
+        editing_tasks: Set[int] = set(),
         page: int = 0,
         page_size: int = 5,
     ) -> None:
-        if project_id is None:
-            raise ValueError("project_id is required")
         if mode not in (None, "add"):
             self.state.mode = None
         super().__init__()
 
+    @listener(event="delete", source=["./view.*"])
+    def on_child_deleted(self, event: "Event"):
+        # redisplay tasks
+        return True
+
     @listener(event="_display", source=["./add"])
-    def on_child_display(self, event: "Event"):
-        if event.source_name in ("add",):
-            if self.state.mode != event.source_name:
-                # when adding go to first page
-                # but allow navigation afterward
-                self.state.page = 1
-            self.state.mode = event.source_name
+    def on_add_display(self, event: "Event"):
+        if self.state.mode != event.source_name:
+            # when adding go to first page
+            # but allow navigation afterward
+            self.state.page = 1
+        self.state.mode = event.source_name
+
+    @listener(event="_display", source=["./edit.*"])
+    def on_edit_display(self, event: "Event"):
+        if event.source:
+            self.state.editing_tasks.add(event.source.state.task_id)
 
     @listener(event="cancel", source=["./add"])
-    def on_child_cancel(self, event: "Event"):
+    def on_add_cancel(self, event: "Event"):
         self.state.mode = None
 
     @listener(event="save", source=["./add"])
-    def on_child_save(self, event: "Event"):
+    def on_add_save(self, event: "Event"):
         self.state.mode = None
+
+    @listener(event=["save", "cancel"], source=["./edit.*"])
+    def on_edit_finish(self, event: "Event"):
+        if event.source:
+            self.state.editing_tasks.remove(event.source.state.task_id)
 
     def display(self) -> Union[str, "Response"]:
 
@@ -388,13 +516,13 @@ class EditProject(FormEncodingSupportMixin, Component):
         db.session.rollback()
         return project_is_modified
 
-
-# TODO inline add not geting url params on refresh
-# TODO client.js mergeComponent not working for inline tasks (not adding exising view task with key)
-# TODO add inline tasks refresh not working
-# TODO add tasks list, add, edit, delete and mark completed
+# TODO edit project navigation prev,next
+# TODO When going back with browser execute confirmation if needed
+# TODO display generic error dialog when error is hapend in x-jembe request
+# TODO add task mark completed
 # TODO add more fields to project and task
-# TODO  add remove polyfil in js (??)
+# TODO make it looks nice
+# TODO add remove polyfil in js (??)
 @jmb.page(
     "projects",
     Component.Config(
@@ -451,6 +579,10 @@ class ProjectsPage(Component):
             project = Project.query.get(project_id)
             db.session.delete(project)
             db.session.commit()
+            self.emit(
+                "pushNotification",
+                notification=Notification("{} deleted.".format(project.name)),
+            )
         # always redisplay this compomenonet
         return True
 

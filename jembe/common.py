@@ -1,3 +1,4 @@
+from inspect import isfunction
 from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
 import inspect
 from importlib import import_module
@@ -84,3 +85,21 @@ def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
         "Unsuported url query param type. Supported types are int, float, bool and string"
     )
 
+def get_annotation_type(annotation):
+    """ returns tuple(annotation_type, is_optional)"""
+
+    def _geta(annotation):
+        if isfunction(annotation):
+            # handling typing.NewType
+            # TODO make it robust and to cover all cases
+            return annotation.__supertype__
+        else:
+            return annotation
+
+    if get_origin(annotation) is Union and type(None) in get_args(
+        annotation
+    ):
+        # is_optional
+        return (_geta(get_args(annotation)[0]), True)
+    else:
+        return (_geta(annotation), False)

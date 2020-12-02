@@ -110,6 +110,7 @@ class JembeClient {
     // if not enclose html with div and put jmb:name into it
     // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
     // html after integration with document
+    domString = domString.trim()
     if (!this.isPageExecName(execName)) {
       let template = this.document.createElement("template")
       template.innerHTML = domString

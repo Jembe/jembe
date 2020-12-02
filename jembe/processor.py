@@ -79,7 +79,7 @@ class Event:
         if self.source:
             return self.source._config.full_name
         else:
-            return exec_name_to_full_name(self.source_full_name)
+            return exec_name_to_full_name(self.source_exec_name)
 
     @cached_property
     def source_name(self) -> str:
@@ -241,8 +241,8 @@ class CallDisplayCommand(CallActionCommand):
             or RedisplayFlag.WHEN_DISPLAY_EXECUTED in self._component._config.redisplay
             or (
                 RedisplayFlag.WHEN_STATE_CHANGED in self._component._config.redisplay
-                and self.processor.renderers[self.component_exec_name].state
-                != self._component.state
+                and self.processor.renderers[self.component_exec_name].state.tojsondict(self._component)
+                != self._component.state.tojsondict(self._component)
             )
         ):
             # if compoent is already displayed/rendered in same state and no force is set

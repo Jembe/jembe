@@ -1,7 +1,12 @@
+{% if task %}
 <tr>
     <td>{{task.name}}</td> 
     <td>
-        {# <button jmb:on.click="{{component('edit', task_id=task.id).jrl}}">Edit</button>
-        <button jmb:on.click="delete_task({task_id:{{task.id}}})">Delete</button> #}
+        <button jmb:on.click="$jmb.component('../edit.{{task.id}}',{task_id:{{task.id}}}).display()">Edit</button>
+        <button jmb:on.click="delete_task({task_id:{{task.id}}})">Delete</button>
+        {% if confirmation %}
+            {{component("confirmation", **confirmation)}}
+        {% endif %}
     </td>
 </tr>
+{% endif %}

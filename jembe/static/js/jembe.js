@@ -1333,6 +1333,8 @@ class JembeClient {
     // if not enclose html with div and put jmb:name into it
     // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
     // html after integration with document
+    domString = domString.trim();
+
     if (!this.isPageExecName(execName)) {
       let template = this.document.createElement("template");
       template.innerHTML = domString;
@@ -1696,7 +1698,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "37189" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40747" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

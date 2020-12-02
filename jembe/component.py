@@ -29,7 +29,7 @@ from .processor import (
     EmitCommand,
     Processor,
 )
-from .common import exec_name_to_full_name
+from .common import exec_name_to_full_name, get_annotation_type
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Response
@@ -380,6 +380,34 @@ class Component(metaclass=ComponentMeta):
         - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None
 
         """
+        def _encode_supported_types(value, param_hint):
+            if param_hint.annotation == Parameter.empty:
+                raise ValueError("Parameter without annotation")
+            atype, is_optional = get_annotation_type(param_hint.annotation)
+            try:
+                if atype == set or get_origin(atype) == set:
+                    return None if (is_optional and value is None) else list(value)
+            except Exception as e:
+                raise ValueError(e)
+            return value
+
+        if name in cls._jembe_init_signature.parameters:
+            try:
+                return _encode_supported_types(
+                    value, cls._jembe_init_signature.parameters[name]
+                )
+            except ValueError as e:
+                if current_app.debug or current_app.testing:
+                    raise JembeError(
+                        "State param {} of {}.{} with hint {} is not supported for json encode/decode "
+                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) ".format(
+                            name,
+                            cls.__module__,
+                            cls.__name__,
+                            cls._jembe_init_signature.parameters[name],
+                            e,
+                        )
+                    )
         return value
 
     @classmethod
@@ -399,27 +427,10 @@ class Component(metaclass=ComponentMeta):
         def _decode_supported_types(value, param_hint):
             """ returns decoded value or raise ValueError"""
             # TODO add support for multiple annotation types Union[a,b,c] etc
-            def _get_annotation_type(annotation):
-                """ returns tuple(annotation_type, is_optional)"""
-                def _geta(annotation):
-                    if isfunction(annotation):
-                        # handling typing.NewType
-                        # TODO make it robust and to cover all cases
-                        return annotation.__supertype__
-                    else:
-                        return annotation
-                
-                if get_origin(annotation) is Union and type(None) in get_args(
-                    annotation
-                ):
-                    # is_optional
-                    return (_geta(get_args(annotation)[0]), True)
-                else:
-                    return (_geta(annotation), False)
 
             if param_hint.annotation == Parameter.empty:
                 raise ValueError("Parameter without annotation")
-            atype, is_optional = _get_annotation_type(param_hint.annotation)
+            atype, is_optional = get_annotation_type(param_hint.annotation)
             try:
                 if atype == int:
                     return None if (is_optional and value is None) else int(value)
@@ -433,6 +444,8 @@ class Component(metaclass=ComponentMeta):
                     return None if (is_optional and value is None) else tuple(value)
                 elif atype == list or get_origin(atype) == list:
                     return None if (is_optional and value is None) else list(value)
+                elif atype == set or get_origin(atype) == set:
+                    return None if (is_optional and value is None) else set(value)
                 elif get_origin(atype) == collectionsSequence:
                     return None if (is_optional and value is None) else tuple(value)
             except Exception as e:
@@ -449,41 +462,15 @@ class Component(metaclass=ComponentMeta):
                 if current_app.debug or current_app.testing:
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json encode/decode "
-                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) "
-                        "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
-                        "init- & float-derivated Enums, bool, Optional".format(
+                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) ".format(
                             name,
                             cls.__module__,
                             cls.__name__,
                             cls._jembe_init_signature.parameters[name],
-                            e
+                            e,
                         )
                     )
         return value
-        # if current_app.debug or current_app.testing:
-        #     if name in cls._jembe_init_signature.parameters:
-        #         # check if param hint is supported
-        #         param_hint = cls._jembe_init_signature.parameters[name]
-        #         if not _supported_hint(param_hint):
-        #             raise JembeError(
-        #                 "State param {} of {}.{} with hint {} is not supported for json encode/decode "
-        #                 "nor custom encoding/decoding logic is defined in encode_param/decode_param."
-        #                 "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
-        #                 "init- & float-derivated Enums, bool, Optional".format(
-        #                     name, cls.__module__, cls.__name__, param_hint
-        #                 )
-        #             )
-        #     else:
-        #         raise JembeError(
-        #             "State param {} of {}.{} does not have supported json encode/decode type hint "
-        #             "nor custom encoding/decoding logic is defined in encode_param/decode_param."
-        #             "Supported type hints are equivalent of: dict, list, tuple, str, int, float, "
-        #             "init- & float-derivated Enums, bool, Optional".format(
-        #                 name, cls.__module__, cls.__name__
-        #             )
-        #         )
-
-        # return value
 
     def inject(self) -> Dict[str, Any]:
         """
@@ -598,7 +585,8 @@ class Component(metaclass=ComponentMeta):
             **{
                 property_name: getattr(self, property_name)
                 for property_name, property in getmembers(
-                    self.__class__, lambda o: isinstance(o, property) or isinstance(o, cached_property)
+                    self.__class__,
+                    lambda o: isinstance(o, property) or isinstance(o, cached_property),
                 )
             },
             # command to render subcomponents

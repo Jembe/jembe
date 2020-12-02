@@ -1,6 +1,7 @@
 from typing import (
     Any,
     NewType,
+    Set,
     TYPE_CHECKING,
     Optional,
     Tuple,
@@ -19,12 +20,11 @@ from jembe import (
     NotFound,
     Forbidden,
     Unauthorized,
-    BadRequest,
+    Event,
 )
 
 if TYPE_CHECKING:
     from flask import Response
-    from jembe import Event
 
 
 def test_counter(jmb, client):
@@ -1591,6 +1591,8 @@ def test_component_default_encode_decode_params(app_ctx):
             sq: Sequence[Any] = (),
             urlpath: UrlPath = UrlPath(""),
             ourlpath: Optional[UrlPath] = None,
+            st: Set[int] = set(),
+            st1: set = set(),
         ) -> None:
 
             super().__init__()
@@ -1620,6 +1622,8 @@ def test_component_default_encode_decode_params(app_ctx):
         assert C.decode_param("urlpath", "test") == UrlPath("test")
         assert C.decode_param("ourlpath", None) == None
         assert C.decode_param("ourlpath", "test") == UrlPath("test")
+        assert C.decode_param("st", set([1, 2])) == set([1, 2])
+        assert C.decode_param("st1", set(["a", 1])) == set(["a", 1])
 
 
 def test_add_actions_data_in_response(jmb, client):
@@ -1681,6 +1685,30 @@ def test_add_actions_data_in_response(jmb, client):
     assert json_response[0]["actions"] == ["action1", "action2"]
 
 
+def test_event_source_name_with_keyed_exec_name(jmb, client):
+    from jembe.processor import EmitCommand
+    from jembe.component_config import ComponentListener
+
+    event = Event(
+        source_exec_name="/test/view.1",
+        source=None,
+        event_name="test",
+        to=None,
+        params=dict(),
+    )
+    assert event.source_name == "view"
+    assert (
+        EmitCommand._is_match(
+            source_exec_name="/test/view.1",
+            event_name="test",
+            source_to=None,
+            destination_exec_name="/test",
+            destination_listener=ComponentListener(
+                method_name="on_test", event_name="test", source=["./view.*"]
+            ),
+        )
+        == True
+    )
 
 
 # TODO test counter with configurable increment

@@ -484,7 +484,6 @@ test("update keyed components", () => {
   expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/projects"><head></head><body>
         <div jmb:name="/projects/edit">
           <div jmb:name="/projects/edit/tasks">
-       
         
           <div jmb:name="/projects/edit/tasks/add">Add task</div>
           <div jmb:name="/projects/edit/tasks/view.1">Task 1</div>
@@ -496,5 +495,30 @@ test("update keyed components", () => {
       
     
   </body></html>`
+  )
+})
+
+test('dont add souranundin div to component if not necessary', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+      <body>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page/test",
+      "state": {},
+      "url": "/page/test",
+      "changesUrl": true,
+      "dom": `
+      <div>a</div>  `,
+    }
+  ]
+  const jembeClient = new JembeClient()
+  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  expect(Object.keys(components).length).toBe(1)
+  expect(components["/page/test"].dom.outerHTML).toBe(
+    `<div jmb:name="/page/test">a</div>`
   )
 })
