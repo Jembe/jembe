@@ -38,7 +38,7 @@
         {% if goto %}
             {{component("edit", project_id=goto)}}
         {% else %}
-            {{component("edit")}}
+            {{component("edit")._staultate(project_id=goto)}}
         {% endif %}
     {% elif mode == "add" %}
         {{component("add")}}

@@ -4,7 +4,7 @@ with JUST MAKE IT WORK mindset.
 """
 from functools import cached_property
 from jembe.utils import run_only_once
-from typing import List, Optional, Set, TYPE_CHECKING, Union, Any, Dict
+from typing import List, Optional, Set, TYPE_CHECKING, Tuple, Union, Any, Dict
 from uuid import uuid1
 from math import ceil
 from dataclasses import dataclass
@@ -177,7 +177,6 @@ class EditTask(FormEncodingSupportMixin, Component):
                 question="Are you sure, all changes will be lost?",
                 action="cancel",
             )
-            print("redisplay")
             return True  # force redisplay to show confirmation dialog
         else:
             self.emit("cancel")
@@ -459,20 +458,43 @@ class AddProject(FormEncodingSupportMixin, Component):
     )
 )
 class EditProject(FormEncodingSupportMixin, Component):
-    def __init__(self, project_id: int, form: Optional["Form"] = None,) -> None:
+    def __init__(
+        self,
+        project_id: int,
+        form: Optional["Form"] = None,
+        prev_project_id: Optional[int] = None,
+        next_project_id: Optional[int] = None,
+    ) -> None:
         self.confirmation: Optional[dict] = None
         super().__init__()
 
-    @run_only_once
     def mount(self):
+        if getattr(self, "_mounted_for", None) == self.state.project_id:
+            return
+        self._mounted_for = self.state.project_id
+
+        if self.state.prev_project_id is None and self.state.next_project_id is None:
+            self.emit(
+                "ask_question",
+                question="get_prev_next",
+                project_id=self.state.project_id,
+            ).to("/**/.")
         self.project = Project.query.get(self.state.project_id)
         if self.state.form is None:
             self.state.form = ProjectForm(obj=self.project)
+
+    @listener(event="answer_question", source="/**/.")
+    def on_answer_question(self, answer: "Event"):
+        if answer.question == "get_prev_next":
+            self.state.prev_project_id = answer.prev_project_id
+            self.state.next_project_id = answer.next_project_id
 
     @listener(source="./confirmation")
     def on_confirmation(self, event: "Event"):
         if event.action == "cancel" and event.name == "ok":
             return self.cancel(True)
+        elif event.action == "goto" and event.name == "ok":
+            return self.goto(event.project_id, True)
         return True
 
     @action
@@ -487,6 +509,24 @@ class EditProject(FormEncodingSupportMixin, Component):
         else:
             self.emit("cancel")
             return False
+        
+    @action
+    def goto(self, project_id:int, confirmed=False):
+        if self._is_project_modified() and not confirmed:
+            self.confirmation = dict(
+                title="Moving out",
+                question="Are you sure, all changes will be lost?",
+                action="goto",
+                action_params=dict(project_id=project_id)
+            )
+        else:
+            # display edit with other record
+            self.state.project_id = project_id
+            self.state.form = None
+            self.state.prev_project_id = None
+            self.state.next_project_id = None
+            self.mount()
+        return True
 
     @action
     def save(self) -> Optional[bool]:
@@ -516,13 +556,16 @@ class EditProject(FormEncodingSupportMixin, Component):
         db.session.rollback()
         return project_is_modified
 
-# TODO edit project navigation prev,next
+
+# TODO when using got on edit tasks are not changed
 # TODO When going back with browser execute confirmation if needed
+# TODO add decorator run_only_once_for
 # TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add task mark completed
 # TODO add more fields to project and task
 # TODO make it looks nice
 # TODO add remove polyfil in js (??)
+# TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
 @jmb.page(
     "projects",
     Component.Config(
@@ -597,7 +640,31 @@ class ProjectsPage(Component):
             if self.state.page >= self.total_pages:
                 self.state.page = self.total_pages
             start = (self.state.page - 1) * self.state.page_size
-            self.projects = Project.query.order_by(Project.id)[
+            self.projects = Project.query.order_by(Project.id.desc())[
                 start : start + self.state.page_size
             ]
         return super().display()
+
+    @listener(event="ask_question", source="./edit")
+    def on_question_asked(self, event: "Event"):
+        if event.question == "get_prev_next":
+            prev_project_id, next_project_id = self.get_prev_next_id(event.project_id)
+            self.emit(
+                "answer_question",
+                question=event.question,
+                project_id=event.project_id,
+                prev_project_id=prev_project_id,
+                next_project_id=next_project_id,
+            ).to(event.source_full_name)
+        return False
+
+    def get_prev_next_id(self, project_id) -> Tuple[Optional[int], Optional[int]]:
+        # TODO make abstraction of this query manipulation to get next, previous when
+        # order is by any other field or when additional filters are applied
+        prev = Project.query.with_entities(Project.id).order_by(Project.id).filter(Project.id > project_id).first()
+        next = Project.query.with_entities(Project.id).order_by(Project.id.desc()).filter(Project.id < project_id).first()
+        return (
+            prev[0] if prev is not None else None,
+            next[0] if next is not None else None,
+        )
+

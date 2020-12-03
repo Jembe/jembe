@@ -1,4 +1,22 @@
-<h2>Edit project</h2>
+<h2>
+    Edit project 
+    <button 
+        {% if prev_project_id %}
+        jmb:on.click="goto({{prev_project_id}})"
+        {% else %}
+        disabled
+        {% endif %}>
+        Prev
+    </button>
+    <button 
+        {% if next_project_id %}
+        jmb:on.click="goto({{next_project_id}})"
+        {% else %}
+        disabled
+        {% endif %}>
+        Next
+    </button>
+</h2>
 {{form.name.label}}:
 {{form.name(**{"jmb:on.change.defer":"$jmb.set('form.name', $el.value)", "id":false})}}
 <button jmb:on.click="save()">Save</button>

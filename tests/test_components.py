@@ -1711,6 +1711,104 @@ def test_event_source_name_with_keyed_exec_name(jmb, client):
     )
 
 
+def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, client):
+    class Project(Component):
+        def __init__(self, project_id: int):
+            super().__init__()
+
+        @action
+        def goto(self, project_id: int):
+            self.state.project_id = project_id
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<div>Project {{project_id}}{{component('tasks')}}</div>"
+            )
+
+    class Tasks(Component):
+        def __init__(self, project_id: Optional[int]=None):
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<div>Tasks for project: {{project_id}}</div>"
+            )
+
+    @jmb.page(
+        "test",
+        Component.Config(
+            components=dict(
+                project=(
+                    Project,
+                    Component.Config(
+                        components=dict(tasks=Tasks),
+                        inject_into_components=lambda self, _config: dict(
+                            project_id=self.state.project_id
+                        ),
+                    ),
+                )
+            )
+        ),
+    )
+    class Test(Component):
+        @listener(event="_display", source="./project")
+        def on_project_display(self, event):
+            self.project_id = event.source.state.project_id
+
+        def display(self) -> Union[str, "Response"]:
+            self.project_id = getattr(self, "project_id", 1)
+            return self.render_template_string(
+                "<html><body>{{component('project', project_id=project_id)}}</body></html>"
+            )
+
+    r = client.get("/test")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/test" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test"}\'><body>"""
+        """<div jmb:name="/test/project" jmb:data=\'{"actions":["goto"],"changesUrl":true,"state":{"project_id":1},"url":"/test/project/1"}\'>"""
+        """Project 1"""
+        """<div jmb:name="/test/project/tasks" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test/project/1/tasks"}\'>"""
+        """Tasks for project: 1"""
+        """</div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r = client.post(
+        "/test/project/1",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/test", state=dict()),
+                    dict(execName="/test/project", state=dict(project_id=1)),
+                    dict(execName="/test/project/tasks", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/test/project",
+                        actionName="goto",
+                        args=list(),
+                        kwargs=dict(project_id=2),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    print(json_response)
+    assert r.status_code == 200
+    assert len(json_response) == 2
+    assert json_response[0]["execName"] == "/test/project"
+    assert (
+        json_response[0]["dom"]
+        == """<div>Project 2<template jmb-placeholder="/test/project/tasks"></template></div>"""
+    )
+    assert json_response[1]["execName"] == "/test/project/tasks"
+    assert json_response[1]["dom"] == """<div>Tasks for project: 2</div>"""
+
+
 # TODO test counter with configurable increment
 # TODO
 # def test_blog(jmb, client):

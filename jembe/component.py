@@ -107,7 +107,7 @@ class _SubComponentRenderer:
             )
 
     def is_accessible(self) -> bool:
-        # TODO add param ignore_incoplete_params = Truo so that exception trown during initialise
+        # TODO add param ignore_incoplete_params = True so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
         initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
