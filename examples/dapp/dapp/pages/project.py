@@ -494,7 +494,7 @@ class EditProject(FormEncodingSupportMixin, Component):
         if event.action == "cancel" and event.name == "ok":
             return self.cancel(True)
         elif event.action == "goto" and event.name == "ok":
-            return self.goto(event.project_id, True)
+            return self.goto(**event.params["params"], confirmed=True)
         return True
 
     @action
@@ -509,15 +509,15 @@ class EditProject(FormEncodingSupportMixin, Component):
         else:
             self.emit("cancel")
             return False
-        
+
     @action
-    def goto(self, project_id:int, confirmed=False):
+    def goto(self, project_id: int, confirmed=False):
         if self._is_project_modified() and not confirmed:
             self.confirmation = dict(
                 title="Moving out",
                 question="Are you sure, all changes will be lost?",
                 action="goto",
-                action_params=dict(project_id=project_id)
+                params=dict(project_id=project_id),
             )
         else:
             # display edit with other record
@@ -661,8 +661,18 @@ class ProjectsPage(Component):
     def get_prev_next_id(self, project_id) -> Tuple[Optional[int], Optional[int]]:
         # TODO make abstraction of this query manipulation to get next, previous when
         # order is by any other field or when additional filters are applied
-        prev = Project.query.with_entities(Project.id).order_by(Project.id).filter(Project.id > project_id).first()
-        next = Project.query.with_entities(Project.id).order_by(Project.id.desc()).filter(Project.id < project_id).first()
+        prev = (
+            Project.query.with_entities(Project.id)
+            .order_by(Project.id)
+            .filter(Project.id > project_id)
+            .first()
+        )
+        next = (
+            Project.query.with_entities(Project.id)
+            .order_by(Project.id.desc())
+            .filter(Project.id < project_id)
+            .first()
+        )
         return (
             prev[0] if prev is not None else None,
             next[0] if next is not None else None,
