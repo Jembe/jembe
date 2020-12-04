@@ -536,7 +536,7 @@ class AddTask(Component):
                 # saving from component who created wip_db
                 # save all changes from wip_db
                 self.state.task_id = self._wipdb.save(self.state.task_id)
-                # # remove wipdb becouse we dont need it anymore
+                # remove wipdb becouse we dont need it anymore
                 # del session["wipdbs"][self.state.wip_id]
                 # self.state.wip_id = None
                 # # TODO change injected into of child components when state is changed

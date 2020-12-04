@@ -83,11 +83,11 @@ class ComponentState(dict):
         c._injected_params_names = deepcopy(self._injected_params_names)
         return c
 
-    def tojsondict(self, component_class: Type["Component"]):
+    def tojsondict(self, component_class: Type["Component"], full=False):
         return {
             k: component_class.encode_param(k, v)
             for k, v in self.items()
-            if k not in self._injected_params_names
+            if full == True or k not in self._injected_params_names
         }
 
 
@@ -282,6 +282,7 @@ class ComponentMeta(ABCMeta):
 class Component(metaclass=ComponentMeta):
     state: "ComponentState"
     _jembe_init_signature: "Signature"
+    _jembe_init_param_names: Tuple[str, ...]
     _jembe_state_param_names: Tuple[str, ...]
     _jembe_injected_params_names: List[str]
     _jembe_config_init_params: Dict[str, Any]
@@ -380,6 +381,7 @@ class Component(metaclass=ComponentMeta):
         - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None
 
         """
+
         def _encode_supported_types(value, param_hint):
             if param_hint.annotation == Parameter.empty:
                 raise ValueError("Parameter without annotation")

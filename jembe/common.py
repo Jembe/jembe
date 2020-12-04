@@ -1,4 +1,6 @@
 from inspect import isfunction
+import re
+from jembe.apispec.utils import relative_name
 from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
 import inspect
 from importlib import import_module
@@ -40,6 +42,18 @@ def direct_child_name(component: "Component", subcompoenent_full_name: str) -> s
             )
         )
     return child_names[len(parent_names)]
+
+
+def is_direct_child_name(exec_name: str, sub_exec_name: str) -> bool:
+    """Returns True if sub_exec_name is direct child of exec_name"""
+    if not sub_exec_name.startswith(exec_name) or exec_name == sub_exec_name:
+        return False
+    relative_name = sub_exec_name[len(exec_name) :]
+    if relative_name[0] != "/":
+        return False
+    if len(relative_name.split("/")) > 2:
+        return False
+    return True
 
 
 def parent_exec_name(exec_name: str) -> str:
@@ -85,6 +99,7 @@ def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
         "Unsuported url query param type. Supported types are int, float, bool and string"
     )
 
+
 def get_annotation_type(annotation):
     """ returns tuple(annotation_type, is_optional)"""
 
@@ -96,9 +111,7 @@ def get_annotation_type(annotation):
         else:
             return annotation
 
-    if get_origin(annotation) is Union and type(None) in get_args(
-        annotation
-    ):
+    if get_origin(annotation) is Union and type(None) in get_args(annotation):
         # is_optional
         return (_geta(get_args(annotation)[0]), True)
     else:

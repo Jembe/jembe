@@ -28,6 +28,7 @@ from flask import json, jsonify, Response
 from .common import (
     convert_to_annotated_type,
     exec_name_to_full_name,
+    is_direct_child_name,
     is_page_exec_name,
     parent_exec_name,
 )
@@ -156,6 +157,9 @@ class CallActionCommand(Command):
         self.args = args if args is not None else tuple()
         self.kwargs = kwargs if kwargs is not None else dict()
 
+        self._do_reinject_into_children = False
+        self._component_state_before_execute = None
+
     def execute(self):
         component = self.processor.components[self.component_exec_name]
         cconfig = component._config
@@ -165,10 +169,16 @@ class CallActionCommand(Command):
                     cconfig.full_name, self.action_name
                 )
             )
+        # if component injects params into children save component state json hesh
+        if cconfig._inject_into_components is not None:
+            self._component_state_before_execute = component.state.tojsondict(
+                component, True
+            )
 
         # execute action
         action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
         component.has_action_or_listener_executed = True
+
         # process action result
         if action_result is None or (
             isinstance(action_result, bool) and action_result == True
@@ -206,13 +216,30 @@ class CallActionCommand(Command):
         ]
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
-        return [
+        commands: List["EmitCommand"] = [
             EmitCommand(
                 self.component_exec_name,
                 SystemEvents.CALL.value,
                 dict(action=self.action_name),
-            ).mount(self.processor),
+            ).mount(self.processor)
         ]
+        # reinject params to child components
+        if self._component_state_before_execute is not None:
+            component = self.processor.components[self.component_exec_name]
+            current_state = self.processor.components[
+                self.component_exec_name
+            ].state.tojsondict(component, True)
+            if current_state != self._component_state_before_execute:
+                for exec_name, render in self.processor.renderers.items():
+                    if render.fresh and is_direct_child_name(self.component_exec_name, exec_name):
+                        # reinitialise component is freshly rerendered forcing it to apply
+                        # new injected params
+                        commands.extend(
+                            (
+                                InitialiseCommand(exec_name, dict()),
+                            )
+                        )
+        return commands
 
     def __repr__(self):
         return "CallAction({}, {})".format(self.component_exec_name, self.action_name)
@@ -234,15 +261,16 @@ class CallDisplayCommand(CallActionCommand):
 
     @cached_property
     def _redisplay_needed(self):
-
         if self.component_exec_name in self.processor.renderers and not (
             self.force
             or RedisplayFlag.WHEN_ON_PAGE in self._component._config.redisplay
             or RedisplayFlag.WHEN_DISPLAY_EXECUTED in self._component._config.redisplay
             or (
                 RedisplayFlag.WHEN_STATE_CHANGED in self._component._config.redisplay
-                and self.processor.renderers[self.component_exec_name].state.tojsondict(self._component)
-                != self._component.state.tojsondict(self._component)
+                and self.processor.renderers[self.component_exec_name].state.tojsondict(
+                    self._component, True
+                )
+                != self._component.state.tojsondict(self._component, True)
             )
         ):
             # if compoent is already displayed/rendered in same state and no force is set
@@ -542,7 +570,7 @@ class EmitCommand(Command):
 
     def __repr__(self):
         return "Emit({}, {}, {})".format(
-            self.component_exec_name, self.event_name, self._to
+            self.component_exec_name, self.event_name, self._to 
         )
 
     def reemit_over(
@@ -642,14 +670,19 @@ class InitialiseCommand(Command):
     @cached_property
     def _inject_into_params(self) -> Dict[str, Any]:
         parent_cconfig = self._cconfig.parent
-        return (
-            parent_cconfig._inject_into_components(
+        injected_params = dict()
+        if parent_cconfig and parent_cconfig._inject_into_components:
+            injected_params = parent_cconfig._inject_into_components(
                 self.processor.components[parent_exec_name(self.component_exec_name)],
                 self._cconfig,
             )
-            if parent_cconfig and parent_cconfig._inject_into_components
-            else dict()
-        )
+            # clean up injected params
+            injected_params = {
+                key: value
+                for key, value in injected_params.items()
+                if key in self._cconfig.component_class._jembe_init_param_names
+            }
+        return injected_params
 
     @cached_property
     def _must_do_init(self):
@@ -693,7 +726,11 @@ class InitialiseCommand(Command):
                 if component
                 else dict()
             )
-            init_params = {**existing_params, **self.init_params}
+            init_params = {
+                **existing_params,
+                **self.init_params,
+                **self._inject_into_params,
+            }
             # Instance createion by excplictly calling __new__ and __init__
             # becouse _config should be avaiable in __init__
             component = object.__new__(self._cconfig.component_class)
@@ -1058,7 +1095,6 @@ class Processor:
     def _execute_commands(self):
         """executes all commands from self._commands que"""
         while self._commands:
-            # print(self._commands)
             self._execute_command(self._commands.pop())
 
     def _execute_command(self, command: "Command"):
@@ -1070,6 +1106,8 @@ class Processor:
             != self._raised_exception_on_initialise[command.component_exec_name]
         ):
             try:
+                if not isinstance(command, EmitCommand) or not command.event_name.startswith("_"):
+                    print(command)
                 command.execute()
                 self._staging_commands.move_commands_to(self._commands)
             except JembeError as jmberror:
