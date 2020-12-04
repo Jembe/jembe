@@ -1,7 +1,9 @@
+{% if confirmation %}
 <div>
-<h2>{{title}}</h2>
-<p>{{question}}</p>
-{% for choice, choice_info in choices.items()  %}
-    <button jmb:on.click='choose("{{choice}}")' class="{{choice_info.css}}">{{choice_info.title}}</button>
-{% endfor %}
+    <h2>{{confirmation.title}}</h2>
+    <p>{{confirmation.question}}</p>
+    {% for choice, choice_info in confirmation.choices.items()  %}
+        <button jmb:on.click='choose("{{choice}}")' class="{{choice_info.css}}">{{choice_info.title}}</button>
+    {% endfor %}
 </div>
+{% endif %}

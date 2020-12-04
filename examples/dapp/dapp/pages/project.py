@@ -7,7 +7,7 @@ from jembe.utils import run_only_once
 from typing import List, Optional, Set, TYPE_CHECKING, Tuple, Union, Any, Dict
 from uuid import uuid1
 from math import ceil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from jembe import Component, action, config, listener, BadRequest
 from sqlalchemy.exc import SQLAlchemyError
 from wtforms_sqlalchemy.orm import model_form
@@ -24,31 +24,62 @@ ProjectForm = model_form(Project, db, exclude=("tasks",))
 TaskForm = model_form(Task, db, exclude=("project",))
 
 
+@dataclass
+class Confirmation:
+    title: str
+    question: str
+    action: str
+    params: dict = field(default_factory=dict)
+    choices: Dict[str, dict] = field(
+        default_factory=lambda: dict(
+            ok=dict(title="Ok", css=""), cancel=dict(title="Cancel", css="")
+        )
+    )
+
+    @classmethod
+    def jembe_decode_param(cls, value) -> Optional["Confirmation"]:
+        return (
+            cls(
+                title=value.get("title"),
+                question=value.get("question"),
+                action=value.get("action"),
+                params=value.get("params"),
+                choices=value.get("choices"),
+            )
+            if value is not None
+            else None
+        )
+
+
 @config(Component.Config(changes_url=False, template="confirmation.html"))
 # TODO confirm dialog should have click outside set to cancel it
 class ConfirmationDialog(Component):
     def __init__(
-        self,
-        title: str = "",
-        question: str = "",
-        action: Optional[str] = None,
-        params: Optional[dict] = None,
-        choices: Optional[Dict[str, str]] = None,
+        self, confirmation: Optional[Confirmation] = None, source: Optional[str] = None
     ) -> None:
-        if action is None:
-            raise ValueError("action:str parameter is required")
-        if choices is None:
-            self.state.choices = dict(
-                ok=dict(title="Ok", css=""), cancel=dict(title="Cancel", css="")
-            )
         super().__init__()
+
+    @classmethod
+    def decode_param(cls, name: str, value: Any) -> Any:
+        if name == "confirmation":
+            return Confirmation.jembe_decode_param(value)
+        return super().decode_param(name, value)
+
+    @listener(event="request_confirmation")
+    def on_request_confirmation(self, event: "Event"):
+        self.state.confirmation = event.confirmation
+        self.state.source = event.source_exec_name
 
     @action
     def choose(self, choice: str):
         self.emit(
-            choice, action=self.state.action, params=self.state.params,
-        )
-        return False
+            "confirmation",
+            choice=choice,
+            action=self.state.confirmation.action,
+            action_params=self.state.confirmation.params,
+        ).to(self.state.source)
+        self.state.confirmation = None
+        self.state.source = None
 
 
 @dataclass
@@ -90,13 +121,7 @@ class FormEncodingSupportMixin:
 
 # Tasks
 ########
-@config(
-    Component.Config(
-        template="tasks/view.html",
-        components=dict(confirmation=ConfirmationDialog),
-        changes_url=False,
-    )
-)
+@config(Component.Config(template="tasks/view.html", changes_url=False,))
 class ViewTask(Component):
     def __init__(self, task_id: int, _task: Optional[Task] = None) -> None:
         self._task = _task
@@ -110,24 +135,25 @@ class ViewTask(Component):
             else Task.query.get(self.state.task_id)
         )
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "delete_task" and event.name == "ok":
-            return self.delete_task(event.params["params"]["task_id"], True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def delete_task(self, task_id: int, confirmed: bool = False):
         if not confirmed:
             # display confirmation dialog
-            self.confirmation = dict(
-                title="Delete task",
-                question="Are you sure?",
-                action="delete_task",
-                params=dict(task_id=task_id),
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Delete task",
+                    question="Are you sure?",
+                    action="delete_task",
+                    params=dict(task_id=task_id, confirmed=True),
+                ),
             )
-            # redisplay this compomenonet
-            return True
         else:
             # delete task
             task = Task.query.get(task_id)
@@ -144,7 +170,6 @@ class ViewTask(Component):
 @config(
     Component.Config(
         template="tasks/edit.html",
-        components=dict(confirmation=ConfirmationDialog),
         changes_url=False,
     )
 )
@@ -163,21 +188,24 @@ class EditTask(FormEncodingSupportMixin, Component):
         if self.state.form is None:
             self.state.form = TaskForm(obj=self.task)
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "cancel" and event.name == "ok":
-            return self.cancel(True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def cancel(self, confirmed=False):
         if self._is_task_modified() and not confirmed:
-            self.confirmation = dict(
-                title="Cancel Edit",
-                question="Are you sure, all changes will be lost?",
-                action="cancel",
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Cancel Edit",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
             )
-            return True  # force redisplay to show confirmation dialog
         else:
             self.emit("cancel")
             return False  # don't execute display
@@ -224,7 +252,6 @@ class EditTask(FormEncodingSupportMixin, Component):
 @config(
     Component.Config(
         template="tasks/add.html",
-        components=dict(confirmation=ConfirmationDialog),
         changes_url=False,
     )
 )
@@ -239,21 +266,24 @@ class AddTask(FormEncodingSupportMixin, Component):
         if self.state.form is None:
             self.state.form = TaskForm(obj=Task(project_id=self.state.project_id))
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "cancel" and event.name == "ok":
-            return self.cancel(True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def cancel(self, confirmed=False):
         if self._is_task_modified() and not confirmed:
-            self.confirmation = dict(
-                title="Cancel Add",
-                question="Are you sure, all changes will be lost?",
-                action="cancel",
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Cancel Add",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
             )
-            return True  # force redisplay to show confirmation dialog
         else:
             self.emit("cancel")
             return False  # don't execute display
@@ -376,10 +406,8 @@ class Tasks(Component):
 
 # Projects
 ##########
-@config(Component.Config(components=dict(confirmation=ConfirmationDialog)))
 class AddProject(FormEncodingSupportMixin, Component):
     def __init__(self, form: Optional["Form"] = None) -> None:
-        self.confirmation: Optional[dict] = None
         super().__init__()
 
     @run_only_once
@@ -387,21 +415,23 @@ class AddProject(FormEncodingSupportMixin, Component):
         if self.state.form is None:
             self.state.form = ProjectForm(obj=Project())
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "cancel" and event.name == "ok":
-            return self.cancel(True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
-
     @action
     def cancel(self, confirmed=False):
         if self._is_project_modified() and not confirmed:
-            self.confirmation = dict(
-                title="Cancel Add",
-                question="Are you sure, all changes will be lost?",
-                action="cancel",
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Cancel Add",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
             )
-            return True  # force redisplay to show confirmation dialog
         else:
             self.emit("cancel")
             return False  # don't execute display
@@ -451,7 +481,7 @@ class AddProject(FormEncodingSupportMixin, Component):
 
 @config(
     Component.Config(
-        components=dict(tasks=Tasks, confirmation=ConfirmationDialog),
+        components=dict(tasks=Tasks),
         inject_into_components=lambda self, _config: dict(
             project_id=self.state.project_id
         ),
@@ -465,7 +495,6 @@ class EditProject(FormEncodingSupportMixin, Component):
         prev_project_id: Optional[int] = None,
         next_project_id: Optional[int] = None,
     ) -> None:
-        self.confirmation: Optional[dict] = None
         super().__init__()
 
     def mount(self):
@@ -489,23 +518,24 @@ class EditProject(FormEncodingSupportMixin, Component):
             self.state.prev_project_id = answer.prev_project_id
             self.state.next_project_id = answer.next_project_id
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "cancel" and event.name == "ok":
-            return self.cancel(True)
-        elif event.action == "goto" and event.name == "ok":
-            return self.goto(**event.params["params"], confirmed=True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def cancel(self, confirmed=False):
         if self._is_project_modified() and not confirmed:
-            self.confirmation = dict(
-                title="Cancel Edit",
-                question="Are you sure, all changes will be lost?",
-                action="cancel",
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Cancel Edit",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
             )
-            return True  # force redisplay to shown confirmation dialog
         else:
             self.emit("cancel")
             return False
@@ -513,11 +543,14 @@ class EditProject(FormEncodingSupportMixin, Component):
     @action
     def goto(self, project_id: int, confirmed=False):
         if self._is_project_modified() and not confirmed:
-            self.confirmation = dict(
-                title="Moving out",
-                question="Are you sure, all changes will be lost?",
-                action="goto",
-                params=dict(project_id=project_id),
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Moving to",
+                    question="Are you sure, all changes will be lost?",
+                    action="goto",
+                    params=dict(project_id=project_id, confirmed=True),
+                ),
             )
         else:
             # display edit with other record
@@ -557,7 +590,6 @@ class EditProject(FormEncodingSupportMixin, Component):
         return project_is_modified
 
 
-# TODO when using got on edit tasks are not changed
 # TODO When going back with browser execute confirmation if needed
 # TODO add decorator run_only_once_for
 # TODO display generic error dialog when error is hapend in x-jembe request
@@ -585,7 +617,6 @@ class ProjectsPage(Component):
         if mode not in (None, "edit", "add"):
             raise BadRequest()
         self.goto = None
-        self.confirmation: Optional[dict] = None
         super().__init__()
 
     @listener(event="_display", source=["./edit", "./add"])
@@ -601,21 +632,24 @@ class ProjectsPage(Component):
         self.state.mode = "edit"
         self.goto = event.params["project_id"]
 
-    @listener(source="./confirmation")
+    @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
-        if event.action == "delete_project" and event.name == "ok":
-            return self.delete_project(event.params["params"]["project_id"], True)
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def delete_project(self, project_id: int, confirmed: bool = False):
         if not confirmed:
             # display confirmation dialog
-            self.confirmation = dict(
-                title="Delete project",
-                question="Are you sure?",
-                action="delete_project",
-                params=dict(project_id=project_id),
+            self.emit(
+                "request_confirmation",
+                confirmation=Confirmation(
+                    title="Delete project",
+                    question="Are you sure?",
+                    action="delete_project",
+                    params=dict(project_id=project_id, confirmed=True),
+                ),
             )
         else:
             # delete project
@@ -626,8 +660,7 @@ class ProjectsPage(Component):
                 "pushNotification",
                 notification=Notification("{} deleted.".format(project.name)),
             )
-        # always redisplay this compomenonet
-        return True
+            return True
 
     def display(self) -> Union[str, "Response"]:
         if self.state.mode is None:
