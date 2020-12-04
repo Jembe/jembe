@@ -36,20 +36,6 @@ class Confirmation:
         )
     )
 
-    @classmethod
-    def jembe_decode_param(cls, value) -> Optional["Confirmation"]:
-        return (
-            cls(
-                title=value.get("title"),
-                question=value.get("question"),
-                action=value.get("action"),
-                params=value.get("params"),
-                choices=value.get("choices"),
-            )
-            if value is not None
-            else None
-        )
-
 
 @config(Component.Config(changes_url=False, template="confirmation.html"))
 # TODO confirm dialog should have click outside set to cancel it
@@ -62,7 +48,17 @@ class ConfirmationDialog(Component):
     @classmethod
     def decode_param(cls, name: str, value: Any) -> Any:
         if name == "confirmation":
-            return Confirmation.jembe_decode_param(value)
+            return (
+                Confirmation(
+                    title=value.get("title"),
+                    question=value.get("question"),
+                    action=value.get("action"),
+                    params=value.get("params"),
+                    choices=value.get("choices"),
+                )
+                if value is not None
+                else None
+            )
         return super().decode_param(name, value)
 
     @listener(event="request_confirmation")
@@ -129,22 +125,26 @@ class ViewTask(Component):
 
     @cached_property
     def task(self) -> Task:
-        return (
-            self._task
-            if self._task is not None and self._task.id == self.state.task_id
-            else Task.query.get(self.state.task_id)
-        )
+        if self._task is not None and self._task.id == self.state.task_id:
+            return self._task
+        return Task.query.get(self.state.task_id)
 
     @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
+        # if this component has a method with named like event.action and if
+        # user confirmed operation by selecting "ok" choice
         if hasattr(self, event.action) and event.choice == "ok":
+            # execute this component method anmed event.action
+            # with named parameters received via event.action_params
             return getattr(self, event.action)(**event.action_params)
         return True
 
     @action
     def delete_task(self, task_id: int, confirmed: bool = False):
         if not confirmed:
-            # display confirmation dialog
+            # if delelete is not confirmed by user
+            # emit event to ConfirmationDialog component instructing it
+            # to display confirmation dialog
             self.emit(
                 "request_confirmation",
                 confirmation=Confirmation(
@@ -155,24 +155,27 @@ class ViewTask(Component):
                 ),
             )
         else:
-            # delete task
+            # delete is confirmed by user proceide with
+            # delete operation
             task = Task.query.get(task_id)
             db.session.delete(task)
             db.session.commit()
+            # emit delete event to inform parent component so
+            # that parent can redisplay itself
             self.emit("delete", task=task, task_id=task_id)
+            # emit pushNotification event to instruct Notification component
+            # to display new notification
             self.emit(
                 "pushNotification",
                 notification=Notification("{} deleted.".format(task.name)),
             )
+            # don't redisplay this component
+            # redisplaying this componet will couse error becaouse taks
+            # is deleted
             return False
 
 
-@config(
-    Component.Config(
-        template="tasks/edit.html",
-        changes_url=False,
-    )
-)
+@config(Component.Config(template="tasks/edit.html", changes_url=False,))
 class EditTask(FormEncodingSupportMixin, Component):
     def __init__(
         self, task_id: int, form: Optional["Form"] = None, _task: Optional[Task] = None
@@ -249,12 +252,7 @@ class EditTask(FormEncodingSupportMixin, Component):
         return task_is_modified
 
 
-@config(
-    Component.Config(
-        template="tasks/add.html",
-        changes_url=False,
-    )
-)
+@config(Component.Config(template="tasks/add.html", changes_url=False,))
 class AddTask(FormEncodingSupportMixin, Component):
     def __init__(
         self, project_id: Optional[int] = None, form: Optional["Form"] = None
@@ -420,6 +418,7 @@ class AddProject(FormEncodingSupportMixin, Component):
         if hasattr(self, event.action) and event.choice == "ok":
             return getattr(self, event.action)(**event.action_params)
         return True
+
     @action
     def cancel(self, confirmed=False):
         if self._is_project_modified() and not confirmed:
@@ -590,6 +589,7 @@ class EditProject(FormEncodingSupportMixin, Component):
         return project_is_modified
 
 
+# TODO encoding/decoding rename param_to_json param_from_json; less explanation needed
 # TODO When going back with browser execute confirmation if needed
 # TODO add decorator run_only_once_for
 # TODO display generic error dialog when error is hapend in x-jembe request
@@ -598,6 +598,10 @@ class EditProject(FormEncodingSupportMixin, Component):
 # TODO make it looks nice
 # TODO add remove polyfil in js (??)
 # TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
+# TODO use regular if else for readability in examples
+# TODO extensive comment all python code that is not understud to someone who does know python
+# TODO proceide with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
+# TODO make course that will be created to build this version step by step
 @jmb.page(
     "projects",
     Component.Config(
@@ -710,4 +714,3 @@ class ProjectsPage(Component):
             prev[0] if prev is not None else None,
             next[0] if next is not None else None,
         )
-
