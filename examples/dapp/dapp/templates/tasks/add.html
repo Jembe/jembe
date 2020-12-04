@@ -3,8 +3,5 @@
     <td>
         <button jmb:on.click="save()">Add</button>
         <button jmb:on.click="cancel()">Cancel</button>
-        {% if confirmation %}
-            {{component("confirmation", **confirmation)}}
-        {% endif %}
     </td>
 </tr>
