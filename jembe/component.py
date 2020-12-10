@@ -219,18 +219,13 @@ def componentInitDecorator(init_method):
         """
         Inject params from inject method and saves states params in component state
         """
-        # Inject params from inject method
-        # if signature(init_method) == self._jembe_init_signature:
-        if not hasattr(self, "_jembe_injected_params_names"):
-            params_to_inject = {
-                **{
-                    k: v
-                    for k, v in self._jembe_injected_into.items()
-                    if k in self._jembe_init_param_names
-                },
-                **self.inject(),
-            }
-            self._jembe_injected_params_names = list(params_to_inject.keys())
+        if not hasattr(self, "state"):
+            # only top most class in hieararchy sets componentState and injects from self.inject()
+
+            # Inject params from inject method
+            params_to_inject = self.inject()
+            self._jembe_injected_params_names.extend(params_to_inject.keys())
+            
             for name, value in params_to_inject.items():
                 if current_app.debug and name in kwargs:
                     current_app.logger.warning(
@@ -240,9 +235,7 @@ def componentInitDecorator(init_method):
                     )
                 kwargs[name] = value
 
-        # Saves states params in component state
-        if not hasattr(self, "state"):
-            # only top most class in hieararchy sets componentState
+            # Saves states params in component state
             self.state = ComponentState(
                 **{
                     spn: kwargs.get(

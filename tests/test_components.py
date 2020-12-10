@@ -1797,7 +1797,6 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
         headers={"x-jembe": True},
     )
     json_response = json.loads(r.data)
-    print(json_response)
     assert r.status_code == 200
     assert len(json_response) == 2
     assert json_response[0]["execName"] == "/test/project"

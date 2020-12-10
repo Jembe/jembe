@@ -231,14 +231,12 @@ class CallActionCommand(Command):
             ].state.tojsondict(component, True)
             if current_state != self._component_state_before_execute:
                 for exec_name, render in self.processor.renderers.items():
-                    if render.fresh and is_direct_child_name(self.component_exec_name, exec_name):
+                    if render.fresh and is_direct_child_name(
+                        self.component_exec_name, exec_name
+                    ):
                         # reinitialise component is freshly rerendered forcing it to apply
                         # new injected params
-                        commands.extend(
-                            (
-                                InitialiseCommand(exec_name, dict()),
-                            )
-                        )
+                        commands.extend((InitialiseCommand(exec_name, dict()),))
         return commands
 
     def __repr__(self):
@@ -570,7 +568,7 @@ class EmitCommand(Command):
 
     def __repr__(self):
         return "Emit({}, {}, {})".format(
-            self.component_exec_name, self.event_name, self._to 
+            self.component_exec_name, self.event_name, self._to
         )
 
     def reemit_over(
@@ -716,14 +714,14 @@ class InitialiseCommand(Command):
         # create new component if component with identical exec_name does not exist
         # or component with identical exec_name has not action or listener executed
         if self._must_do_init:
-            component = self.processor.components.get(self.component_exec_name, None)
+            existing_component = self.processor.components.get(self.component_exec_name, None)
             existing_params = (
                 {
                     k: v
-                    for k, v in component.state.items()
-                    if k in component.state._injected_params_names
+                    for k, v in existing_component.state.items()
+                    if k in existing_component.state._injected_params_names
                 }
-                if component
+                if existing_component
                 else dict()
             )
             init_params = {
@@ -735,7 +733,7 @@ class InitialiseCommand(Command):
             # becouse _config should be avaiable in __init__
             component = object.__new__(self._cconfig.component_class)
             component._config = self._cconfig
-            component._jembe_injected_into = self._inject_into_params
+            component._jembe_injected_params_names = list(self._inject_into_params.keys())
             component.__init__(**init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
@@ -927,9 +925,7 @@ class Processor:
         if is_component:
             return InitialiseCommand(
                 command_data["execName"],
-                self._load_init_params(
-                    command_data["execName"], command_data["state"]
-                ),
+                self._load_init_params(command_data["execName"], command_data["state"]),
                 exist_on_client=True,
             )
         elif command_data["type"] == "init":
@@ -1106,8 +1102,6 @@ class Processor:
             != self._raised_exception_on_initialise[command.component_exec_name]
         ):
             try:
-                if not isinstance(command, EmitCommand) or not command.event_name.startswith("_"):
-                    print(command)
                 command.execute()
                 self._staging_commands.move_commands_to(self._commands)
             except JembeError as jmberror:

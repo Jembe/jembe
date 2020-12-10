@@ -1,6 +1,5 @@
 import os
 import pytest
-from traceback import print_exc
 from jembe import Jembe
 from jembe.exceptions import JembeError
 
