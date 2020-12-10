@@ -85,7 +85,7 @@ class ComponentState(dict):
 
     def tojsondict(self, component_class: Type["Component"], full=False):
         return {
-            k: component_class.encode_param(k, v)
+            k: component_class.dump_init_param(k, v)
             for k, v in self.items()
             if full == True or k not in self._injected_params_names
         }
@@ -372,17 +372,18 @@ class Component(metaclass=ComponentMeta):
         return url
 
     @classmethod
-    def encode_param(cls, name: str, value: Any) -> Any:
+    def dump_init_param(cls, name: str, value: Any) -> Any:
         """
-        Encode state param for sending to client (encoded param will be  transformed to json).
+        Encode state param for sending to client (dumped param will be  transformed to json).
 
-        Encoded value (return value) should be build using only following types:
+        dumped value (return value) should be build using only following types:
 
         - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None
+        so that it can be jsonified
 
         """
 
-        def _encode_supported_types(value, param_hint):
+        def _dump_supported_types(value, param_hint):
             if param_hint.annotation == Parameter.empty:
                 raise ValueError("Parameter without annotation")
             atype, is_optional = get_annotation_type(param_hint.annotation)
@@ -395,14 +396,14 @@ class Component(metaclass=ComponentMeta):
 
         if name in cls._jembe_init_signature.parameters:
             try:
-                return _encode_supported_types(
+                return _dump_supported_types(
                     value, cls._jembe_init_signature.parameters[name]
                 )
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
-                        "State param {} of {}.{} with hint {} is not supported for json encode/decode "
-                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) ".format(
+                        "State param {} of {}.{} with hint {} is not supported for json dump/load "
+                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({}) ".format(
                             name,
                             cls.__module__,
                             cls.__name__,
@@ -413,21 +414,21 @@ class Component(metaclass=ComponentMeta):
         return value
 
     @classmethod
-    def decode_param(cls, name: str, value: Any) -> Any:
+    def load_init_param(cls, name: str, value: Any) -> Any:
         """
-        Decode state param received via json call to be uset to initialise in __init__.
+        load and Decode init/state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
 
         Default implemntation suports:
             - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None, via
-              default json decode.
+              default json load.
             - if any other type hint (or no hint) is set for state param and we are running in 
               debug mode exception will be raised (No exception will be raised in production
               because hint checking can be expensive)
         """
 
-        def _decode_supported_types(value, param_hint):
-            """ returns decoded value or raise ValueError"""
+        def _load_supported_types(value, param_hint):
+            """ returns loaded value or raise ValueError"""
             # TODO add support for multiple annotation types Union[a,b,c] etc
 
             if param_hint.annotation == Parameter.empty:
@@ -457,14 +458,14 @@ class Component(metaclass=ComponentMeta):
 
         if name in cls._jembe_init_signature.parameters:
             try:
-                return _decode_supported_types(
+                return _load_supported_types(
                     value, cls._jembe_init_signature.parameters[name]
                 )
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
-                        "State param {} of {}.{} with hint {} is not supported for json encode/decode "
-                        "nor custom encoding/decoding logic is defined in encode_param/decode_param. ({}) ".format(
+                        "State param {} of {}.{} with hint {} is not supported for json dump/load "
+                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({}) ".format(
                             name,
                             cls.__module__,
                             cls.__name__,

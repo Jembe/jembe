@@ -905,15 +905,15 @@ class Processor:
             command if command.is_mounted else command.mount(self), end
         )
 
-    def _decode_init_params(self, exec_name: str, init_params: dict) -> dict:
+    def _load_init_params(self, exec_name: str, init_params: dict) -> dict:
         component_class = self.jembe.get_component_config(exec_name).component_class
 
-        decoded_params = dict()
+        load_params = dict()
         for param_name, param_value in init_params.items():
-            decoded_params[param_name] = component_class.decode_param(
+            load_params[param_name] = component_class.load_init_param(
                 param_name, param_value
             )
-        return decoded_params
+        return load_params
 
     def _x_jembe_command_factory(
         self, command_data: dict, is_component: bool = False
@@ -927,7 +927,7 @@ class Processor:
         if is_component:
             return InitialiseCommand(
                 command_data["execName"],
-                self._decode_init_params(
+                self._load_init_params(
                     command_data["execName"], command_data["state"]
                 ),
                 exist_on_client=True,
@@ -935,7 +935,7 @@ class Processor:
         elif command_data["type"] == "init":
             return InitialiseCommand(
                 command_data["componentExecName"],
-                self._decode_init_params(
+                self._load_init_params(
                     command_data["componentExecName"], command_data["initParams"]
                 ),
             )

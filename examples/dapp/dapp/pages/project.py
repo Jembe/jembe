@@ -46,7 +46,7 @@ class ConfirmationDialog(Component):
         super().__init__()
 
     @classmethod
-    def decode_param(cls, name: str, value: Any) -> Any:
+    def load_init_param(cls, name: str, value: Any) -> Any:
         if name == "confirmation":
             return (
                 Confirmation(
@@ -59,7 +59,7 @@ class ConfirmationDialog(Component):
                 if value is not None
                 else None
             )
-        return super().decode_param(name, value)
+        return super().load_init_param(name, value)
 
     @listener(event="request_confirmation")
     def on_request_confirmation(self, event: "Event"):
@@ -103,16 +103,16 @@ class Notifications(Component):
 
 class FormEncodingSupportMixin:
     @classmethod
-    def encode_param(cls, name: str, value: Any) -> Any:
+    def dump_init_param(cls, name: str, value: Any) -> Any:
         if name == "form":
             return value.data if value is not None else dict()
-        return super().encode_param(name, value)  # type:ignore
+        return super().dump_init_param(name, value)  # type:ignore
 
     @classmethod
-    def decode_param(cls, name: str, value: Any) -> Any:
+    def load_init_param(cls, name: str, value: Any) -> Any:
         if name == "form":
             return ProjectForm(data=value)
-        return super().decode_param(name, value)  # type:ignore
+        return super().load_init_param(name, value)  # type:ignore
 
 
 # Tasks

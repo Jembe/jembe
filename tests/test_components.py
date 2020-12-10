@@ -1571,7 +1571,7 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
     )
 
 
-def test_component_default_encode_decode_params(app_ctx):
+def test_component_default_dump_and_load_init_param(app_ctx):
     # - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None, via
     UrlPath = NewType("UrlPath", str)
 
@@ -1598,32 +1598,32 @@ def test_component_default_encode_decode_params(app_ctx):
             super().__init__()
 
     with app_ctx:
-        assert C.decode_param("i", 1) == 1
-        assert C.decode_param("oi", None) == None
-        assert C.decode_param("oi", 1) == 1
-        assert C.decode_param("s", "test") == "test"
-        assert C.decode_param("os", None) == None
-        assert C.decode_param("os", "test") == "test"
-        assert C.decode_param("f", 1.0) == 1.0
-        assert C.decode_param("of", None) == None
-        assert C.decode_param("of", 1) == 1
-        assert C.decode_param("od1", None) == None
-        assert C.decode_param("od1", dict(a="A", b=2)) == dict(a="A", b=2)
-        assert C.decode_param("od1", {1: "1", 2: 20}) == {1: "1", 2: 20}
-        assert C.decode_param("od2", None) == None
-        assert C.decode_param("od2", dict(a="A", b=2)) == dict(a="A", b=2)
-        assert C.decode_param("ts", ("1", "2")) == ("1", "2")
-        assert C.decode_param("ots", None) == None
-        assert C.decode_param("ots", ("1", "b")) == ("1", "b")
-        assert C.decode_param("sq", ()) == ()
-        assert C.decode_param("sq", (1, 2)) == (1, 2)
-        assert C.decode_param("sq", [1, "2"]) == (1, "2")
-        assert C.decode_param("urlpath", "test") == "test"
-        assert C.decode_param("urlpath", "test") == UrlPath("test")
-        assert C.decode_param("ourlpath", None) == None
-        assert C.decode_param("ourlpath", "test") == UrlPath("test")
-        assert C.decode_param("st", set([1, 2])) == set([1, 2])
-        assert C.decode_param("st1", set(["a", 1])) == set(["a", 1])
+        assert C.load_init_param("i", 1) == 1
+        assert C.load_init_param("oi", None) == None
+        assert C.load_init_param("oi", 1) == 1
+        assert C.load_init_param("s", "test") == "test"
+        assert C.load_init_param("os", None) == None
+        assert C.load_init_param("os", "test") == "test"
+        assert C.load_init_param("f", 1.0) == 1.0
+        assert C.load_init_param("of", None) == None
+        assert C.load_init_param("of", 1) == 1
+        assert C.load_init_param("od1", None) == None
+        assert C.load_init_param("od1", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.load_init_param("od1", {1: "1", 2: 20}) == {1: "1", 2: 20}
+        assert C.load_init_param("od2", None) == None
+        assert C.load_init_param("od2", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.load_init_param("ts", ("1", "2")) == ("1", "2")
+        assert C.load_init_param("ots", None) == None
+        assert C.load_init_param("ots", ("1", "b")) == ("1", "b")
+        assert C.load_init_param("sq", ()) == ()
+        assert C.load_init_param("sq", (1, 2)) == (1, 2)
+        assert C.load_init_param("sq", [1, "2"]) == (1, "2")
+        assert C.load_init_param("urlpath", "test") == "test"
+        assert C.load_init_param("urlpath", "test") == UrlPath("test")
+        assert C.load_init_param("ourlpath", None) == None
+        assert C.load_init_param("ourlpath", "test") == UrlPath("test")
+        assert C.load_init_param("st", set([1, 2])) == set([1, 2])
+        assert C.load_init_param("st1", set(["a", 1])) == set(["a", 1])
 
 
 def test_add_actions_data_in_response(jmb, client):

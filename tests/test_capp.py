@@ -118,7 +118,7 @@ class TaskForm:
         return True
 
     @classmethod
-    def decode_from_param(cls, param_value) -> Optional["TaskForm"]:
+    def load_init_param(cls, param_value) -> Optional["TaskForm"]:
         return (
             cls(
                 title=param_value.get("title", ""),
@@ -359,10 +359,10 @@ class EditTask(Component):
         super().__init__()
 
     @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
+    def load_init_param(cls, param_name: str, param_value: Any) -> Any:
         if param_name == "form":
-            return TaskForm.decode_from_param(param_value)
-        return super().decode_param(param_name, param_value)
+            return TaskForm.load_init_param(param_value)
+        return super().load_init_param(param_name, param_value)
 
     def mount(self):
         if self.__mounted:
@@ -472,10 +472,10 @@ class AddTask(Component):
         super().__init__()
 
     @classmethod
-    def decode_param(cls, param_name: str, param_value: Any) -> Any:
+    def load_init_param(cls, param_name: str, param_value: Any) -> Any:
         if param_name == "form":
-            return TaskForm.decode_from_param(param_value)
-        return super().decode_param(param_name, param_value)
+            return TaskForm.load_init_param(param_value)
+        return super().load_init_param(param_name, param_value)
 
     def mount(self) -> None:
         if self._mounted:

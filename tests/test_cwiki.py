@@ -105,13 +105,13 @@ def test_wiki(jmb, client):
             super().__init__()
 
         @classmethod
-        def decode_param(cls, param_name: str, param_value: Any) -> Any:
+        def load_init_param(cls, param_name: str, param_value: Any) -> Any:
             if param_name == "form":
                 if param_value is None:
                     return None
                 return WikiEditForm(title=param_value.get("title", ""))
             else:
-                return super().decode_param(param_name, param_value)
+                return super().load_init_param(param_name, param_value)
 
         def inject(self):
             return dict(user=session.get("user", None))
@@ -163,7 +163,7 @@ def test_wiki(jmb, client):
             super().__init__()
 
         @classmethod
-        def decode_param(cls, param_name: str, param_value: Any) -> Any:
+        def load_init_param(cls, param_name: str, param_value: Any) -> Any:
             if param_name == "form":
                 if param_value is None:
                     return None
@@ -171,7 +171,7 @@ def test_wiki(jmb, client):
                     name=param_value.get("name", ""), title=param_value.get("title", "")
                 )
             else:
-                return super().decode_param(param_name, param_value)
+                return super().load_init_param(param_name, param_value)
 
         def inject(self):
             return dict(user=session.get("user", None))
