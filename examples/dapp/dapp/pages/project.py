@@ -586,6 +586,7 @@ class EditProject(FormEncodingSupportMixin, Component):
         return project_is_modified
 
 
+# TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
 # TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add task mark completed
 # TODO add more fields to project and task
@@ -594,7 +595,6 @@ class EditProject(FormEncodingSupportMixin, Component):
 # TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
 # TODO use regular if else for readability in examples
 # TODO extensive comment all python code that is not understud to someone who does know python
-# TODO proceide with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
 # TODO make course that will be created to build this version step by step
 # TODO When going back with browser execute confirmation if needed --for next version
     # generate system event _browser_navigation
