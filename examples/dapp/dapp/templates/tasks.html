@@ -13,7 +13,7 @@
         {% endif %}
         {% for task in tasks %}
             {% if task.id in editing_tasks %}
-                {{component("edit", task_id=task.id, _task=task).key(task.id)}}  
+                {{component("edit", record_id=task.id, _record=task).key(task.id)}}  
             {% else %}
                 {{component("view", task_id=task.id, _task=task).key(task.id)}}
             {% endif %}

@@ -2,7 +2,7 @@
 <tr>
     <td>{{task.name}}</td> 
     <td>
-        <button jmb:on.click="$jmb.component('../edit.{{task.id}}',{task_id:{{task.id}}}).display()">Edit</button>
+        <button jmb:on.click="$jmb.component('../edit.{{task.id}}',{record_id:{{task.id}}}).display()">Edit</button>
         <button jmb:on.click="delete_task({task_id:{{task.id}}})">Delete</button>
     </td>
 </tr>

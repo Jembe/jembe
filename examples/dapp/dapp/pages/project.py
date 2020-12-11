@@ -3,8 +3,22 @@ Creates Project/Tasks application component by component
 with JUST MAKE IT WORK mindset. 
 """
 from functools import cached_property
+
+from wtforms import form
+from jembe.component_config import CConfigRedisplayFlag, ComponentConfig
+from jembe.common import ComponentRef
 from jembe.utils import run_only_once
-from typing import List, Optional, Set, TYPE_CHECKING, Tuple, Union, Any, Dict
+from typing import (
+    Callable,
+    Optional,
+    Set,
+    TYPE_CHECKING,
+    Tuple,
+    Type,
+    Union,
+    Any,
+    Dict,
+)
 from uuid import uuid1
 from math import ceil
 from dataclasses import dataclass, field
@@ -16,6 +30,7 @@ from dapp.jmb import jmb
 from dapp.db import db
 
 if TYPE_CHECKING:
+    from flask_sqlalchemy.model import Model
     from flask import Response
     from wtforms import Form
     from jembe import Event
@@ -30,15 +45,9 @@ class Confirmation:
     question: str
     action: str
     params: dict = field(default_factory=dict)
-    choices: Dict[str, dict] = field(
-        default_factory=lambda: dict(
-            ok=dict(title="Ok", css=""), cancel=dict(title="Cancel", css="")
-        )
-    )
 
 
 @config(Component.Config(changes_url=False, template="confirmation.html"))
-# TODO confirm dialog should have click outside set to cancel it
 class ConfirmationDialog(Component):
     def __init__(
         self, confirmation: Optional[Confirmation] = None, source: Optional[str] = None
@@ -54,14 +63,13 @@ class ConfirmationDialog(Component):
                     question=value.get("question"),
                     action=value.get("action"),
                     params=value.get("params"),
-                    choices=value.get("choices"),
                 )
                 if value is not None
                 else None
             )
         return super().load_init_param(name, value)
 
-    @listener(event="request_confirmation")
+    @listener(event="requestConfirmation")
     def on_request_confirmation(self, event: "Event"):
         self.state.confirmation = event.confirmation
         self.state.source = event.source_exec_name
@@ -87,11 +95,14 @@ class Notification:
 @config(Component.Config(changes_url=False, template="notifications.html"))
 class Notifications(Component):
     def __init__(self, notifications: Optional[Dict[str, Notification]] = None) -> None:
-        self.state.notifications = (
-            {id: n for id, n in notifications.items() if n is not None}
-            if notifications is not None
-            else dict()
-        )
+        if notifications is not None:
+            # remove notifications id where notification[id] == None
+            self.state.notifications = {
+                id: n for id, n in notifications.items() if n is not None
+            }
+        else:
+            self.state.notifications = dict()
+
         super().__init__()
 
     @listener(event="pushNotification")
@@ -101,7 +112,9 @@ class Notifications(Component):
         )
 
 
-class FormEncodingSupportMixin:
+# lib
+#######
+class FormLoadDumpMixin:
     @classmethod
     def dump_init_param(cls, name: str, value: Any) -> Any:
         if name == "form":
@@ -113,6 +126,166 @@ class FormEncodingSupportMixin:
         if name == "form":
             return ProjectForm(data=value)
         return super().load_init_param(name, value)  # type:ignore
+
+
+class OnConfirmationSupportMixin:
+    @listener(event="confirmation")
+    def on_confirmation(self, event: "Event"):
+        if hasattr(self, event.action) and event.choice == "ok":
+            return getattr(self, event.action)(**event.action_params)
+
+
+class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            model: Type["Model"],
+            form: Type["Form"],
+            name: Optional[str] = None,
+            ask_for_prev_next_record: bool = False,
+            template: Optional[str] = None,
+            components: Optional[Dict[str, ComponentRef]] = None,
+            inject_into_components: Optional[
+                Callable[["Component", "ComponentConfig"], dict]
+            ] = None,
+            redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+            changes_url: bool = True,
+            url_query_params: Optional[Dict[str, str]] = None,
+            # TODO remove those two parameters and set it manually like the compoent.__init__
+            _component_class: Optional[Type["Component"]] = None,
+            _parent: Optional["ComponentConfig"] = None,
+        ):
+            self.model = model
+            self.form = form
+            self.ask_for_prev_next_record = ask_for_prev_next_record
+            if template is None:
+                template = "lib/edit.html"
+            super().__init__(
+                name=name,
+                template=template,
+                components=components,
+                inject_into_components=inject_into_components,
+                redisplay=redisplay,
+                changes_url=changes_url,
+                url_query_params=url_query_params,
+                _component_class=_component_class,
+                _parent=_parent,
+            )
+
+    _config: Config
+
+    def __init__(
+        self,
+        record_id: int,
+        form: Optional["Form"] = None,
+        prev_record_id: Optional[int] = None,
+        next_record_id: Optional[int] = None,
+        _record: Optional["Model"] = None,
+    ):
+        self._record = _record
+        super().__init__()
+
+    @run_only_once(for_state="record_id")
+    def mount(self):
+        if self._record is not None:
+            self.record = self._record
+        else:
+            self.record = self._config.model.query.get(self.state.record_id)
+
+        if self.state.form is None:
+            self.state.form = self._config.form(obj=self.record)
+
+        if (
+            self._config.ask_for_prev_next_record
+            and self.state.prev_record_id is None
+            and self.state.next_record_id is None
+        ):
+            self.emit(
+                "askQuestion", question="getPrevNext", record_id=self.state.record_id
+            ).to("/**/.")
+
+    @action
+    def save(self):
+        self.mount()
+        if self.state.form.validate():
+            try:
+                self.state.form.populate_obj(self.record)
+                db.session.commit()
+                self.emit("save", record=self.record, record_id=self.record.id)
+                self.emit(
+                    "pushNotification",
+                    notification=Notification("{} saved.".format(str(self.record))),
+                )
+                # don't execute display
+                # parent should listen for save and decite what to do
+                return False
+            except SQLAlchemyError as sql_error:
+                self.emit(
+                    "pushNotification",
+                    notification=Notification(
+                        str(getattr(sql_error, "orig", sql_error)), "error"
+                    ),
+                )
+                return True
+        # form is invalid redislay compoent and show errors
+        # if the state is changed
+        return None
+
+    @action
+    def cancel(self, confirmed=False):
+        if self._is_record_modified() and not confirmed:
+            self.emit(
+                "requestConfirmation",
+                confirmation=Confirmation(
+                    title="Cancel Edit",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
+            )
+        else:
+            self.emit("cancel")
+            # don't execute display even if the state has changed
+            return False
+
+    @action
+    def goto_record(self, record_id: int, confirmed=False):
+        if self._is_record_modified() and not confirmed:
+            self.emit(
+                "requestConfirmation",
+                confirmation=Confirmation(
+                    title="Moving to",
+                    question="Are you sure, all changes will be lost?",
+                    action="goto",
+                    params=dict(record_id=record_id, confirmed=True),
+                ),
+            )
+        else:
+            # display edit with other record
+            self.state.record_id = record_id
+            self.state.form = None
+            self.state.prev_record_id = None
+            self.state.next_record_id = None
+            self.mount()
+        return True
+
+    def display(self) -> Union[str, "Response"]:
+        self.mount()
+        return super().display()
+
+    @listener(event="answerQuestion", source="/**/.")
+    def on_answer_question(self, answer: "Event"):
+        if answer.question == "getPrevNext":
+            self.state.prev_record_id = answer.prev_record_id
+            self.state.next_record_id = answer.next_record_id
+
+    def _is_record_modified(self) -> bool:
+        self.mount()
+        db.session.begin_nested()
+        self.state.form.populate_obj(self.record)
+        is_modified = db.session.is_modified(self.record)
+        db.session.rollback()
+        return is_modified
 
 
 # Tasks
@@ -175,85 +348,8 @@ class ViewTask(Component):
             return False
 
 
-@config(Component.Config(template="tasks/edit.html", changes_url=False,))
-class EditTask(FormEncodingSupportMixin, Component):
-    def __init__(
-        self, task_id: int, form: Optional["Form"] = None, _task: Optional[Task] = None
-    ) -> None:
-        self._task = _task
-        super().__init__()
-
-    @run_only_once
-    def mount(self):
-        self.task = (
-            Task.query.get(self.state.task_id) if self._task is None else self._task
-        )
-        if self.state.form is None:
-            self.state.form = TaskForm(obj=self.task)
-
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        if hasattr(self, event.action) and event.choice == "ok":
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def cancel(self, confirmed=False):
-        if self._is_task_modified() and not confirmed:
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Cancel Edit",
-                    question="Are you sure, all changes will be lost?",
-                    action="cancel",
-                    params=dict(confirmed=True),
-                ),
-            )
-        else:
-            self.emit("cancel")
-            return False  # don't execute display
-
-    @action
-    def save(self):
-        self.mount()
-        if self.state.form.validate():
-            try:
-                self.state.form.populate_obj(self.task)
-                db.session.commit()
-                self.emit("save", task=self.task, task_id=self.task.id)
-                self.emit(
-                    "pushNotification",
-                    notification=Notification("{} saved.".format(self.task.name)),
-                )
-                # dont execute display
-                return False
-            except SQLAlchemyError as sql_error:
-                self.emit(
-                    "pushNotification",
-                    notification=Notification(
-                        str(getattr(sql_error, "orig", sql_error)), "error"
-                    ),
-                )
-                return True
-
-        # execute display if state is changed
-        return None
-
-    def display(self) -> Union[str, "Response"]:
-        self.mount()
-        return super().display()
-
-    def _is_task_modified(self) -> bool:
-        self.mount()
-        db.session.begin_nested()
-        self.state.form.populate_obj(self.task)
-        task_is_modified = db.session.is_modified(self.task)
-        db.session.rollback()
-        return task_is_modified
-
-
 @config(Component.Config(template="tasks/add.html", changes_url=False,))
-class AddTask(FormEncodingSupportMixin, Component):
+class AddTask(FormLoadDumpMixin, Component):
     def __init__(
         self, project_id: Optional[int] = None, form: Optional["Form"] = None
     ) -> None:
@@ -333,7 +429,19 @@ class AddTask(FormEncodingSupportMixin, Component):
     Component.Config(
         url_query_params=dict(p="page", ps="page_size"),
         template="tasks.html",
-        components=dict(view=ViewTask, add=AddTask, edit=EditTask),
+        components=dict(
+            view=ViewTask,
+            add=AddTask,
+            edit=(
+                EditRecord,
+                EditRecord.Config(
+                    model=Task,
+                    form=TaskForm,
+                    template="tasks/edit.html",
+                    changes_url=False,
+                ),
+            ),
+        ),
         inject_into_components=lambda self, _config: dict(
             project_id=self.state.project_id
         ),
@@ -368,7 +476,7 @@ class Tasks(Component):
     @listener(event="_display", source=["./edit.*"])
     def on_edit_display(self, event: "Event"):
         if event.source:
-            self.state.editing_tasks.add(event.source.state.task_id)
+            self.state.editing_tasks.add(event.source.state.record_id)
 
     @listener(event="cancel", source=["./add"])
     def on_add_cancel(self, event: "Event"):
@@ -381,7 +489,7 @@ class Tasks(Component):
     @listener(event=["save", "cancel"], source=["./edit.*"])
     def on_edit_finish(self, event: "Event"):
         if event.source:
-            self.state.editing_tasks.remove(event.source.state.task_id)
+            self.state.editing_tasks.remove(event.source.state.record_id)
 
     def display(self) -> Union[str, "Response"]:
 
@@ -404,7 +512,7 @@ class Tasks(Component):
 
 # Projects
 ##########
-class AddProject(FormEncodingSupportMixin, Component):
+class AddProject(FormLoadDumpMixin, Component):
     def __init__(self, form: Optional["Form"] = None) -> None:
         super().__init__()
 
@@ -478,115 +586,9 @@ class AddProject(FormEncodingSupportMixin, Component):
         return False
 
 
-@config(
-    Component.Config(
-        components=dict(tasks=Tasks),
-        inject_into_components=lambda self, _config: dict(
-            project_id=self.state.project_id
-        ),
-    )
-)
-class EditProject(FormEncodingSupportMixin, Component):
-    def __init__(
-        self,
-        project_id: int,
-        form: Optional["Form"] = None,
-        prev_project_id: Optional[int] = None,
-        next_project_id: Optional[int] = None,
-    ) -> None:
-        super().__init__()
-
-    @run_only_once(for_state="project_id")
-    def mount(self):
-        if self.state.prev_project_id is None and self.state.next_project_id is None:
-            self.emit(
-                "ask_question",
-                question="get_prev_next",
-                project_id=self.state.project_id,
-            ).to("/**/.")
-        self.project = Project.query.get(self.state.project_id)
-        if self.state.form is None:
-            self.state.form = ProjectForm(obj=self.project)
-
-    @listener(event="answer_question", source="/**/.")
-    def on_answer_question(self, answer: "Event"):
-        if answer.question == "get_prev_next":
-            self.state.prev_project_id = answer.prev_project_id
-            self.state.next_project_id = answer.next_project_id
-
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        if hasattr(self, event.action) and event.choice == "ok":
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def cancel(self, confirmed=False):
-        if self._is_project_modified() and not confirmed:
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Cancel Edit",
-                    question="Are you sure, all changes will be lost?",
-                    action="cancel",
-                    params=dict(confirmed=True),
-                ),
-            )
-        else:
-            self.emit("cancel")
-            return False
-
-    @action
-    def goto(self, project_id: int, confirmed=False):
-        if self._is_project_modified() and not confirmed:
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Moving to",
-                    question="Are you sure, all changes will be lost?",
-                    action="goto",
-                    params=dict(project_id=project_id, confirmed=True),
-                ),
-            )
-        else:
-            # display edit with other record
-            self.state.project_id = project_id
-            self.state.form = None
-            self.state.prev_project_id = None
-            self.state.next_project_id = None
-            self.mount()
-        return True
-
-    @action
-    def save(self) -> Optional[bool]:
-        self.mount()
-        if self.state.form.validate():
-            self.state.form.populate_obj(self.project)
-            db.session.commit()
-            self.emit("save", project=self.project, project_id=self.state.project_id)
-            self.emit(
-                "pushNotification",
-                notification=Notification("{} saved.".format(self.project.name)),
-            )
-            # dont execute display
-            # return False
-        # execute display if state is changed
-        return None
-
-    def display(self) -> Union[str, "Response"]:
-        self.mount()
-        return super().display()
-
-    def _is_project_modified(self) -> bool:
-        self.mount()
-        db.session.begin_nested()
-        self.state.form.populate_obj(self.project)
-        project_is_modified = db.session.is_modified(self.project)
-        db.session.rollback()
-        return project_is_modified
-
-
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
+# generalize add, view and list
+# add generalized templates for edit, add, view and list
 # TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add task mark completed
 # TODO add more fields to project and task
@@ -597,12 +599,24 @@ class EditProject(FormEncodingSupportMixin, Component):
 # TODO extensive comment all python code that is not understud to someone who does know python
 # TODO make course that will be created to build this version step by step
 # TODO When going back with browser execute confirmation if needed --for next version
-    # generate system event _browser_navigation
+# generate system event _browser_navigation
 @jmb.page(
     "projects",
     Component.Config(
         components=dict(
-            edit=EditProject,
+            edit=(
+                EditRecord,
+                EditRecord.Config(
+                    model=Project,
+                    form=ProjectForm,
+                    ask_for_prev_next_record=True,
+                    template="projects/edit.html",
+                    components=dict(tasks=Tasks),
+                    inject_into_components=lambda self, _config: dict(
+                        project_id=self.state.record_id
+                    ),
+                ),
+            ),
             add=AddProject,
             confirmation=ConfirmationDialog,
             notifications=Notifications,
@@ -643,7 +657,7 @@ class ProjectsPage(Component):
         if not confirmed:
             # display confirmation dialog
             self.emit(
-                "request_confirmation",
+                "requestConfirmation",
                 confirmation=Confirmation(
                     title="Delete project",
                     question="Are you sure?",
@@ -678,16 +692,16 @@ class ProjectsPage(Component):
             ]
         return super().display()
 
-    @listener(event="ask_question", source="./edit")
+    @listener(event="askQuestion", source="./edit")
     def on_question_asked(self, event: "Event"):
-        if event.question == "get_prev_next":
-            prev_project_id, next_project_id = self.get_prev_next_id(event.project_id)
+        if event.question == "getPrevNext":
+            prev_record_id, next_record_id = self.get_prev_next_id(event.record_id)
             self.emit(
-                "answer_question",
+                "answerQuestion",
                 question=event.question,
-                project_id=event.project_id,
-                prev_project_id=prev_project_id,
-                next_project_id=next_project_id,
+                record_id=event.record_id,
+                prev_record_id=prev_record_id,
+                next_record_id=next_record_id,
             ).to(event.source_full_name)
         return False
 

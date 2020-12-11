@@ -1,9 +1,9 @@
 {% if confirmation %}
+{# TODO confirm dialog should have click outside set to cancel it, and should be modal #}
 <div>
     <h2>{{confirmation.title}}</h2>
     <p>{{confirmation.question}}</p>
-    {% for choice, choice_info in confirmation.choices.items()  %}
-        <button jmb:on.click='choose("{{choice}}")' class="{{choice_info.css}}">{{choice_info.title}}</button>
-    {% endfor %}
+    <button jmb:on.click='choose("ok")'>OK</button>
+    <button jmb:on.click='choose("cancel")'>Cancel</button>
 </div>
 {% endif %}

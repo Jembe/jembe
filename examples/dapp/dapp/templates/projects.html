@@ -19,7 +19,7 @@
         <tr>
             <td>{{project.name}}</td> 
             <td>
-                <button jmb:on.click="{{component('edit', project_id=project.id).jrl}}">Edit</button>
+                <button jmb:on.click="{{component('edit', record_id=project.id).jrl}}">Edit</button>
                 <button jmb:on.click="delete_project({project_id:{{project.id}}})">Delete</button>
             </td>
         </tr>
