@@ -36,7 +36,7 @@
     </nav>
     {% elif mode == "edit" %}
         {% if goto %}
-            {{component("edit", project_id=goto)}}
+            {{component("edit", record_id=goto)}}
         {% else %}
             {{component("edit")}}
         {% endif %}

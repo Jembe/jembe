@@ -22,7 +22,7 @@ from typing import (
 from uuid import uuid1
 from math import ceil
 from dataclasses import dataclass, field
-from jembe import Component, action, config, listener, BadRequest
+from jembe import Component, action, component, config, listener, BadRequest
 from sqlalchemy.exc import SQLAlchemyError
 from wtforms_sqlalchemy.orm import model_form
 from dapp.models import Project, Task
@@ -288,6 +288,117 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
         return is_modified
 
 
+class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            model: Type["Model"],
+            form: Type["Form"],
+            parent_id_field_name: Optional[str] = None,
+            name: Optional[str] = None,
+            template: Optional[str] = None,
+            components: Optional[Dict[str, ComponentRef]] = None,
+            inject_into_components: Optional[
+                Callable[["Component", "ComponentConfig"], dict]
+            ] = None,
+            redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+            changes_url: bool = True,
+            url_query_params: Optional[Dict[str, str]] = None,
+            _component_class: Optional[Type["Component"]] = None,
+            _parent: Optional["ComponentConfig"] = None,
+        ):
+            self.model = model
+            self.form = form
+            self.parent_id_field_name = parent_id_field_name
+            super().__init__(
+                name=name,
+                template=template,
+                components=components,
+                inject_into_components=inject_into_components,
+                redisplay=redisplay,
+                changes_url=changes_url,
+                url_query_params=url_query_params,
+                _component_class=_component_class,
+                _parent=_parent,
+            )
+
+    _config: Config
+
+    def __init__(
+        self, form: Optional["Form"] = None, parent_id: Optional[int] = None
+    ) -> None:
+        super().__init__()
+
+    def get_new_record(self) -> "Model":
+        if self._config.parent_id_field_name is None:
+            return self._config.model()
+        else:
+            return self._config.model(
+                **{self._config.parent_id_field_name: self.state.parent_id}
+            )
+
+    @run_only_once
+    def mount(self):
+        if self.state.form is None:
+            self.state.form = self._config.form(obj=self.get_new_record())
+
+    @action
+    def save(self) -> Optional[bool]:
+        self.mount()
+        if self.state.form.validate():
+            try:
+                record = self.get_new_record()
+                self.state.form.populate_obj(record)
+                db.session.add(record)
+                db.session.commit()
+                self.emit("save", record=record, record_id=record.id)
+                self.emit(
+                    "pushNotification",
+                    notification=Notification("{} saved".format(str(record))),
+                )
+                # don't execute display
+                return False
+            except SQLAlchemyError as sql_error:
+                self.emit(
+                    "pushNotification",
+                    notification=Notification(
+                        str(getattr(sql_error, "orig", sql_error)), "error"
+                    ),
+                )
+                return True
+        return None
+
+    @action
+    def cancel(self, confirmed=False):
+        if self._is_record_modified() and not confirmed:
+            self.emit(
+                "requestConfirmation",
+                confirmation=Confirmation(
+                    title="Cancel Add",
+                    question="Are you sure, all changes will be lost?",
+                    action="cancel",
+                    params=dict(confirmed=True),
+                ),
+            )
+        else:
+            self.emit("cancel")
+            return False
+
+    def display(self) -> Union[str, "Response"]:
+        self.mount()
+        return super().display()
+
+    def _is_record_modified(self) -> bool:
+        self.mount()
+        new_record = self.get_new_record()
+        self.state.form.populate_obj(new_record)
+        empty_record = self.get_new_record()
+        for column_name in new_record.__table__.columns.keys():
+            if getattr(new_record, column_name) != getattr(empty_record, column_name):
+                return True
+        return False
+
+
 # Tasks
 ########
 @config(Component.Config(template="tasks/view.html", changes_url=False,))
@@ -347,91 +458,22 @@ class ViewTask(Component):
             # is deleted
             return False
 
-
-@config(Component.Config(template="tasks/add.html", changes_url=False,))
-class AddTask(FormLoadDumpMixin, Component):
-    def __init__(
-        self, project_id: Optional[int] = None, form: Optional["Form"] = None
-    ) -> None:
-        super().__init__()
-
-    @run_only_once
-    def mount(self):
-        if self.state.form is None:
-            self.state.form = TaskForm(obj=Task(project_id=self.state.project_id))
-
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        if hasattr(self, event.action) and event.choice == "ok":
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def cancel(self, confirmed=False):
-        if self._is_task_modified() and not confirmed:
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Cancel Add",
-                    question="Are you sure, all changes will be lost?",
-                    action="cancel",
-                    params=dict(confirmed=True),
-                ),
-            )
-        else:
-            self.emit("cancel")
-            return False  # don't execute display
-
-    @action
-    def save(self):
-        self.mount()
-        if self.state.form.validate():
-            try:
-                task = Task(project_id=self.state.project_id)
-                self.state.form.populate_obj(task)
-                db.session.add(task)
-                db.session.commit()
-                self.emit("save", task=task, task_id=task.id)
-                self.emit(
-                    "pushNotification",
-                    notification=Notification("{} saved.".format(task.name)),
-                )
-                # dont execute display
-                return False
-            except SQLAlchemyError as sql_error:
-                self.emit(
-                    "pushNotification",
-                    notification=Notification(
-                        str(getattr(sql_error, "orig", sql_error)), "error"
-                    ),
-                )
-                return True
-
-        # execute display if state is changed
-        return None
-
-    def display(self) -> Union[str, "Response"]:
-        self.mount()
-        return super().display()
-
-    def _is_task_modified(self) -> bool:
-        self.mount()
-        task = Task(project_id=self.state.project_id)
-        self.state.form.populate_obj(task)
-        empty_task = Task(project_id=self.state.project_id)
-        for column_name in task.__table__.columns.keys():
-            if getattr(task, column_name) != getattr(empty_task, column_name):
-                return True
-        return False
-
-
 @config(
     Component.Config(
         url_query_params=dict(p="page", ps="page_size"),
         template="tasks.html",
         components=dict(
             view=ViewTask,
-            add=AddTask,
+            add=(
+                AddRecord,
+                AddRecord.Config(
+                    model=Task,
+                    form=TaskForm,
+                    parent_id_field_name="project_id",
+                    changes_url=False,
+                    template="tasks/add.html"
+                )
+            ),
             edit=(
                 EditRecord,
                 EditRecord.Config(
@@ -443,7 +485,7 @@ class AddTask(FormLoadDumpMixin, Component):
             ),
         ),
         inject_into_components=lambda self, _config: dict(
-            project_id=self.state.project_id
+            parent_id=self.state.project_id
         ),
     )
 )
@@ -512,80 +554,6 @@ class Tasks(Component):
 
 # Projects
 ##########
-class AddProject(FormLoadDumpMixin, Component):
-    def __init__(self, form: Optional["Form"] = None) -> None:
-        super().__init__()
-
-    @run_only_once
-    def mount(self):
-        if self.state.form is None:
-            self.state.form = ProjectForm(obj=Project())
-
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        if hasattr(self, event.action) and event.choice == "ok":
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def cancel(self, confirmed=False):
-        if self._is_project_modified() and not confirmed:
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Cancel Add",
-                    question="Are you sure, all changes will be lost?",
-                    action="cancel",
-                    params=dict(confirmed=True),
-                ),
-            )
-        else:
-            self.emit("cancel")
-            return False  # don't execute display
-
-    @action
-    def save(self) -> Optional[bool]:
-        self.mount()
-        if self.state.form.validate():
-            try:
-                project = Project()
-                self.state.form.populate_obj(project)
-                db.session.add(project)
-                db.session.commit()
-                self.emit("save", project=project, project_id=project.id)
-                self.emit(
-                    "pushNotification",
-                    notification=Notification("{} saved.".format(project.name)),
-                )
-                # dont execute display
-                return False
-            except SQLAlchemyError as sql_error:
-                self.emit(
-                    "pushNotification",
-                    notification=Notification(
-                        str(getattr(sql_error, "orig", sql_error)), "error"
-                    ),
-                )
-                return True
-
-        # execute display if state is changed
-        return None
-
-    def display(self) -> Union[str, "Response"]:
-        self.mount()
-        return super().display()
-
-    def _is_project_modified(self) -> bool:
-        self.mount()
-        project = Project()
-        self.state.form.populate_obj(project)
-        empty_project = Project()
-        for column_name in project.__table__.columns.keys():
-            if getattr(project, column_name) != getattr(empty_project, column_name):
-                return True
-        return False
-
-
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
 # generalize add, view and list
 # add generalized templates for edit, add, view and list
@@ -617,7 +585,14 @@ class AddProject(FormLoadDumpMixin, Component):
                     ),
                 ),
             ),
-            add=AddProject,
+            add=(
+                AddRecord,
+                AddRecord.Config(
+                    model=Project,
+                    form=ProjectForm,
+                    template="projects/add.html"
+                )
+            ),
             confirmation=ConfirmationDialog,
             notifications=Notifications,
         ),
@@ -644,7 +619,7 @@ class ProjectsPage(Component):
     @listener(event="save", source=["./add"])
     def on_add_successful(self, event: "Event"):
         self.state.mode = "edit"
-        self.goto = event.params["project_id"]
+        self.goto = event.params["record_id"]
 
     @listener(event="confirmation")
     def on_confirmation(self, event: "Event"):
