@@ -279,6 +279,10 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             self.state.prev_record_id = answer.prev_record_id
             self.state.next_record_id = answer.next_record_id
 
+    @listener(event="redisplay")
+    def on_redisplay(self, event: "Event"):
+        return True
+
     def _is_record_modified(self) -> bool:
         self.mount()
         db.session.begin_nested()
@@ -399,6 +403,131 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
         return False
 
 
+class ListRecords(OnConfirmationSupportMixin, Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            model: Type["Model"],
+            parent_id_field_name: Optional[str] = None,
+            name: Optional[str] = None,
+            template: Optional[str] = None,
+            components: Optional[Dict[str, ComponentRef]] = None,
+            inject_into_components: Optional[
+                Callable[["Component", "ComponentConfig"], dict]
+            ] = None,
+            redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+            changes_url: bool = True,
+            url_query_params: Optional[Dict[str, str]] = None,
+            _component_class: Optional[Type["Component"]] = None,
+            _parent: Optional["ComponentConfig"] = None,
+        ):
+            self.model = model
+            self.parent_id_field_name = parent_id_field_name
+            if url_query_params is None:
+                url_query_params = dict(p="page", ps="page_size")
+            super().__init__(
+                name=name,
+                template=template,
+                components=components,
+                inject_into_components=inject_into_components,
+                redisplay=redisplay,
+                changes_url=changes_url,
+                url_query_params=url_query_params,
+                _component_class=_component_class,
+                _parent=_parent,
+            )
+
+    _config: Config
+
+    def __init__(
+        self, parent_id: Optional[int] = None, page: int = 0, page_size: int = 5
+    ):
+        super().__init__()
+
+    @action
+    def delete_record(self, record_id: int, confirmed: bool = False) -> Optional[bool]:
+        if not confirmed:
+            # display confirmation dialog
+            self.emit(
+                "requestConfirmation",
+                confirmation=Confirmation(
+                    title="Delete {}".format(self._config.model.query.get(record_id)),
+                    question="Are you sure?",
+                    action="delete_record",
+                    params=dict(record_id=record_id, confirmed=True),
+                ),
+            )
+        else:
+            # delete record
+            record = self._config.model.query.get(record_id)
+            db.session.delete(record)
+            db.session.commit()
+            self.emit(
+                "pushNotification",
+                notification=Notification("{} deleted.".format(record)),
+            )
+            # redisplay list when record is deleted
+            return True
+        return None
+
+    def display(self) -> Union[str, "Response"]:
+        Record = self._config.model
+        records = Record.query
+        if (
+            self.state.parent_id is not None
+            and self._config.parent_id_field_name is not None
+        ):
+            records = records.filter_by(
+                **{self._config.parent_id_field_name: self.state.parent_id}
+            )
+
+        self.records_count = records.count()
+        self.total_pages = ceil(self.records_count / self.state.page_size)
+        if self.state.page < 1:
+            self.state.page = 1
+        if self.state.page >= self.total_pages:
+            self.state.page = self.total_pages
+        start = (self.state.page - 1) * self.state.page_size
+        self.records = records.order_by(Record.id.desc())[
+            start : start + self.state.page_size
+        ]
+        return super().display()
+
+    @listener(event="askQuestion", source="./**")
+    def on_question_asked(self, event: "Event"):
+        if event.question == "getPrevNext":
+            prev_record_id, next_record_id = self.get_prev_next_id(event.record_id)
+            self.emit(
+                "answerQuestion",
+                question=event.question,
+                record_id=event.record_id,
+                prev_record_id=prev_record_id,
+                next_record_id=next_record_id,
+            ).to(event.source_full_name)
+        return False
+
+    def get_prev_next_id(self, record_id) -> Tuple[Optional[int], Optional[int]]:
+        # TODO make abstraction of this query manipulation to get next, previous when
+        # order is by any other field or when additional filters are applied
+        Record = self._config.model
+        prev = (
+            Record.query.with_entities(Record.id)
+            .order_by(Record.id)
+            .filter(Record.id > record_id)
+            .first()
+        )
+        next = (
+            Record.query.with_entities(Record.id)
+            .order_by(Record.id.desc())
+            .filter(Record.id < record_id)
+            .first()
+        )
+        return (
+            prev[0] if prev is not None else None,
+            next[0] if next is not None else None,
+        )
+
+
 # Tasks
 ########
 @config(Component.Config(template="tasks/view.html", changes_url=False,))
@@ -458,9 +587,11 @@ class ViewTask(Component):
             # is deleted
             return False
 
+
 @config(
-    Component.Config(
-        url_query_params=dict(p="page", ps="page_size"),
+    ListRecords.Config(
+        model=Task,
+        parent_id_field_name="project_id",
         template="tasks.html",
         components=dict(
             view=ViewTask,
@@ -471,8 +602,8 @@ class ViewTask(Component):
                     form=TaskForm,
                     parent_id_field_name="project_id",
                     changes_url=False,
-                    template="tasks/add.html"
-                )
+                    template="tasks/add.html",
+                ),
             ),
             edit=(
                 EditRecord,
@@ -485,22 +616,22 @@ class ViewTask(Component):
             ),
         ),
         inject_into_components=lambda self, _config: dict(
-            parent_id=self.state.project_id
+            parent_id=self.state.parent_id
         ),
     )
 )
-class Tasks(Component):
+class Tasks(ListRecords):
     def __init__(
         self,
-        project_id: Optional[int] = None,
-        mode: Optional[str] = None,
+        display_mode: Optional[str] = None,
         editing_tasks: Set[int] = set(),
+        parent_id: Optional[int] = None,
         page: int = 0,
         page_size: int = 5,
-    ) -> None:
-        if mode not in (None, "add"):
-            self.state.mode = None
-        super().__init__()
+    ):
+        if display_mode not in (None, "add"):
+            self.state.display_mode = None
+        super().__init__(parent_id=parent_id, page=page, page_size=page_size)
 
     @listener(event="delete", source=["./view.*"])
     def on_child_deleted(self, event: "Event"):
@@ -509,55 +640,44 @@ class Tasks(Component):
 
     @listener(event="_display", source=["./add"])
     def on_add_display(self, event: "Event"):
-        if self.state.mode != event.source_name:
+        if self.state.display_mode != event.source_name:
             # when adding go to first page
             # but allow navigation afterward
             self.state.page = 1
-        self.state.mode = event.source_name
+        self.state.display_mode = event.source_name
 
     @listener(event="_display", source=["./edit.*"])
     def on_edit_display(self, event: "Event"):
         if event.source:
+            # chech why event.source is necessary
+            # if it's necessary make if statement readable and obouse to
+            # someone who dont know the jembe
             self.state.editing_tasks.add(event.source.state.record_id)
 
     @listener(event="cancel", source=["./add"])
     def on_add_cancel(self, event: "Event"):
-        self.state.mode = None
+        self.state.display_mode = None
 
     @listener(event="save", source=["./add"])
     def on_add_save(self, event: "Event"):
-        self.state.mode = None
+        self.state.display_mode = None
 
     @listener(event=["save", "cancel"], source=["./edit.*"])
     def on_edit_finish(self, event: "Event"):
         if event.source:
             self.state.editing_tasks.remove(event.source.state.record_id)
 
-    def display(self) -> Union[str, "Response"]:
-
-        tasks = Task.query
-        if self.state.project_id is not None:
-            tasks = tasks.filter_by(project_id=self.state.project_id)
-
-        self.tasks_count = tasks.count()
-        self.total_pages = ceil(self.tasks_count / self.state.page_size)
-        if self.state.page < 1:
-            self.state.page = 1
-        if self.state.page >= self.total_pages:
-            self.state.page = self.total_pages
-        start = (self.state.page - 1) * self.state.page_size
-        self.tasks = tasks.order_by(Task.id.desc())[
-            start : start + self.state.page_size
-        ]
-        return super().display()
-
 
 # Projects
 ##########
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
-# generalize add, view and list
+# generalize view
 # add generalized templates for edit, add, view and list
+# TODO create API for calling other copmponenet actions like
+# self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
+# self.emit("callDisplay", force=True|False).to("..")
 # TODO display generic error dialog when error is hapend in x-jembe request
+# TODO add dommorph
 # TODO add task mark completed
 # TODO add more fields to project and task
 # TODO make it looks nice
@@ -570,7 +690,8 @@ class Tasks(Component):
 # generate system event _browser_navigation
 @jmb.page(
     "projects",
-    Component.Config(
+    ListRecords.Config(
+        model=Project,
         components=dict(
             edit=(
                 EditRecord,
@@ -579,123 +700,56 @@ class Tasks(Component):
                     form=ProjectForm,
                     ask_for_prev_next_record=True,
                     template="projects/edit.html",
-                    components=dict(tasks=Tasks),
+                    components=dict(tasks=Tasks,),
                     inject_into_components=lambda self, _config: dict(
-                        project_id=self.state.record_id
+                        parent_id=self.state.record_id
                     ),
                 ),
             ),
             add=(
                 AddRecord,
                 AddRecord.Config(
-                    model=Project,
-                    form=ProjectForm,
-                    template="projects/add.html"
-                )
+                    model=Project, form=ProjectForm, template="projects/add.html"
+                ),
             ),
             confirmation=ConfirmationDialog,
             notifications=Notifications,
         ),
-        url_query_params=dict(p="page", ps="page_size"),
     ),
 )
-class ProjectsPage(Component):
+class ProjectsPage(ListRecords):
     def __init__(
-        self, mode: Optional[str] = None, page: int = 0, page_size: int = 5
-    ) -> None:
-        if mode not in (None, "edit", "add"):
+        self,
+        display_mode: Optional[str] = None,
+        parent_id: Optional[int] = None,
+        page: int = 0,
+        page_size: int = 5,
+    ):
+        if display_mode not in (None, "edit", "add"):
             raise BadRequest()
-        self.goto = None
-        super().__init__()
+        self.edit_record_id = None
+        super().__init__(parent_id=parent_id, page=page, page_size=page_size)
 
     @listener(event="_display", source=["./edit", "./add"])
     def on_child_display(self, event: "Event"):
-        self.state.mode = event.source_name
+        self.state.display_mode = event.source_name
 
     @listener(event="cancel", source=["./edit", "./add"])
     def on_child_cancel(self, event: "Event"):
-        self.state.mode = None
+        self.state.display_mode = None
 
     @listener(event="save", source=["./add"])
     def on_add_successful(self, event: "Event"):
-        self.state.mode = "edit"
-        self.goto = event.params["record_id"]
+        self.state.display_mode = "edit"
+        self.edit_record_id = event.params["record_id"]
 
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        if hasattr(self, event.action) and event.choice == "ok":
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def delete_project(self, project_id: int, confirmed: bool = False):
-        if not confirmed:
-            # display confirmation dialog
-            self.emit(
-                "requestConfirmation",
-                confirmation=Confirmation(
-                    title="Delete project",
-                    question="Are you sure?",
-                    action="delete_project",
-                    params=dict(project_id=project_id, confirmed=True),
-                ),
-            )
-        else:
-            # delete project
-            project = Project.query.get(project_id)
-            db.session.delete(project)
-            db.session.commit()
-            self.emit(
-                "pushNotification",
-                notification=Notification("{} deleted.".format(project.name)),
-            )
-            return True
+    @listener(event="save", source=["./edit"])
+    def on_edit_successful(self, event: "Event"):
+        # TODO force edit to redisplay itself on save
+        self.emit("redisplay").to("./edit")
 
     def display(self) -> Union[str, "Response"]:
-        if self.state.mode is None:
+        if self.state.display_mode is None:
             # if mode is display projects table
-            # othervise instead of table subcomponent specified by mode will be displayd
-            self.projects_count = Project.query.count()
-            self.total_pages = ceil(self.projects_count / self.state.page_size)
-            if self.state.page < 1:
-                self.state.page = 1
-            if self.state.page >= self.total_pages:
-                self.state.page = self.total_pages
-            start = (self.state.page - 1) * self.state.page_size
-            self.projects = Project.query.order_by(Project.id.desc())[
-                start : start + self.state.page_size
-            ]
-        return super().display()
-
-    @listener(event="askQuestion", source="./edit")
-    def on_question_asked(self, event: "Event"):
-        if event.question == "getPrevNext":
-            prev_record_id, next_record_id = self.get_prev_next_id(event.record_id)
-            self.emit(
-                "answerQuestion",
-                question=event.question,
-                record_id=event.record_id,
-                prev_record_id=prev_record_id,
-                next_record_id=next_record_id,
-            ).to(event.source_full_name)
-        return False
-
-    def get_prev_next_id(self, project_id) -> Tuple[Optional[int], Optional[int]]:
-        # TODO make abstraction of this query manipulation to get next, previous when
-        # order is by any other field or when additional filters are applied
-        prev = (
-            Project.query.with_entities(Project.id)
-            .order_by(Project.id)
-            .filter(Project.id > project_id)
-            .first()
-        )
-        next = (
-            Project.query.with_entities(Project.id)
-            .order_by(Project.id.desc())
-            .filter(Project.id < project_id)
-            .first()
-        )
-        return (
-            prev[0] if prev is not None else None,
-            next[0] if next is not None else None,
-        )
+            return super().display()
+        return self.render_template()

@@ -8,14 +8,14 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        {% if mode == "add" %}
+        {% if display_mode == "add" %}
             {{component("add")}}
         {% endif %}
-        {% for task in tasks %}
-            {% if task.id in editing_tasks %}
-                {{component("edit", record_id=task.id, _record=task).key(task.id)}}  
+        {% for record in records %}
+            {% if record.id in editing_tasks %}
+                {{component("edit", record_id=record.id, _record=record).key(record.id)}}  
             {% else %}
-                {{component("view", task_id=task.id, _task=task).key(task.id)}}
+                {{component("view", task_id=record.id, _task=record).key(record.id)}}
             {% endif %}
         {% endfor %}
     </table>
@@ -28,9 +28,5 @@
             <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
         {% endif %}
     </nav>
-
-    {# {% if confirmation %}
-        {{component("confirmation", **confirmation)}}
-    {% endif %} #}
 
 </div>

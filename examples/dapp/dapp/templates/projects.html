@@ -6,7 +6,7 @@
     <title>Projects</title>
 </head>
 <body>
-    {% if mode is none %}
+    {% if display_mode is none %}
     <button jmb:on.click="{{component('add').jrl}}">Add project</button>
     <table>
         <thead>
@@ -15,12 +15,12 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        {% for project in projects %}
+        {% for record in records %}
         <tr>
-            <td>{{project.name}}</td> 
+            <td>{{record.name}}</td> 
             <td>
-                <button jmb:on.click="{{component('edit', record_id=project.id).jrl}}">Edit</button>
-                <button jmb:on.click="delete_project({project_id:{{project.id}}})">Delete</button>
+                <button jmb:on.click="{{component('edit', record_id=record.id).jrl}}">Edit</button>
+                <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
             </td>
         </tr>
         {% endfor %}
@@ -29,18 +29,18 @@
         {% if page > 1 %}
             <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
         {% endif %}
-        Page {{page}} of {{total_pages}} ({{projects_count}} projects)
+        Page {{page}} of {{total_pages}} ({{records_count}} projects)
         {% if total_pages > page %}
             <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
         {% endif %}
     </nav>
-    {% elif mode == "edit" %}
-        {% if goto %}
-            {{component("edit", record_id=goto)}}
+    {% elif display_mode == "edit" %}
+        {% if edit_record_id %}
+            {{component("edit", record_id=edit_record_id)}}
         {% else %}
             {{component("edit")}}
         {% endif %}
-    {% elif mode == "add" %}
+    {% elif display_mode == "add" %}
         {{component("add")}}
     {% endif %} 
 

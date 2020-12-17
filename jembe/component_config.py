@@ -14,7 +14,7 @@ from enum import Enum
 from copy import deepcopy
 from itertools import accumulate
 from operator import add
-from inspect import getmembers, isfunction
+from inspect import getmembers, isfunction, signature
 from .exceptions import JembeError
 from flask import url_for
 from .common import ComponentRef
@@ -284,7 +284,13 @@ def componentConfigInitDecorator(init_method):
             )
             init_params = default_init_params.copy()
             init_params.update(kwargs.copy())
-            init_method(self, *args, **init_params)
+            init_named_params = list(signature(init_method).parameters.keys())
+            filtered_init_params = {
+                key: value
+                for key, value in init_params.items()
+                if key in init_named_params
+            }
+            init_method(self, *args, **filtered_init_params)
         else:
             # Component config is used inside @config or @page decorator
             # no need to proper initialise class
@@ -332,7 +338,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         ] = None,  # TODO
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
-        url_query_params: Optional[Dict[str,str]] = None,
+        url_query_params: Optional[Dict[str, str]] = None,
         _component_class: Optional[Type["Component"]] = None,
         _parent: Optional["ComponentConfig"] = None,
     ):
@@ -353,7 +359,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._inject_into_components = inject_into_components
         self._redisplay_temp = redisplay
         self.changes_url = changes_url
-        self.url_query_params = url_query_params if url_query_params is not None else dict()
+        self.url_query_params = (
+            url_query_params if url_query_params is not None else dict()
+        )
 
         if not self.changes_url:
             # set changes_url to False to all its children components
