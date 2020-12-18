@@ -572,3 +572,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 )
             _update_cref(name, params)
 
+    @property
+    def components_configs(self) -> Dict[str, "ComponentConfig"]:
+        from .app import get_processor
+        processor: "Processor" = get_processor()
+        configs:Dict[str, "ComponentConfig"] = dict()
+        for component_name in self.components.keys():
+            configs[component_name] = processor.jembe.components_configs["{}/{}".format(self.full_name, component_name)] 
+        return configs

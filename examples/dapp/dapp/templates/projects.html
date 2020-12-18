@@ -1,53 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Projects</title>
-</head>
-<body>
-    {% if display_mode is none %}
-    <button jmb:on.click="{{component('add').jrl}}">Add project</button>
-    <table>
-        <thead>
-            <tr>
-                <th>Project</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        {% for record in records %}
+{% if display_mode is none %}
+<button jmb:on.click="{{component('add').jrl}}">Add project</button>
+<table>
+    <thead>
         <tr>
-            <td>{{record.name}}</td> 
-            <td>
-                <button jmb:on.click="{{component('edit', record_id=record.id).jrl}}">Edit</button>
-                <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
-            </td>
+            <th>Project</th>
+            <th>Actions</th>
         </tr>
-        {% endfor %}
-    </table>
-    <nav>
-        {% if page > 1 %}
-            <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
-        {% endif %}
-        Page {{page}} of {{total_pages}} ({{records_count}} projects)
-        {% if total_pages > page %}
-            <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
-        {% endif %}
-    </nav>
-    {% elif display_mode == "edit" %}
-        {% if edit_record_id %}
-            {{component("edit", record_id=edit_record_id)}}
-        {% else %}
-            {{component("edit")}}
-        {% endif %}
-    {% elif display_mode == "add" %}
-        {{component("add")}}
-    {% endif %} 
-
-    {{component("confirmation")}}
-
-    {{component("notifications")}}
-
-   <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
-</body>
-</html>
+    </thead>
+    {% for record in records %}
+    <tr>
+        <td>{{record.name}}</td> 
+        <td>
+            <button jmb:on.click="{{component('edit', record_id=record.id).jrl}}">Edit</button>
+            <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+<nav>
+    {% if page > 1 %}
+        <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
+    {% endif %}
+    Page {{page}} of {{total_pages}} ({{records_count}} projects)
+    {% if total_pages > page %}
+        <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
+    {% endif %}
+</nav>
+{% elif display_mode == "edit" %}
+    {% if edit_record_id %}
+        {{component("edit", record_id=edit_record_id)}}
+    {% else %}
+        {{component("edit")}}
+    {% endif %}
+{% elif display_mode == "add" %}
+    {{component("add")}}
+{% endif %} 

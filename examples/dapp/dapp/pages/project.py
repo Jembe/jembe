@@ -135,6 +135,74 @@ class OnConfirmationSupportMixin:
             return getattr(self, event.action)(**event.action_params)
 
 
+class ViewRecord(OnConfirmationSupportMixin, Component):
+    class Config(Component.Config):
+        def __init__(
+            self,
+            model: Type["Model"],
+            name: Optional[str] = None,
+            template: Optional[str] = None,
+            components: Optional[Dict[str, ComponentRef]] = None,
+            inject_into_components: Optional[
+                Callable[["Component", "ComponentConfig"], dict]
+            ] = None,
+            redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+            changes_url: bool = True,
+            url_query_params: Optional[Dict[str, str]] = None,
+            _component_class: Optional[Type["Component"]] = None,
+            _parent: Optional["ComponentConfig"] = None,
+        ):
+            self.model = model
+            super().__init__(
+                name=name,
+                template=template,
+                components=components,
+                inject_into_components=inject_into_components,
+                redisplay=redisplay,
+                changes_url=changes_url,
+                url_query_params=url_query_params,
+                _component_class=_component_class,
+                _parent=_parent,
+            )
+
+    _config: Config
+
+    def __init__(self, record_id: int, _record: Optional["Model"] = None) -> None:
+        self._record = _record
+        super().__init__()
+
+    @property
+    def record(self) -> "Model":
+        if self._record is None or self._record.id != self.state.record_id:
+            self._record = self._config.model.query.get(self.state.record_id)
+        return self._record
+
+    @action
+    def delete_record(self, confirmed: bool = False) -> Optional[bool]:
+        if not confirmed:
+            # display confirmation dialog
+            self.emit(
+                "requestConfirmation",
+                confirmation=Confirmation(
+                    title="Delete {}".format(self.record),
+                    question="Are you sure?",
+                    action="delete_record",
+                    params=dict(confirmed=True),
+                ),
+            )
+        else:
+            # delete record
+            db.session.delete(self.record)
+            db.session.commit()
+            self.emit(
+                "pushNotification",
+                notification=Notification("{} deleted.".format(self.record)),
+            )
+            self.emit("delete", record_id=self.record.id, record=self.record)
+            return False
+        return None
+
+
 class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
         def __init__(
@@ -530,62 +598,6 @@ class ListRecords(OnConfirmationSupportMixin, Component):
 
 # Tasks
 ########
-@config(Component.Config(template="tasks/view.html", changes_url=False,))
-class ViewTask(Component):
-    def __init__(self, task_id: int, _task: Optional[Task] = None) -> None:
-        self._task = _task
-        super().__init__()
-
-    @cached_property
-    def task(self) -> Task:
-        if self._task is not None and self._task.id == self.state.task_id:
-            return self._task
-        return Task.query.get(self.state.task_id)
-
-    @listener(event="confirmation")
-    def on_confirmation(self, event: "Event"):
-        # if this component has a method with named like event.action and if
-        # user confirmed operation by selecting "ok" choice
-        if hasattr(self, event.action) and event.choice == "ok":
-            # execute this component method anmed event.action
-            # with named parameters received via event.action_params
-            return getattr(self, event.action)(**event.action_params)
-        return True
-
-    @action
-    def delete_task(self, task_id: int, confirmed: bool = False):
-        if not confirmed:
-            # if delelete is not confirmed by user
-            # emit event to ConfirmationDialog component instructing it
-            # to display confirmation dialog
-            self.emit(
-                "request_confirmation",
-                confirmation=Confirmation(
-                    title="Delete task",
-                    question="Are you sure?",
-                    action="delete_task",
-                    params=dict(task_id=task_id, confirmed=True),
-                ),
-            )
-        else:
-            # delete is confirmed by user proceide with
-            # delete operation
-            task = Task.query.get(task_id)
-            db.session.delete(task)
-            db.session.commit()
-            # emit delete event to inform parent component so
-            # that parent can redisplay itself
-            self.emit("delete", task=task, task_id=task_id)
-            # emit pushNotification event to instruct Notification component
-            # to display new notification
-            self.emit(
-                "pushNotification",
-                notification=Notification("{} deleted.".format(task.name)),
-            )
-            # don't redisplay this component
-            # redisplaying this componet will couse error becaouse taks
-            # is deleted
-            return False
 
 
 @config(
@@ -594,7 +606,12 @@ class ViewTask(Component):
         parent_id_field_name="project_id",
         template="tasks.html",
         components=dict(
-            view=ViewTask,
+            view=(
+                ViewRecord,
+                ViewRecord.Config(
+                    model=Task, template="tasks/view.html", changes_url=False
+                ),
+            ),
             add=(
                 AddRecord,
                 AddRecord.Config(
@@ -670,8 +687,8 @@ class Tasks(ListRecords):
 
 # Projects
 ##########
+# TODO testing python and js for compoent(c1) component(c2) shuld display jmb:name=c1 jmb:name=c1/c2, not just jmb:name=c1/c2
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
-# generalize view
 # add generalized templates for edit, add, view and list
 # TODO create API for calling other copmponenet actions like
 # self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
@@ -688,8 +705,7 @@ class Tasks(ListRecords):
 # TODO make course that will be created to build this version step by step
 # TODO When going back with browser execute confirmation if needed --for next version
 # generate system event _browser_navigation
-@jmb.page(
-    "projects",
+@config(
     ListRecords.Config(
         model=Project,
         components=dict(
@@ -712,12 +728,11 @@ class Tasks(ListRecords):
                     model=Project, form=ProjectForm, template="projects/add.html"
                 ),
             ),
-            confirmation=ConfirmationDialog,
-            notifications=Notifications,
         ),
+        template="projects.html"
     ),
 )
-class ProjectsPage(ListRecords):
+class Projects(ListRecords):
     def __init__(
         self,
         display_mode: Optional[str] = None,
@@ -753,3 +768,36 @@ class ProjectsPage(ListRecords):
             # if mode is display projects table
             return super().display()
         return self.render_template()
+
+
+@jmb.page(
+    "main",
+    Component.Config(
+        components=dict(
+            projects=Projects,
+            confirmation=ConfirmationDialog,
+            notifications=Notifications,
+        )
+    ),
+)
+class MainPage(Component):
+    class Config(Component.Config):
+        @cached_property
+        def supported_display_modes(self) -> Tuple[str, ...]:
+            return tuple(
+                name
+                for name, conf in self.components_configs.items()
+                if conf.changes_url == True
+            )
+
+    _config: Config
+
+    def __init__(self, display_mode: Optional[str] = None):
+        if display_mode not in self._config.supported_display_modes:
+            self.state.display_mode = self._config.supported_display_modes[0]
+        super().__init__()
+
+    @listener(event="_display", source=["./*"])
+    def on_child_display(self, event: "Event"):
+        if event.source_name in self._config.supported_display_modes:
+            self.state.display_mode = event.source_name

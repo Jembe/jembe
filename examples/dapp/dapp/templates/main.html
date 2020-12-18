@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example application</title>
+</head>
+<body>
+    {{display_mode}}
+    {{component(display_mode)}}
+    {{component("confirmation")}}
+
+    {{component("notifications")}}
+
+   <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+</body>
+</html>
