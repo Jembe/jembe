@@ -1807,6 +1807,34 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
     assert json_response[1]["execName"] == "/test/project/tasks"
     assert json_response[1]["dom"] == """<div>Tasks for project: 2</div>"""
 
+def test_component_inside_component(jmb, client):
+    class B(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div>B</div>")
+    @config(Component.Config(components=dict(b=B)))
+    class A(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("{{component('b')}}")
+
+    @jmb.page("test", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component('a')}}</body></html>"
+            )
+    r = client.get("/test")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/test" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test"}\'><body>"""
+        """<div jmb:name="/test/a" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test/a"}\'>"""
+        """<div jmb:name="/test/a/b" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test/a/b"}\'>"""
+        """B"""
+        """</div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
 
 # TODO test counter with configurable increment
 # TODO

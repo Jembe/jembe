@@ -1354,7 +1354,7 @@ class JembeClient {
       // add jmb:name tag
 
 
-      if (template.content.childNodes.length > 1 || template.content.childNodes.length === 0 || template.content.firstChild.nodeType === Node.TEXT_NODE) {
+      if (template.content.childNodes.length > 1 || template.content.childNodes.length === 0 || template.content.firstChild.nodeType === Node.TEXT_NODE || template.content.childNodes.length === 1 && (template.content.firstChild.hasAttribute("jmb:name") || template.content.firstChild.hasAttribute("jmb-placeholder"))) {
         let div = this.document.createElement("div");
 
         for (const child of template.content.childNodes) {
@@ -1698,7 +1698,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "39897" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "45641" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

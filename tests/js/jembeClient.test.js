@@ -522,3 +522,44 @@ test('dont add souranundin div to component if not necessary', () => {
     `<div jmb:name="/page/test">a</div>`
   )
 })
+
+test('update nested component templates', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+      <body>
+      <div jmb:name="/page/a" jmb:data='{"changesUrl":true,"state":{},"url":"/page/a","actions":[]}'></div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page/a",
+      "state": {},
+      "url": "/page/a",
+      "changesUrl": true,
+      "dom": `<template jmb-placeholder="/page/a/b">`
+    },
+    {
+      "execName": "/page/a/b",
+      "state": {},
+      "url": "/page/a/b",
+      "changesUrl": true,
+      "dom": `<template jmb-placeholder="/page/a/b/c">`
+    },
+    {
+      "execName": "/page/a/b/c",
+      "state": {},
+      "url": "/page/a/b/c",
+      "changesUrl": true,
+      "dom": `<div>C</div>`,
+    },
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  console.log(document.documentElement.outerHTML)
+  expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/page"><head></head><body>
+      <div jmb:name="/page/a"><div jmb:name="/page/a/b"><div jmb:name="/page/a/b/c">C</div></div></div>
+      
+    
+  </body></html>`
+  )
+})

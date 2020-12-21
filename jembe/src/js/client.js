@@ -128,7 +128,10 @@ class JembeClient {
       // add jmb:name tag
       if (template.content.childNodes.length > 1 ||
         template.content.childNodes.length === 0 ||
-        template.content.firstChild.nodeType === Node.TEXT_NODE) {
+        template.content.firstChild.nodeType === Node.TEXT_NODE ||
+        (template.content.childNodes.length === 1 &&
+          (template.content.firstChild.hasAttribute("jmb:name") ||
+            template.content.firstChild.hasAttribute("jmb-placeholder")))) {
         let div = this.document.createElement("div")
         for (const child of template.content.childNodes) {
           div.appendChild(child)

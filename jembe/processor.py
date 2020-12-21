@@ -714,7 +714,9 @@ class InitialiseCommand(Command):
         # create new component if component with identical exec_name does not exist
         # or component with identical exec_name has not action or listener executed
         if self._must_do_init:
-            existing_component = self.processor.components.get(self.component_exec_name, None)
+            existing_component = self.processor.components.get(
+                self.component_exec_name, None
+            )
             existing_params = (
                 {
                     k: v
@@ -733,7 +735,9 @@ class InitialiseCommand(Command):
             # becouse _config should be avaiable in __init__
             component = object.__new__(self._cconfig.component_class)
             component._config = self._cconfig
-            component._jembe_injected_params_names = list(self._inject_into_params.keys())
+            component._jembe_injected_params_names = list(
+                self._inject_into_params.keys()
+            )
             component.__init__(**init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
@@ -1388,7 +1392,11 @@ class Processor:
             return doc
         else:
             doc = root[0]
-            if len(root[0]) == 1:
+            if (
+                len(root[0]) == 1
+                and "jmb-placeholder" not in root[0][0].attrib
+                and "jmb:name" not in root[0][0].attrib
+            ):
                 set_jmb_attrs(root[0][0])
             else:
                 # add div tag at root[0][0] and move all root[0][0..len] to new tag

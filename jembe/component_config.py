@@ -285,12 +285,15 @@ def componentConfigInitDecorator(init_method):
             init_params = default_init_params.copy()
             init_params.update(kwargs.copy())
             init_named_params = list(signature(init_method).parameters.keys())
-            filtered_init_params = {
-                key: value
-                for key, value in init_params.items()
-                if key in init_named_params
-            }
-            init_method(self, *args, **filtered_init_params)
+            # filtered_init_params = {
+            #     key: value
+            #     for key, value in init_params.items()
+            #     if key in init_named_params
+            # }
+            # if kwargs["name"] == "page":
+            #     import pdb; pdb.set_trace()
+            # init_method(self, *args, **filtered_init_params)
+            init_method(self, *args, **init_params)
         else:
             # Component config is used inside @config or @page decorator
             # no need to proper initialise class
