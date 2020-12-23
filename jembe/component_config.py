@@ -14,7 +14,7 @@ from enum import Enum
 from copy import deepcopy
 from itertools import accumulate
 from operator import add
-from inspect import getmembers, isfunction, signature
+from inspect import getmembers, isfunction, signature, Parameter
 from .exceptions import JembeError
 from flask import url_for
 from .common import ComponentRef
@@ -284,16 +284,26 @@ def componentConfigInitDecorator(init_method):
             )
             init_params = default_init_params.copy()
             init_params.update(kwargs.copy())
-            init_named_params = list(signature(init_method).parameters.keys())
-            # filtered_init_params = {
-            #     key: value
-            #     for key, value in init_params.items()
-            #     if key in init_named_params
-            # }
-            # if kwargs["name"] == "page":
-            #     import pdb; pdb.set_trace()
-            # init_method(self, *args, **filtered_init_params)
-            init_method(self, *args, **init_params)
+            init_parameters = signature(init_method).parameters
+
+            init_named_params = [name for name, param in init_parameters.items() if param.kind == Parameter.POSITIONAL_OR_KEYWORD]
+            init_has_kwarg_param = len([name for name, param in init_parameters.items() if param.kind == Parameter.VAR_KEYWORD]) > 0
+            try:
+                if init_has_kwarg_param:
+                    # init has **kwargs param so use all init_params suplied
+                    init_method(self, *args, **init_params)
+                else:
+                    # from init-params use only params that actual exesit in __init__
+                    # becouse __init__ does not have **kwargs
+                    init_method(self, *args,
+                    **{
+                        key: value
+                        for key, value in init_params.items()
+                        if key in init_named_params
+                    })
+            except Exception as e:
+                print("Error in {} __init__: {}".format(kwargs, e))
+                raise e
         else:
             # Component config is used inside @config or @page decorator
             # no need to proper initialise class
