@@ -47,7 +47,7 @@ class Confirmation:
     params: dict = field(default_factory=dict)
 
 
-@config(Component.Config(changes_url=False, template="confirmation.html"))
+@config(Component.Config(changes_url=False, template="common/confirmation.html"))
 class ConfirmationDialog(Component):
     def __init__(
         self, confirmation: Optional[Confirmation] = None, source: Optional[str] = None
@@ -92,7 +92,7 @@ class Notification:
     level: str = "info"
 
 
-@config(Component.Config(changes_url=False, template="notifications.html"))
+@config(Component.Config(changes_url=False, template="common/notifications.html"))
 class Notifications(Component):
     def __init__(self, notifications: Optional[Dict[str, Notification]] = None) -> None:
         if notifications is not None:
@@ -493,6 +493,8 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             self.parent_id_field_name = parent_id_field_name
             if url_query_params is None:
                 url_query_params = dict(p="page", ps="page_size")
+            if template is None:
+                template = "common/list_records.html"
             super().__init__(
                 name=name,
                 template=template,
@@ -559,6 +561,11 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         self.records = records.order_by(Record.id.desc())[
             start : start + self.state.page_size
         ]
+
+        self.model_info = getattr(self._config.model, "__table_args__", dict()).get(
+            "info", dict()
+        )
+        self.columns = self._config.model.__table__.columns
         return super().display()
 
     @listener(event="askQuestion", source="./**")
@@ -604,7 +611,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
     ListRecords.Config(
         model=Task,
         parent_id_field_name="project_id",
-        template="tasks.html",
+        template="common/list_records_inline.html",
         components=dict(
             view=(
                 ViewRecord,
@@ -687,7 +694,6 @@ class Tasks(ListRecords):
 
 # Projects
 ##########
-# TODO testing python and js for compoent(c1) component(c2) shuld display jmb:name=c1 jmb:name=c1/c2, not just jmb:name=c1/c2
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
 # add generalized templates for edit, add, view and list
 # TODO create API for calling other copmponenet actions like
@@ -729,7 +735,6 @@ class Tasks(ListRecords):
                 ),
             ),
         ),
-        template="projects.html"
     ),
 )
 class Projects(ListRecords):

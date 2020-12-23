@@ -1,17 +1,30 @@
 {% if display_mode is none %}
-<button jmb:on.click="{{component('add').jrl}}">Add project</button>
+
+<h1>
+    {{model_info.verbose_name_plural}}
+</h1>
+{% if component('add').is_accessible() %}
+    <button jmb:on.click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
+{% endif %}
+
 <table>
     <thead>
         <tr>
-            <th>Project</th>
+            {% for column in columns %}
+            <th>{{column.name}}</th>
+            {% endfor %}
             <th>Actions</th>
         </tr>
     </thead>
     {% for record in records %}
     <tr>
-        <td>{{record.name}}</td> 
+        {% for column in columns %}
+        <td>{{record[column.name]}}</td> 
+        {%endfor%}
         <td>
-            <button jmb:on.click="{{component('edit', record_id=record.id).jrl}}">Edit</button>
+            {% if component('edit', record_id=record.id).is_accessible() %}
+            <button jmb:on.click="{{component().jrl}}">Edit</button>
+            {% endif %}
             <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
         </td>
     </tr>

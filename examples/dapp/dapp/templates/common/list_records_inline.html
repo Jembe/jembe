@@ -1,10 +1,18 @@
 <div>
-    <h2>Tasks</h2>
-    <button jmb:on.click="{{component('add').jrl}}">Add task</button>
+    <h2>
+        {{model_info.verbose_name_plural}}
+    </h2>
+
+    {% if component('add').is_accessible() %}
+        <button jmb:on.click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
+    {% endif %}
+
     <table>
         <thead>
             <tr>
-                <th>Task</th>
+                {% for column in columns %}
+                <th>{{column.name}}</th>
+                {% endfor %}
                 <th>Actions</th>
             </tr>
         </thead>
