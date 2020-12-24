@@ -100,32 +100,47 @@ class _SubComponentRenderer:
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
-
+        self._subcomponent: Optional["Component"] = None
         if "." in self.name or "/" in self.name:
             raise JembeError(
                 "Component renderer only suppotrs rendering or accessing direct childs"
             )
 
+    @property
+    def subcomponent(self) -> Optional["Component"]:
+        if self._subcomponent:
+            return self._subcomponent
+        return self.processor.components.get(self.exec_name, None)
+        # TODO check if initparas are the same for self.processor.components 
+        # if they are not same it is not same subcomponent
+
+    _is_accessible_cache: bool
+
     def is_accessible(self) -> bool:
         # TODO add param ignore_incoplete_params = True so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
-        initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
-        return self.processor.execute_initialise_command_successfully(
-            initialise_command
-        )
+        try:
+            return self._is_accessible_cache
+        except AttributeError:
+            initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
+            (
+                self._is_accessible_cache,
+                self._subcomponent,
+            ) = self.processor.execute_initialise_command_successfully(
+                initialise_command
+            )
+            return self._is_accessible_cache
 
     @cached_property
     def url(self) -> str:
-        if self.exec_name not in self.processor.components:
-            if not self.is_accessible():
+        if not self.subcomponent and not self.is_accessible():
                 raise NotFound()
-        return self.processor.components[self.exec_name].url
+        return self.subcomponent.url # type: ignore
 
     @cached_property
     def jrl(self) -> str:
-        if self.exec_name not in self.processor.components:
-            if not self.is_accessible():
+        if not self.subcomponent and not self.is_accessible():
                 raise NotFound()
 
         def _prep_v(v):
@@ -182,6 +197,8 @@ class _SubComponentRenderer:
         self.processor.add_command(
             InitialiseCommand(self.exec_name, self.kwargs), end=True
         )
+        self._subcomponent = None  # stop using component from is_accessible check
+
         # call action command is put in que to be executed latter
         # if this command raises exception parent should chach it and call display
         # with appropriate template
@@ -225,7 +242,7 @@ def componentInitDecorator(init_method):
             # Inject params from inject method
             params_to_inject = self.inject()
             self._jembe_injected_params_names.extend(params_to_inject.keys())
-            
+
             for name, value in params_to_inject.items():
                 if current_app.debug and name in kwargs:
                     current_app.logger.warning(
@@ -351,7 +368,7 @@ class Component(metaclass=ComponentMeta):
         Returns url of this component build using url_path of parent
         components and url_path of this component
         """
-        url = self._config.build_url(self.exec_name)
+        url = self._config.build_url(self.exec_name, self)
         url_get_params = []
         for url_param_name, state_param_name in self._config.url_query_params.items():
             if self.state.get(state_param_name, None) is not None:

@@ -286,8 +286,21 @@ def componentConfigInitDecorator(init_method):
             init_params.update(kwargs.copy())
             init_parameters = signature(init_method).parameters
 
-            init_named_params = [name for name, param in init_parameters.items() if param.kind == Parameter.POSITIONAL_OR_KEYWORD]
-            init_has_kwarg_param = len([name for name, param in init_parameters.items() if param.kind == Parameter.VAR_KEYWORD]) > 0
+            init_named_params = [
+                name
+                for name, param in init_parameters.items()
+                if param.kind == Parameter.POSITIONAL_OR_KEYWORD
+            ]
+            init_has_kwarg_param = (
+                len(
+                    [
+                        name
+                        for name, param in init_parameters.items()
+                        if param.kind == Parameter.VAR_KEYWORD
+                    ]
+                )
+                > 0
+            )
             try:
                 if init_has_kwarg_param:
                     # init has **kwargs param so use all init_params suplied
@@ -295,12 +308,15 @@ def componentConfigInitDecorator(init_method):
                 else:
                     # from init-params use only params that actual exesit in __init__
                     # becouse __init__ does not have **kwargs
-                    init_method(self, *args,
-                    **{
-                        key: value
-                        for key, value in init_params.items()
-                        if key in init_named_params
-                    })
+                    init_method(
+                        self,
+                        *args,
+                        **{
+                            key: value
+                            for key, value in init_params.items()
+                            if key in init_named_params
+                        },
+                    )
             except Exception as e:
                 print("Error in {} __init__: {}".format(kwargs, e))
                 raise e
@@ -527,7 +543,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         )
         return url_params
 
-    def build_url(self, exec_name: str) -> str:
+    def build_url(self, exec_name: str, component: Optional["Component"] = None) -> str:
         from .app import get_processor
 
         processor: "Processor" = get_processor()
@@ -536,10 +552,12 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         )
         url_params = dict()
         for en in exec_names:
-            component = processor.components[en]
-            url_params.update(
-                component._config.get_raw_url_params(component.state, component.key)
-            )
+            if component is not None and en == component.exec_name:
+                cmp = component
+            else:
+                cmp = processor.components[en]
+
+            url_params.update(cmp._config.get_raw_url_params(cmp.state, cmp.key))
         return url_for(self.endpoint, **url_params)
 
     def _get_default_template_name(self) -> str:
@@ -588,8 +606,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     @property
     def components_configs(self) -> Dict[str, "ComponentConfig"]:
         from .app import get_processor
+
         processor: "Processor" = get_processor()
-        configs:Dict[str, "ComponentConfig"] = dict()
+        configs: Dict[str, "ComponentConfig"] = dict()
         for component_name in self.components.keys():
-            configs[component_name] = processor.jembe.components_configs["{}/{}".format(self.full_name, component_name)] 
+            configs[component_name] = processor.jembe.components_configs[
+                "{}/{}".format(self.full_name, component_name)
+            ]
         return configs

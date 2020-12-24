@@ -824,34 +824,6 @@ def test_initialising_listener(jmb, client):
         def display(self):
             return self.render_template_string("<div>{{value}}</div>")
 
-    @jmb.page("cpage", Component.Config(components=dict(counter=Counter)))
-    class Page(Component):
-        @listener(event="_initialising", source="./counter")
-        def when_init_counter(self, event):
-            # TODO change to StateParam like dict
-            event.params["init_params"]["value"] = 10
-
-        def display(self):
-            return self.render_template_string(
-                "<html><head></head><body>" "{{component('counter')}}" "</body></html>"
-            )
-
-    html = (
-        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
-        "\n"
-        """<html jmb:name="/cpage" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/cpage"}\'><head></head><body>"""
-        """<div jmb:name="/cpage/counter" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"value":10},"url":"/cpage/counter"}\'>10</div>"""
-        "</body></html>"
-    ).encode("utf-8")
-    r = client.get("/cpage")
-    assert r.status_code == 200
-    assert r.data == html
-
-    r = client.get("/cpage/counter")
-    assert r.status_code == 200
-    assert r.data == html
-
-
 def test_counter_data_on_server(jmb, client):
     """make dynamic counter with persisted data on server"""
     counters: Dict[int, int] = {1: 10, 2: 20}
@@ -1726,7 +1698,7 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
             )
 
     class Tasks(Component):
-        def __init__(self, project_id: Optional[int]=None):
+        def __init__(self, project_id: Optional[int] = None):
             super().__init__()
 
         def display(self) -> Union[str, "Response"]:
@@ -1807,10 +1779,12 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
     assert json_response[1]["execName"] == "/test/project/tasks"
     assert json_response[1]["dom"] == """<div>Tasks for project: 2</div>"""
 
+
 def test_component_inside_component(jmb, client):
     class B(Component):
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string("<div>B</div>")
+
     @config(Component.Config(components=dict(b=B)))
     class A(Component):
         def display(self) -> Union[str, "Response"]:
@@ -1822,6 +1796,7 @@ def test_component_inside_component(jmb, client):
             return self.render_template_string(
                 "<html><body>{{component('a')}}</body></html>"
             )
+
     r = client.get("/test")
     assert r.status_code == 200
     assert r.data == (
@@ -1834,6 +1809,124 @@ def test_component_inside_component(jmb, client):
         """</div>"""
         """</body></html>"""
     ).encode("utf-8")
+
+
+def test_component_is_accessible_can_execute_for_jrl(jmb, client):
+    class A(Component):
+        def __init__(self, rid: int):
+            super().__init__()
+
+        @action
+        def cancel(self):
+            self.emit("cancel")
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("C{{rid}}")
+
+    @jmb.page("page", Component.Config(components=dict(a=A)))
+    class Page(Component):
+        def __init__(self, display_mode: Optional[str] = None):
+            super().__init__()
+
+        @listener(event="_display", source="./a")
+        def on_display_a(self, event):
+            self.state.display_mode = "a"
+
+        @listener(event="cancel", source="./a")
+        def on_cancel_a(self, event):
+            self.state.display_mode = None
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>"
+                "{%if display_mode is none %}"
+                "{%if component('a', rid=1).is_accessible() %}"
+                """<button jmb:on.click="{{component().jrl}}">C1</button>"""
+                "{% endif %}"
+                "{%if component('a', rid=2).is_accessible() %}"
+                """<button jmb:on.click="{{component().jrl}}">C2</button>"""
+                "{% endif %}"
+                "{% else %}"
+                "{{component('a')}}"
+                "{% endif %}"
+                "</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":null},"url":"/page"}\'><body>"""
+        """<button jmb:on.click="$jmb.component('a',{rid:1}).display()">C1</button>"""
+        """<button jmb:on.click="$jmb.component('a',{rid:2}).display()">C2</button>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+    r = client.post(
+        "/page/a/1",
+        data=json.dumps(
+            dict(
+                components=[dict(execName="/page", state=dict(display_mode=None)),],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/page/a",
+                        initParams=dict(rid=1),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/page/a",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 2
+    assert json_response[0]["execName"] == "/page"
+    assert (
+        json_response[0]["dom"]
+        == """<html><body><template jmb-placeholder="/page/a"></template></body></html>"""
+    )
+    assert json_response[1]["execName"] == "/page/a"
+    assert json_response[1]["dom"] == """C1"""
+
+    r = client.post(
+        "/page/a/1",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict(display_mode="a")),
+                    dict(execName="/page/a", state=dict(rid=1)),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/page/a",
+                        actionName="cancel",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 1
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["dom"] == (
+        """<html><body>"""
+        """<button jmb:on.click="$jmb.component('a',{rid:1}).display()">C1</button>"""
+        """<button jmb:on.click="$jmb.component('a',{rid:2}).display()">C2</button>"""
+        """</body></html>"""
+    )
 
 
 # TODO test counter with configurable increment

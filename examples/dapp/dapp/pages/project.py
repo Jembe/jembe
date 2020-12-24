@@ -227,7 +227,7 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             self.form = form
             self.ask_for_prev_next_record = ask_for_prev_next_record
             if template is None:
-                template = "lib/edit.html"
+                template = "common/edit.html"
             super().__init__(
                 name=name,
                 template=template,
@@ -339,6 +339,9 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
 
     def display(self) -> Union[str, "Response"]:
         self.mount()
+        self.model_info = getattr(self._config.model, "__table_args__", dict()).get(
+            "info", dict()
+        )
         return super().display()
 
     @listener(event="answerQuestion", source="/**/.")
@@ -721,7 +724,6 @@ class Tasks(ListRecords):
                     model=Project,
                     form=ProjectForm,
                     ask_for_prev_next_record=True,
-                    template="projects/edit.html",
                     components=dict(tasks=Tasks,),
                     inject_into_components=lambda self, _config: dict(
                         parent_id=self.state.record_id

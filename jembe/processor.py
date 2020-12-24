@@ -91,18 +91,8 @@ class Event:
 
 
 class SystemEvents(Enum):
-    # before calling display action
-    DISPLAYING = "_displaying"
     # after display action is executed
     DISPLAY = "_display"
-    # before initialising component
-    INITIALISING = "_initialising"
-    # after component has been initialised
-    INIT = "_init"
-    # before calling component action including display action
-    CALLING = "_calling"
-    # after component action (including display action) has beend executed
-    CALL = "_call"
     # after exception is raised by command
     EXCEPTION = "_exception"
 
@@ -207,22 +197,10 @@ class CallActionCommand(Command):
             )
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
-        return [
-            EmitCommand(
-                self.component_exec_name,
-                SystemEvents.CALLING.value,
-                dict(action=self.action_name),
-            ).mount(self.processor),
-        ]
+        return ()
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
-        commands: List["EmitCommand"] = [
-            EmitCommand(
-                self.component_exec_name,
-                SystemEvents.CALL.value,
-                dict(action=self.action_name),
-            ).mount(self.processor)
-        ]
+        commands: List["EmitCommand"] = []
         # reinject params to child components
         if self._component_state_before_execute is not None:
             component = self.processor.components[self.component_exec_name]
@@ -316,15 +294,7 @@ class CallDisplayCommand(CallActionCommand):
             )
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
-        commands = list(super().get_before_emit_commands())
-        commands.append(
-            EmitCommand(
-                self.component_exec_name,
-                SystemEvents.DISPLAYING.value,
-                dict(action=self.action_name),
-            ).mount(self.processor)
-        )
-        return commands
+        return super().get_before_emit_commands()
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
         commands = list(super().get_after_emit_commands())
@@ -659,6 +629,7 @@ class InitialiseCommand(Command):
         }
         self.exist_on_client = exist_on_client
 
+        self.initialised_component: Optional["Component"] = None
         self._cconfig: "ComponentConfig"
 
     def mount(self, processor: "Processor") -> "InitialiseCommand":
@@ -682,8 +653,7 @@ class InitialiseCommand(Command):
             }
         return injected_params
 
-    @cached_property
-    def _must_do_init(self):
+    def _must_do_init(self, is_accessible_run: bool):
         if self.component_exec_name in self.processor.components:
             new_params = {**self.init_params, **self._inject_into_params}
             # if state params are same continue
@@ -698,22 +668,25 @@ class InitialiseCommand(Command):
 
             if component.has_action_or_listener_executed:
                 if has_new_params:
-                    raise JembeError(
-                        (
-                            "Cant reinitialise component {} with new parametes after "
-                            "action or listener is executed by this component."
-                        ).format(component.exec_name)
-                    )
+                    if is_accessible_run:
+                        return True
+                    else:
+                        raise JembeError(
+                            (
+                                "Cant reinitialise component {} with new parametes after "
+                                "action or listener is executed by this component."
+                            ).format(component.exec_name)
+                        )
                 else:
                     return False
             else:
                 return has_new_params
         return True
 
-    def execute(self):
+    def execute(self, is_accessible_run=False):
         # create new component if component with identical exec_name does not exist
         # or component with identical exec_name has not action or listener executed
-        if self._must_do_init:
+        if self._must_do_init(is_accessible_run):
             existing_component = self.processor.components.get(
                 self.component_exec_name, None
             )
@@ -741,49 +714,37 @@ class InitialiseCommand(Command):
             component.__init__(**init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
-            self.processor.components[component.exec_name] = component
+            self.initialised_component = component
+            if not is_accessible_run:
+                self.processor.components[component.exec_name] = component
 
-            if self.exist_on_client:
-                self.processor.renderers[component.exec_name] = ComponentRender(
-                    False,
-                    component.state.deepcopy(),
-                    component.url,
-                    component._config.changes_url,
-                    None,
-                )
-
-            if self.processor._emited_event_commands:
-                # we need to reemit commands to this component
-                for emited_command in self.processor._emited_event_commands:
-                    reemit_commands = emited_command.reemit_over(
-                        self.component_exec_name
+                if self.exist_on_client:
+                    self.processor.renderers[component.exec_name] = ComponentRender(
+                        False,
+                        component.state.deepcopy(),
+                        component.url,
+                        component._config.changes_url,
+                        None,
                     )
-                    for remit_cmd in reemit_commands:
-                        self.processor.add_command(remit_cmd, end=True)
+
+                if self.processor._emited_event_commands:
+                    # we need to reemit commands to this component
+                    for emited_command in self.processor._emited_event_commands:
+                        reemit_commands = emited_command.reemit_over(
+                            self.component_exec_name
+                        )
+                        for remit_cmd in reemit_commands:
+                            self.processor.add_command(remit_cmd, end=True)
+        else:
+            self.initialised_component = self.processor.components[
+                self.component_exec_name
+            ]
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
-        return (
-            (
-                EmitCommand(
-                    self.component_exec_name,
-                    SystemEvents.INITIALISING.value,
-                    dict(init_params=self.init_params, _config=self._cconfig),
-                ).mount(self.processor),
-            )
-            if self._must_do_init
-            else ()
-        )
+        return ()
 
     def get_after_emit_commands(self) -> Sequence["EmitCommand"]:
-        return (
-            (
-                EmitCommand(
-                    self.component_exec_name, SystemEvents.INIT.value, dict(),
-                ).mount(self.processor),
-            )
-            if self._must_do_init
-            else ()
-        )
+        return ()
 
     def __repr__(self):
         return "Init({})".format(self.component_exec_name)
@@ -1123,14 +1084,15 @@ class Processor:
 
     def execute_initialise_command_successfully(
         self, command: "InitialiseCommand"
-    ) -> bool:
+    ) -> Tuple[bool, Optional["Component"]]:
         """
         Directly out of commands que execute initialise command
         in order to check will it raise Exception
 
-        if initialise is successfull all before and after commands should be executed.
+        no additional after or before commands will be executed
         """
-
+        # check if component with requested full_name exist or if
+        # initialisation with same init_params already failed
         if exec_name_to_full_name(
             command.component_exec_name
         ) not in self.jembe.components_configs or (
@@ -1140,61 +1102,37 @@ class Processor:
                 == self._raised_exception_on_initialise[command.component_exec_name]
             )
         ):
-            # component does not exist (component_config with requested full_name does not exist)
-            # or initailisation of component with same init_params already failed
-            return False
+            return (False, None)
 
+        # execute initialise command without running before or after commands
         backup_current_staging_commands = self._staging_commands
         self._staging_commands = CommandsQue(self.jembe)
+        cmd: "InitialiseCommand" = (
+            command if command.is_mounted else command.mount(self)
+        )
+        try:
+            cmd.execute(is_accessible_run=True)
+        except JembeError as jmb_error:
+            # JembeError are exceptions raised by jembe
+            # and thay indicate bad usage of framework
+            raise jmb_error
+        except Exception as exc:
+            self._raised_exception_on_initialise[cmd.component_exec_name] = deepcopy(
+                cmd.init_params
+            )
+            # initalise command is not run properly
 
-        local_que: Deque["Command"] = deque()
-        local_que.append(command if command.is_mounted else command.mount(self))
-        for emit_cmd in command.get_before_emit_commands():
-            local_que.append(emit_cmd)
-
-        while local_que:
-            # execute command without handling exception
-            cmd: "Command" = local_que.pop()
-            try:
-                cmd.execute()
-                self._staging_commands.move_commands_to(local_que)
-            except JembeError as jmberror:
-                # JembeError are exceptions raised by jembe
-                # and thay indicate bad usage of framework
-                raise jmberror
-            except Exception as exc:
-                if (
-                    cmd.component_exec_name == command.component_exec_name
-                    and isinstance(cmd, InitialiseCommand)
-                ):
-                    self._raised_exception_on_initialise[
-                        cmd.component_exec_name
-                    ] = deepcopy(cmd.init_params)
-                    # initalise command is not run properly
-                    # becouse this is check we are not running
-                    # exception listeners
-
-                    # restore _staging_commands
-                    self._staging_commands = backup_current_staging_commands
-                    if current_app.debug or current_app.testing:
-                        current_app.logger.exception(
-                            "Exception when initialising component out of proccessing que {}: {}".format(
-                                cmd, exc
-                            )
-                        )
-                    return False
-                # Before or after command raised exception
-                # this should not happend and that indicated bug so
-                # just reraise exception
-                raise exc
-            else:
-                # If execution of init command is successfull then
-                # add after commands into command que
-                for after_cmd in reversed(cmd.get_after_emit_commands()):
-                    local_que.append(after_cmd)
-
+            # restore _staging_commands
+            self._staging_commands = backup_current_staging_commands
+            if current_app.debug or current_app.testing:
+                current_app.logger.exception(
+                    "Exception when initialising component out of proccessing que {}: {}".format(
+                        cmd, exc
+                    )
+                )
+            return (False, None)
         self._staging_commands = backup_current_staging_commands
-        return True
+        return (True, cmd.initialised_component)
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
         """

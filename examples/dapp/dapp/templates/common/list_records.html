@@ -23,7 +23,7 @@
         {%endfor%}
         <td>
             {% if component('edit', record_id=record.id).is_accessible() %}
-            <button jmb:on.click="{{component().jrl}}">Edit</button>
+                <button jmb:on.click="{{component().jrl}}">Edit</button>
             {% endif %}
             <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
         </td>
