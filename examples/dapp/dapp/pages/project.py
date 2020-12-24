@@ -699,9 +699,6 @@ class Tasks(ListRecords):
 ##########
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
 # add generalized templates for edit, add, view and list
-# TODO create API for calling other copmponenet actions like
-# self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
-# self.emit("callDisplay", force=True|False).to("..")
 # TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add dommorph
 # TODO add task mark completed
@@ -714,6 +711,9 @@ class Tasks(ListRecords):
 # TODO make course that will be created to build this version step by step
 # TODO When going back with browser execute confirmation if needed --for next version
 # generate system event _browser_navigation
+# TODO create API for calling other copmponenet actions like ---- no need for this you can always add listeners if needed
+# self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
+# self.emit("callDisplay", force=True|False).to("..")
 @config(
     ListRecords.Config(
         model=Project,

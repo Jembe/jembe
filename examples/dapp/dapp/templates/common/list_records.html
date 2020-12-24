@@ -10,7 +10,7 @@
 <table>
     <thead>
         <tr>
-            {% for column in columns %}
+            {% for column in columns  if column.name != "id" %}
             <th>{{column.name}}</th>
             {% endfor %}
             <th>Actions</th>
@@ -18,7 +18,7 @@
     </thead>
     {% for record in records %}
     <tr>
-        {% for column in columns %}
+        {% for column in columns if column.name != "id"  %}
         <td>{{record[column.name]}}</td> 
         {%endfor%}
         <td>
