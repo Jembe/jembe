@@ -9,8 +9,10 @@ from jembe.component_config import CConfigRedisplayFlag, ComponentConfig
 from jembe.common import ComponentRef
 from jembe.utils import run_only_once
 from typing import (
-    Callable, Iterable,
-    Optional, Sequence,
+    Callable,
+    Iterable,
+    Optional,
+    Sequence,
     Set,
     TYPE_CHECKING,
     Tuple,
@@ -137,6 +139,8 @@ class OnConfirmationSupportMixin:
 
 class ViewRecord(OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
+        TEMPLATES = dict(default="common/view.html", inline="common/view_inline.html")
+
         def __init__(
             self,
             model: Type["Model"],
@@ -150,6 +154,8 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
             url_query_params: Optional[Dict[str, str]] = None,
         ):
             self.model = model
+            if template is None:
+                template = (self.default_template_name, self.TEMPLATES["default"])
             super().__init__(
                 template=template,
                 components=components,
@@ -199,10 +205,8 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
 
 class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
-        TEMPLATES =dict( 
-            default="common/edit.html",
-            inline="common/edit_inline.html"
-        )
+        TEMPLATES = dict(default="common/edit.html", inline="common/edit_inline.html")
+
         def __init__(
             self,
             model: Type["Model"],
@@ -356,6 +360,8 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
 
 class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
+        TEMPLATES = dict(default="common/add.html", inline="common/add_inline.html")
+
         def __init__(
             self,
             model: Type["Model"],
@@ -373,6 +379,8 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             self.model = model
             self.form = form
             self.parent_id_field_name = parent_id_field_name
+            if template is None:
+                template = (self.default_template_name, self.TEMPLATES["default"])
             super().__init__(
                 template=template,
                 components=components,
@@ -446,6 +454,9 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
 
     def display(self) -> Union[str, "Response"]:
         self.mount()
+        self.model_info = getattr(self._config.model, "__table_args__", dict()).get(
+            "info", dict()
+        )
         return super().display()
 
     def _is_record_modified(self) -> bool:
@@ -598,7 +609,9 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             view=(
                 ViewRecord,
                 ViewRecord.Config(
-                    model=Task, template="main/tasks/view.html", changes_url=False
+                    model=Task,
+                    template=ViewRecord.Config.TEMPLATES["inline"],
+                    changes_url=False,
                 ),
             ),
             add=(
@@ -607,8 +620,8 @@ class ListRecords(OnConfirmationSupportMixin, Component):
                     model=Task,
                     form=TaskForm,
                     parent_id_field_name="project_id",
+                    template=AddRecord.Config.TEMPLATES["inline"],
                     changes_url=False,
-                    template="main/tasks/add.html",
                 ),
             ),
             edit=(
@@ -616,7 +629,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
                 EditRecord.Config(
                     model=Task,
                     form=TaskForm,
-                    template="tasks/edit.html",
+                    template=EditRecord.Config.TEMPLATES["inline"],
                     changes_url=False,
                 ),
             ),
@@ -677,7 +690,7 @@ class Tasks(ListRecords):
 # Projects
 ##########
 # TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
-# add generalized templates for edit, add, view and list
+# add generalized templates  list_records
 # TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add dommorph
 # TODO add task mark completed
@@ -709,12 +722,7 @@ class Tasks(ListRecords):
                     ),
                 ),
             ),
-            add=(
-                AddRecord,
-                AddRecord.Config(
-                    model=Project, form=ProjectForm, template="projects/add.html"
-                ),
-            ),
+            add=(AddRecord, AddRecord.Config(model=Project, form=ProjectForm),),
         ),
     ),
 )
