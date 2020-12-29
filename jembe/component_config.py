@@ -1,5 +1,6 @@
 from typing import (
-    Callable, Iterable,
+    Callable,
+    Iterable,
     TYPE_CHECKING,
     Optional,
     Type,
@@ -15,7 +16,7 @@ from itertools import accumulate
 from operator import add
 from inspect import getmembers, isfunction, signature, Parameter
 from .exceptions import JembeError
-from flask import url_for 
+from flask import url_for
 from flask.globals import current_app
 from .common import ComponentRef
 
@@ -275,12 +276,11 @@ def componentConfigInitDecorator(init_method):
         # save original init_params as _raw_init_prams
 
         # update init params default values form @config decorator
-        if "name" in kwargs and "_component_class" in kwargs:
+        if hasattr(self, "_name"):
             # we need to initialise config
-            _component_class: Type["Component"] = kwargs["_component_class"]
             # get init params set by @config decorator
             default_init_params = getattr(
-                _component_class, "_jembe_config_init_params", dict()
+                self.component_class, "_jembe_config_init_params", dict()
             )
             init_params = default_init_params.copy()
             init_params.update(kwargs.copy())
@@ -344,22 +344,98 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     Compononent config defines behavior of all instances of component that
     are known at build time, like: url_path, subcomponents, name etc.
     """
+
+    # initialised by _jembe_init
+    _name: str
+    _component_class: Type["Component"]
+    _parent: Optional["ComponentConfig"]
+
+    # initilised by _jembe_prepare_component_init run inside _jembe_init
+    component_actions: Dict[str, "ComponentAction"]  # [method_name]
+    component_listeners: Dict[str, "ComponentListener"]  # [method_name]
+    redisplay: Tuple["CConfigRedisplayFlag", ...]
+    _hiearchy_level: int
+    _url_params: Tuple["UrlParamDef", ...]
+    _key_url_param: "UrlParamDef"
+
+    # intialise by Jembe app after registring route
+    __endpoint: str
+
     @classmethod
     def _jembe_init_(
         cls,
+        _name: str,
         _component_class: Type["Component"],
-        _parent:Optional["ComponentConfig"],
-        **init_params
+        _parent: Optional["ComponentConfig"],
+        **init_params,
     ):
         """
             Instance creation by explicitly calling __new__ and __init__
             becouse _parent should be avaible in __init__
         """
         cconfig = object.__new__(cls)
+        cconfig._name = _name
         cconfig._component_class = _component_class
         cconfig._parent = _parent
+        cconfig._jembe_prepare_component_init()
         cconfig.__init__(**init_params)
         return cconfig
+
+    def _jembe_prepare_component_init(self):
+        """
+        Called by _jembe_init_, when actually inicitialising component
+        to calculate and set all attributes required by jembe framework.
+        Reads component class description and sets appropriate config params 
+        like url_path state and init params, etc.
+        
+        This method is not run when you initiate Config inside @config or @page
+        decorator in order to set default values.
+        """
+        ### attributes configured by component_class
+        # obtain component actions
+        display_method = getattr(self.component_class, self.DEFAULT_DISPLAY_ACTION)
+        self.component_actions = {
+            self.DEFAULT_DISPLAY_ACTION: ComponentAction.from_method(display_method)
+        }
+        for method_name, method in getmembers(
+            self.component_class,
+            lambda o: isfunction(o) and getattr(o, "_jembe_action", False),
+        ):
+            self.component_actions[method_name] = ComponentAction.from_method(method)
+
+        # obtain component listeners
+        self.component_listeners = dict()
+        for method_name, method in getmembers(
+            self.component_class,
+            lambda o: isfunction(o) and getattr(o, "_jembe_listener", False),
+        ):
+            self.component_listeners[method_name] = ComponentListener.from_method(
+                method
+            )
+
+        # set redisplay from @redisplay decorator or with default value
+        redisplay_settings = getattr(display_method, "_jembe_redisplay", ())
+        if redisplay_settings:
+            self.redisplay = redisplay_settings
+        else:
+            self.redisplay = self.REDISPLAY_DEFAULT_FLAGS
+
+        ### attributes configured by parent
+        self._hiearchy_level = 0 if not self.parent else self.parent._hiearchy_level + 1
+        # Gets all component.__init__ paramters without default value
+        # and populate self._url_params
+        self._url_params = tuple(
+            UrlParamDef.from_inspect_parameter(p, self._hiearchy_level)
+            for p in self.component_class._jembe_init_signature.parameters.values()
+            if p.default == p.empty and p.name != "self" and not p.name.startswith("_")
+        )
+        self._key_url_param = UrlParamDef(
+            self.KEY_URL_PARAM_NAME,
+            identifier=calc_url_param_identifier(
+                self.KEY_URL_PARAM_NAME, self._hiearchy_level
+            ),
+            convertor=UrlConvertor.STR0,
+        )
 
     KEY_URL_PARAM_NAME = "component_key"
     KEY_URL_PARAM_SEPARATOR = "."
@@ -375,7 +451,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     def __init__(
         self,
-        name: Optional[str] = None,
         template: Optional[Union[str, Iterable[str]]] = None,
         components: Optional[Dict[str, ComponentRef]] = None,
         inject_into_components: Optional[
@@ -384,25 +459,32 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
         changes_url: bool = True,
         url_query_params: Optional[Dict[str, str]] = None,
-        _component_class: Optional[Type["Component"]] = None,
-        _parent: Optional["ComponentConfig"] = None,
     ):
         """
-        name: name of the component
         template: path to default template for displaying component
         components: Definition of subcomponents
         inject_into_components: Callable to inject init params into subcomponents
         redisplay: Flag to define when componnet will be redisplayed on client depending of its state
         changes_url: Does this component changes location url and allow back browser navigation to it
         url_query_params: Mapping from GET Query params to state params used when component is called directly via regular http get request dict(<name of get queryparam> = <name of state param>)
-
-        _component_class, _parent: used internally by jembe library
         """
-        self.name = name
+        # use default template if template name is not provided
+        if template is None:
+            self.template: Tuple[str, ...] = (self.default_template_name,)
+        elif isinstance(template, str):
+            self.template = (template,)
+        else:
+            self.template = tuple(
+                t if t != "" else self.default_template_name for t in template
+            )
+
         self.components: Dict[str, ComponentRef] = components if components else dict()
-        self._template = template
         self._inject_into_components = inject_into_components
-        self._redisplay_temp = redisplay
+
+        # if redisplay is set use it, otherwise leave 
+        # redisplay set by @redisplay decorator or default value
+        if redisplay:
+            self.redisplay = redisplay
         self.changes_url = changes_url
         self.url_query_params = (
             url_query_params if url_query_params is not None else dict()
@@ -411,26 +493,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         if not self.changes_url:
             # set changes_url to False to all its children components
             self.update_components_config(None, dict(changes_url=False))
-
-        # intialise by Jembe app after registring route
-        self.__endpoint: str
-
-        # initialise after setting component_class
-        self._component_class: Optional[Type["Component"]]
-        self.component_actions: Dict[str, "ComponentAction"]  # [method_name]
-        self.component_listeners: Dict[str, "ComponentListener"]  # [method_name]
-        self.redisplay: Tuple["CConfigRedisplayFlag", ...]
-
-        # initalise after setting parent
-        self._parent: Optional["ComponentConfig"]
-        self._hiearchy_level: int
-        self._url_params: Tuple["UrlParamDef", ...]
-        self._key_url_param: "UrlParamDef"
-        self.template: Tuple[str, ...]
-
-        if _component_class and name:
-            self._set_component_class(_component_class)
-            self._set_parent(_parent)
 
     @property
     def endpoint(self) -> str:
@@ -445,84 +507,37 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     @property
     def component_class(self) -> Type["Component"]:
-        if self._component_class is None:
+        try:
+            return getattr(self, "_component_class")
+        except AttributeError:
             raise JembeError(
-                "Component Config {} is not initialised properly".format(self.full_name)
-            )
-        return self._component_class
-
-    def _set_component_class(self, component_class: Type["Component"]):
-        """
-        Called by __init__,  to set associated component class.
-        Reads component class description and sets appropriate config params 
-        like url_path state and init params, etc.
-
-        comonent_class is not argument of __init__ because it should not ever 
-        be set or changed by end user or any other class except Jembe app.
-        """
-        self._component_class = component_class
-        self.component_actions = {
-            self.DEFAULT_DISPLAY_ACTION: ComponentAction.from_method(
-                getattr(self._component_class, self.DEFAULT_DISPLAY_ACTION)
-            )
-        }
-        for method_name, method in getmembers(
-            self._component_class,
-            lambda o: isfunction(o) and getattr(o, "_jembe_action", False),
-        ):
-            self.component_actions[method_name] = ComponentAction.from_method(method)
-
-        self.component_listeners = {}
-        for method_name, method in getmembers(
-            self._component_class,
-            lambda o: isfunction(o) and getattr(o, "_jembe_listener", False),
-        ):
-            self.component_listeners[method_name] = ComponentListener.from_method(
-                method
+                "Component Config {} is not initialised properly, 'component_class' is missing.".format(
+                    self.full_name
+                )
             )
 
-        # update redisplay if necessary
-        display_method = getattr(self._component_class, self.DEFAULT_DISPLAY_ACTION)
-        redisplay_settings = getattr(display_method, "_jembe_redisplay", ())
-        if self._redisplay_temp:
-            # if redisplay is set for config ignore settings on method
-            self.redisplay = self._redisplay_temp
-        elif redisplay_settings:
-            self.redisplay = redisplay_settings
-        else:
-            self.redisplay = self.REDISPLAY_DEFAULT_FLAGS
+    @property
+    def name(self) -> str:
+        try:
+            return getattr(self, "_name")
+        except AttributeError:
+            raise JembeError(
+                "Component Config {} is not initialised properly, 'name' is missing.".format(
+                    self.full_name
+                )
+            )
 
     @property
     def parent(self) -> Optional["ComponentConfig"]:
-        return self._parent
-
-    def _set_parent(self, parent: Optional["ComponentConfig"]):
-        """
-        Called by __init__ to set parent componet config
-        """
-        self._parent = parent
-        self._hiearchy_level = 0 if not parent else parent._hiearchy_level + 1
-        # Gets all component.__init__ paramters without default value
-        # and populate self._url_params
-        self._url_params = tuple(
-            UrlParamDef.from_inspect_parameter(p, self._hiearchy_level)
-            for p in self.component_class._jembe_init_signature.parameters.values()
-            if p.default == p.empty and p.name != "self" and not p.name.startswith("_")
-        )
-        self._key_url_param = UrlParamDef(
-            self.KEY_URL_PARAM_NAME,
-            identifier=calc_url_param_identifier(
-                self.KEY_URL_PARAM_NAME, self._hiearchy_level
-            ),
-            convertor=UrlConvertor.STR0,
-        )
-        # populate default template
-        if self._template is None:
-            self.template = (self.default_template_name,)
-        elif isinstance(self._template, str):
-            self.template = (self._template,)
-        else:
-            self.template = tuple(t if t != "" else self.default_template_name for t in self._template)
+        try:
+            return getattr(self, "_parent")
+        except AttributeError:
+            import pdb; pdb.set_trace()
+            raise JembeError(
+                "Component Config {} is not initialised properly, 'parent' is missing.".format(
+                    self.full_name
+                )
+            )
 
     @property
     def full_name(self) -> str:

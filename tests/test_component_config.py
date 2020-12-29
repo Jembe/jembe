@@ -17,8 +17,12 @@ def test_redisplay_settings(jmb: Jembe):
         def display(self):
             return super().display()
 
-    config1 = Comp1.Config(name="c1", _component_class=Comp1)
-    config2 = Comp2.Config(name="c2", _component_class=Comp2)
+    config1 = Comp1.Config._jembe_init_(
+        _name="c1", _component_class=Comp1, _parent=None
+    )
+    config2 = Comp2.Config._jembe_init_(
+        _name="c2", _component_class=Comp2, _parent=None
+    )
     assert config1.redisplay == config2.redisplay
     assert config1.redisplay == (Component.Config.WHEN_ON_PAGE,)
     assert config2.redisplay == (Component.Config.WHEN_ON_PAGE,)
@@ -41,7 +45,6 @@ def test_config_init_params(jmb: Jembe, client):
             def __init__(
                 self,
                 model: str,
-                name: Optional[str] = None,
                 template: Optional[Union[str, Iterable[str]]] = None,
                 components: Optional[Dict[str, "ComponentRef"]] = None,
                 inject_into_components: Optional[
@@ -50,19 +53,14 @@ def test_config_init_params(jmb: Jembe, client):
                 redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
                 changes_url: bool = True,
                 url_query_params: Optional[Dict[str, str]] = None,
-                _component_class: Optional[Type["Component"]] = None,
-                _parent: Optional["ComponentConfig"] = None,
             ):
                 super().__init__(
-                    name=name,
                     template=template,
                     components=components,
                     inject_into_components=inject_into_components,
                     redisplay=redisplay,
                     changes_url=changes_url,
                     url_query_params=url_query_params,
-                    _component_class=_component_class,
-                    _parent=_parent,
                 )
 
         _config: Config
@@ -99,13 +97,13 @@ def test_template_config_param(jmb: Jembe):
         "p",
         Component.Config(
             components=dict(a=A, b=(B, B.Config(template=("", "test.html")))),
-            template="p.html"
+            template="p.html",
         ),
     )
     class Page(Component):
         pass
 
     assert jmb.components_configs["/p/a"].template == ("p/a.html",)
-    assert jmb.components_configs["/p/b"].template== ("p/b.html", "test.html")
+    assert jmb.components_configs["/p/b"].template == ("p/b.html", "test.html")
     assert jmb.components_configs["/p"].template == ("p.html",)
 

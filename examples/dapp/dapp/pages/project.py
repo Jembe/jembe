@@ -140,7 +140,6 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
         def __init__(
             self,
             model: Type["Model"],
-            name: Optional[str] = None,
             template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
@@ -149,20 +148,15 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
             redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
             changes_url: bool = True,
             url_query_params: Optional[Dict[str, str]] = None,
-            _component_class: Optional[Type["Component"]] = None,
-            _parent: Optional["ComponentConfig"] = None,
         ):
             self.model = model
             super().__init__(
-                name=name,
                 template=template,
                 components=components,
                 inject_into_components=inject_into_components,
                 redisplay=redisplay,
                 changes_url=changes_url,
                 url_query_params=url_query_params,
-                _component_class=_component_class,
-                _parent=_parent,
             )
 
     _config: Config
@@ -205,11 +199,14 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
 
 class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
+        TEMPLATES =dict( 
+            default="common/edit.html",
+            inline="common/edit_inline.html"
+        )
         def __init__(
             self,
             model: Type["Model"],
             form: Type["Form"],
-            name: Optional[str] = None,
             ask_for_prev_next_record: bool = False,
             template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
@@ -219,26 +216,19 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
             changes_url: bool = True,
             url_query_params: Optional[Dict[str, str]] = None,
-            # TODO remove those two parameters and set it manually like the compoent.__init__
-            _component_class: Optional[Type["Component"]] = None,
-            _parent: Optional["ComponentConfig"] = None,
         ):
             self.model = model
             self.form = form
             self.ask_for_prev_next_record = ask_for_prev_next_record
             if template is None:
-                template = (self.default_template_name, "common/edit.html")
-                # template = ("projects/edit.html", "common/edit.html")
+                template = (self.default_template_name, self.TEMPLATES["default"])
             super().__init__(
-                name=name,
                 template=template,
                 components=components,
                 inject_into_components=inject_into_components,
                 redisplay=redisplay,
                 changes_url=changes_url,
                 url_query_params=url_query_params,
-                _component_class=_component_class,
-                _parent=_parent,
             )
 
     _config: Config
@@ -371,7 +361,6 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             model: Type["Model"],
             form: Type["Form"],
             parent_id_field_name: Optional[str] = None,
-            name: Optional[str] = None,
             template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
@@ -380,22 +369,17 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
             changes_url: bool = True,
             url_query_params: Optional[Dict[str, str]] = None,
-            _component_class: Optional[Type["Component"]] = None,
-            _parent: Optional["ComponentConfig"] = None,
         ):
             self.model = model
             self.form = form
             self.parent_id_field_name = parent_id_field_name
             super().__init__(
-                name=name,
                 template=template,
                 components=components,
                 inject_into_components=inject_into_components,
                 redisplay=redisplay,
                 changes_url=changes_url,
                 url_query_params=url_query_params,
-                _component_class=_component_class,
-                _parent=_parent,
             )
 
     _config: Config
@@ -481,7 +465,6 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             self,
             model: Type["Model"],
             parent_id_field_name: Optional[str] = None,
-            name: Optional[str] = None,
             template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
@@ -490,8 +473,6 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
             changes_url: bool = True,
             url_query_params: Optional[Dict[str, str]] = None,
-            _component_class: Optional[Type["Component"]] = None,
-            _parent: Optional["ComponentConfig"] = None,
         ):
             self.model = model
             self.parent_id_field_name = parent_id_field_name
@@ -500,15 +481,12 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             if template is None:
                 template = "common/list_records.html"
             super().__init__(
-                name=name,
                 template=template,
                 components=components,
                 inject_into_components=inject_into_components,
                 redisplay=redisplay,
                 changes_url=changes_url,
                 url_query_params=url_query_params,
-                _component_class=_component_class,
-                _parent=_parent,
             )
 
     _config: Config
@@ -620,7 +598,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             view=(
                 ViewRecord,
                 ViewRecord.Config(
-                    model=Task, template="tasks/view.html", changes_url=False
+                    model=Task, template="main/tasks/view.html", changes_url=False
                 ),
             ),
             add=(
@@ -630,7 +608,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
                     form=TaskForm,
                     parent_id_field_name="project_id",
                     changes_url=False,
-                    template="tasks/add.html",
+                    template="main/tasks/add.html",
                 ),
             ),
             edit=(

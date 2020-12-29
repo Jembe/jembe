@@ -623,6 +623,8 @@ class Component(metaclass=ComponentMeta):
             },
             # command to render subcomponents
             "component": self._render_subcomponent_template,
+            # add helpers
+            "_config": self._config
         }
 
     def _render_subcomponent_template(
