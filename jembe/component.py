@@ -1,6 +1,6 @@
 from typing import (
+    Iterable,
     TYPE_CHECKING,
-    ForwardRef,
     Optional,
     Union,
     Dict,
@@ -111,7 +111,7 @@ class _SubComponentRenderer:
         if self._subcomponent:
             return self._subcomponent
         return self.processor.components.get(self.exec_name, None)
-        # TODO check if initparas are the same for self.processor.components 
+        # TODO check if initparas are the same for self.processor.components
         # if they are not same it is not same subcomponent
 
     _is_accessible_cache: bool
@@ -135,13 +135,13 @@ class _SubComponentRenderer:
     @cached_property
     def url(self) -> str:
         if not self.subcomponent and not self.is_accessible():
-                raise NotFound()
-        return self.subcomponent.url # type: ignore
+            raise NotFound()
+        return self.subcomponent.url  # type: ignore
 
     @cached_property
     def jrl(self) -> str:
         if not self.subcomponent and not self.is_accessible():
-                raise NotFound()
+            raise NotFound()
 
         def _prep_v(v):
             if isinstance(v, bool):
@@ -290,6 +290,23 @@ class ComponentMeta(ABCMeta):
 
 
 class Component(metaclass=ComponentMeta):
+    @classmethod
+    def _jembe_init_(
+        cls,
+        _config: ComponentConfig,
+        _jembe_injected_params_names: List[str],
+        **init_params
+    ):
+        """
+            Instance creation by explicitly calling __new__ and __init__
+            because _config should be avaiable in __init__
+        """
+        component = object.__new__(cls)
+        component._config = _config
+        component._jembe_injected_params_names = _jembe_injected_params_names
+        component.__init__(**init_params)
+        return component
+
     state: "ComponentState"
     _jembe_init_signature: "Signature"
     _jembe_init_param_names: Tuple[str, ...]
@@ -540,7 +557,9 @@ class Component(metaclass=ComponentMeta):
     def display(self) -> Union[str, "Response"]:
         return self.render_template()
 
-    def render_template(self, template: Optional[str] = None, **context) -> str:
+    def render_template(
+        self, template: Optional[Union[str, Iterable[str]]] = None, **context
+    ) -> str:
         """Renderes jinja2 template into html, adds default context variables
 
         TODO 

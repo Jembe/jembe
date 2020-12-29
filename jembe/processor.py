@@ -704,14 +704,11 @@ class InitialiseCommand(Command):
                 **self.init_params,
                 **self._inject_into_params,
             }
-            # Instance createion by excplictly calling __new__ and __init__
-            # becouse _config should be avaiable in __init__
-            component = object.__new__(self._cconfig.component_class)
-            component._config = self._cconfig
-            component._jembe_injected_params_names = list(
-                self._inject_into_params.keys()
+            component = self._cconfig.component_class._jembe_init_(
+                self._cconfig,
+                list(self._inject_into_params.keys()),
+                **init_params
             )
-            component.__init__(**init_params)  # type:ignore
 
             component.exec_name = self.component_exec_name
             self.initialised_component = component

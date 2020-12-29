@@ -1,5 +1,5 @@
 from typing import (
-    Callable,
+    Callable, Iterable,
     TYPE_CHECKING,
     Optional,
     Type,
@@ -11,12 +11,12 @@ from typing import (
 )
 from abc import ABCMeta
 from enum import Enum
-from copy import deepcopy
 from itertools import accumulate
 from operator import add
 from inspect import getmembers, isfunction, signature, Parameter
 from .exceptions import JembeError
-from flask import url_for
+from flask import url_for 
+from flask.globals import current_app
 from .common import ComponentRef
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -344,6 +344,22 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     Compononent config defines behavior of all instances of component that
     are known at build time, like: url_path, subcomponents, name etc.
     """
+    @classmethod
+    def _jembe_init_(
+        cls,
+        _component_class: Type["Component"],
+        _parent:Optional["ComponentConfig"],
+        **init_params
+    ):
+        """
+            Instance creation by explicitly calling __new__ and __init__
+            becouse _parent should be avaible in __init__
+        """
+        cconfig = object.__new__(cls)
+        cconfig._component_class = _component_class
+        cconfig._parent = _parent
+        cconfig.__init__(**init_params)
+        return cconfig
 
     KEY_URL_PARAM_NAME = "component_key"
     KEY_URL_PARAM_SEPARATOR = "."
@@ -360,7 +376,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def __init__(
         self,
         name: Optional[str] = None,
-        template: Optional[str] = None,
+        template: Optional[Union[str, Iterable[str]]] = None,
         components: Optional[Dict[str, ComponentRef]] = None,
         inject_into_components: Optional[
             Callable[["Component", "ComponentConfig"], dict]
@@ -410,7 +426,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self._hiearchy_level: int
         self._url_params: Tuple["UrlParamDef", ...]
         self._key_url_param: "UrlParamDef"
-        self.template: str
+        self.template: Tuple[str, ...]
 
         if _component_class and name:
             self._set_component_class(_component_class)
@@ -501,11 +517,12 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             convertor=UrlConvertor.STR0,
         )
         # populate default template
-        self.template = (
-            self._template
-            if self._template is not None
-            else self._get_default_template_name()
-        )
+        if self._template is None:
+            self.template = (self.default_template_name,)
+        elif isinstance(self._template, str):
+            self.template = (self._template,)
+        else:
+            self.template = tuple(t if t != "" else self.default_template_name for t in self._template)
 
     @property
     def full_name(self) -> str:
@@ -560,7 +577,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             url_params.update(cmp._config.get_raw_url_params(cmp.state, cmp.key))
         return url_for(self.endpoint, **url_params)
 
-    def _get_default_template_name(self) -> str:
+    @property
+    def default_template_name(self) -> str:
         return "{}.html".format(self.full_name.strip("/"))
 
     def update_components_config(

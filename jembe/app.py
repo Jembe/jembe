@@ -119,13 +119,21 @@ class Jembe:
                     if isinstance(curent_ref[1], dict)
                     else curent_ref[1]._raw_init_params
                 )
-                component_config = component_class.Config(
+                # component_config = component_class.Config(
+                #     **{
+                #         **curent_ref_params,
+                #         "name": component_name,
+                #         "_parent": parent_config,
+                #         "_component_class": component_class,
+                #     }  # type:ignore
+                # )
+                component_config = component_class.Config._jembe_init_(
+                    _parent=parent_config,
+                    _component_class=component_class,
                     **{
                         **curent_ref_params,
-                        "name": component_name,
-                        "_parent": parent_config,
-                        "_component_class": component_class,
-                    }  # type:ignore
+                        "name":component_name
+                    }
                 )
             else:
                 # create config with default params
@@ -134,10 +142,15 @@ class Jembe:
                     if not isinstance(curent_ref, str)
                     else import_by_name(curent_ref)
                 )
-                component_config = component_class.Config(
-                    name=component_name,
+                # component_config = component_class.Config(
+                #     name=component_name,
+                #     _parent=parent_config,
+                #     _component_class=component_class,
+                # )
+                component_config = component_class.Config._jembe_init_(
                     _parent=parent_config,
                     _component_class=component_class,
+                    **{"name":component_name}
                 )
 
             # fill components_configs

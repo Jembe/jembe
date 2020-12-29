@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Tuple, Dict, Union, Sequence
+from typing import Iterable, List, Optional, Type, Tuple, Dict, Union, Sequence
 
 __all__ = (
     "App",
@@ -134,7 +134,7 @@ class ComponentConfig:
         self,
         name: Optional[str] = None,
         url_path: Optional[str] = None,
-        template: Optional[str] = None,
+        template: Optional[Union[str, Iterable[str]]] = None,
         components: Optional[
             Dict[
                 str,

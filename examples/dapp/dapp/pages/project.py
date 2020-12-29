@@ -9,8 +9,8 @@ from jembe.component_config import CConfigRedisplayFlag, ComponentConfig
 from jembe.common import ComponentRef
 from jembe.utils import run_only_once
 from typing import (
-    Callable,
-    Optional,
+    Callable, Iterable,
+    Optional, Sequence,
     Set,
     TYPE_CHECKING,
     Tuple,
@@ -141,7 +141,7 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
             self,
             model: Type["Model"],
             name: Optional[str] = None,
-            template: Optional[str] = None,
+            template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
                 Callable[["Component", "ComponentConfig"], dict]
@@ -211,7 +211,7 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             form: Type["Form"],
             name: Optional[str] = None,
             ask_for_prev_next_record: bool = False,
-            template: Optional[str] = None,
+            template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
                 Callable[["Component", "ComponentConfig"], dict]
@@ -227,7 +227,8 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             self.form = form
             self.ask_for_prev_next_record = ask_for_prev_next_record
             if template is None:
-                template = "common/edit.html"
+                template = (self.default_template_name, "common/edit.html")
+                # template = ("projects/edit.html", "common/edit.html")
             super().__init__(
                 name=name,
                 template=template,
@@ -371,7 +372,7 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
             form: Type["Form"],
             parent_id_field_name: Optional[str] = None,
             name: Optional[str] = None,
-            template: Optional[str] = None,
+            template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
                 Callable[["Component", "ComponentConfig"], dict]
@@ -481,7 +482,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
             model: Type["Model"],
             parent_id_field_name: Optional[str] = None,
             name: Optional[str] = None,
-            template: Optional[str] = None,
+            template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
             inject_into_components: Optional[
                 Callable[["Component", "ComponentConfig"], dict]

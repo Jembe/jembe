@@ -15,6 +15,10 @@ Public Dev Lunch:
     ✔ create list/view/list demo @done(20-10-30 07:35)
     ✔ Suport for init_params for basic types @done(20-10-30 07:35)
     ✔ use .html templates instead of jinja2 in order to enable autoescaping @done(20-09-10 23:12)
+    ☐ Build site and code examples for waitlist
+    ☐ SEO on waitlist site and promote
+  DEv:
+    ☐ Rendering same component twice brakes the jembe
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)

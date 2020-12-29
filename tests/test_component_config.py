@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Tuple, Type, Union, TYPE_CHECKING
+from typing import Callable, Dict, Iterable, Optional, Tuple, Type, Union, TYPE_CHECKING
 from jembe import Component, config, redisplay, Jembe
 
 if TYPE_CHECKING:
@@ -40,9 +40,9 @@ def test_config_init_params(jmb: Jembe, client):
         class Config(Component.Config):
             def __init__(
                 self,
-                model:str,
+                model: str,
                 name: Optional[str] = None,
-                template: Optional[str] = None,
+                template: Optional[Union[str, Iterable[str]]] = None,
                 components: Optional[Dict[str, "ComponentRef"]] = None,
                 inject_into_components: Optional[
                     Callable[["Component", "ComponentConfig"], dict]
@@ -64,26 +64,48 @@ def test_config_init_params(jmb: Jembe, client):
                     _component_class=_component_class,
                     _parent=_parent,
                 )
+
         _config: Config
 
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string("a")
 
-    @config(A.Config(model='test'))
+    @config(A.Config(model="test"))
     class AA(A):
         def __init__(self):
             super().__init__()
 
     @jmb.page(
-        "page",
-        Component.Config(
-            components=dict(a=AA),
-        ),
+        "page", Component.Config(components=dict(a=AA),),
     )
     class Page(Component):
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string(
                 "<html><body>{{component('a')}}</body></html>"
             )
+
     # this shuld not rise any error
     r = client.get("/page")
+
+
+def test_template_config_param(jmb: Jembe):
+    class A(Component):
+        pass
+
+    class B(Component):
+        pass
+
+    @jmb.page(
+        "p",
+        Component.Config(
+            components=dict(a=A, b=(B, B.Config(template=("", "test.html")))),
+            template="p.html"
+        ),
+    )
+    class Page(Component):
+        pass
+
+    assert jmb.components_configs["/p/a"].template == ("p/a.html",)
+    assert jmb.components_configs["/p/b"].template== ("p/b.html", "test.html")
+    assert jmb.components_configs["/p"].template == ("p.html",)
+
