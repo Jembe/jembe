@@ -1,24 +1,23 @@
-{% if display_mode is none %}
-
 <h1>
     {{model_info.verbose_name_plural}}
 </h1>
 {% if component('add').is_accessible() %}
     <button jmb:on.click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
 {% endif %}
-
 <table>
     <thead>
         <tr>
-            {% for column in columns  if column.name != "id" %}
+            {% for column in _config.columns %}
             <th>{{column.name}}</th>
             {% endfor %}
             <th>Actions</th>
         </tr>
     </thead>
+    {% block display_rows %}
+    
     {% for record in records %}
     <tr>
-        {% for column in columns if column.name != "id"  %}
+        {% for column in _config.columns %}
         <td>{{record[column.name]}}</td> 
         {%endfor%}
         <td>
@@ -29,22 +28,14 @@
         </td>
     </tr>
     {% endfor %}
+    {% endblock display_rows %}
 </table>
 <nav>
     {% if page > 1 %}
         <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
     {% endif %}
-    Page {{page}} of {{total_pages}} ({{records_count}} projects)
+    Page {{page}} of {{total_pages}} ({{records_count}} {{model_info.verbose_name_plural}})
     {% if total_pages > page %}
         <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
     {% endif %}
 </nav>
-{% elif display_mode == "edit" %}
-    {% if edit_record_id %}
-        {{component("edit", record_id=edit_record_id)}}
-    {% else %}
-        {{component("edit")}}
-    {% endif %}
-{% elif display_mode == "add" %}
-    {{component("add")}}
-{% endif %} 

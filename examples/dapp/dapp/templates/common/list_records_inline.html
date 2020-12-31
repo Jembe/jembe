@@ -1,40 +1,13 @@
-<div>
-    <h2>
-        {{model_info.verbose_name_plural}}
-    </h2>
-
-    {% if component('add').is_accessible() %}
-        <button jmb:on.click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
+{% extends "common/list_records.html" %}
+{% block display_rows %}
+    {% if display_mode == "add"  and component("add").is_accessible %}
+        {{component("add")}}
     {% endif %}
-
-    <table>
-        <thead>
-            <tr>
-                {% for column in columns %}
-                <th>{{column.name}}</th>
-                {% endfor %}
-                <th>Actions</th>
-            </tr>
-        </thead>
-        {% if display_mode == "add" %}
-            {{component("add")}}
+    {% for record in records %}
+        {% if record.id in editing_records  and component("edit", record_id=record.id, _record=record).key(record.id).is_accessible%}
+            {{component()}}  
+        {% elif component("view", record_id=record.id, _record=record).key(record.id).is_accessible %}
+            {{component()}}
         {% endif %}
-        {% for record in records %}
-            {% if record.id in editing_tasks %}
-                {{component("edit", record_id=record.id, _record=record).key(record.id)}}  
-            {% else %}
-                {{component("view", record_id=record.id, _record=record).key(record.id)}}
-            {% endif %}
-        {% endfor %}
-    </table>
-    <nav>
-        {% if page > 1 %}
-            <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
-        {% endif %}
-        Page {{page}} of {{total_pages}} ({{projects_count}} projects)
-        {% if total_pages > page %}
-            <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
-        {% endif %}
-    </nav>
-
-</div>
+    {% endfor %}
+{% endblock display_rows %}

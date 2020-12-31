@@ -475,6 +475,7 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         def __init__(
             self,
             model: Type["Model"],
+            columns: Optional[Sequence[str]] = None,
             parent_id_field_name: Optional[str] = None,
             template: Optional[Union[str, Iterable[str]]] = None,
             components: Optional[Dict[str, ComponentRef]] = None,
@@ -487,10 +488,18 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         ):
             self.model = model
             self.parent_id_field_name = parent_id_field_name
+            if columns:
+                self.columns = [c for c in model.__table__.columns if c.name in columns]
+            else:
+                self.columns = [
+                    c
+                    for c in model.__table__.columns
+                    if c.name not in ("id", self.parent_id_field_name)
+                ]
             if url_query_params is None:
                 url_query_params = dict(p="page", ps="page_size")
             if template is None:
-                template = "common/list_records.html"
+                template = (self.default_template_name, "common/list_records.html")
             super().__init__(
                 template=template,
                 components=components,
@@ -558,7 +567,6 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         self.model_info = getattr(self._config.model, "__table_args__", dict()).get(
             "info", dict()
         )
-        self.columns = self._config.model.__table__.columns
         return super().display()
 
     @listener(event="askQuestion", source="./**")
@@ -596,54 +604,12 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         )
 
 
-# Tasks
-########
-
-
-@config(
-    ListRecords.Config(
-        model=Task,
-        parent_id_field_name="project_id",
-        template="common/list_records_inline.html",
-        components=dict(
-            view=(
-                ViewRecord,
-                ViewRecord.Config(
-                    model=Task,
-                    template=ViewRecord.Config.TEMPLATES["inline"],
-                    changes_url=False,
-                ),
-            ),
-            add=(
-                AddRecord,
-                AddRecord.Config(
-                    model=Task,
-                    form=TaskForm,
-                    parent_id_field_name="project_id",
-                    template=AddRecord.Config.TEMPLATES["inline"],
-                    changes_url=False,
-                ),
-            ),
-            edit=(
-                EditRecord,
-                EditRecord.Config(
-                    model=Task,
-                    form=TaskForm,
-                    template=EditRecord.Config.TEMPLATES["inline"],
-                    changes_url=False,
-                ),
-            ),
-        ),
-        inject_into_components=lambda self, _config: dict(
-            parent_id=self.state.parent_id
-        ),
-    )
-)
-class Tasks(ListRecords):
+@config(ListRecords.Config(template=("", "common/list_records_inline.html")))  # type: ignore
+class ListRecordsInline(ListRecords):
     def __init__(
         self,
         display_mode: Optional[str] = None,
-        editing_tasks: Set[int] = set(),
+        editing_records: Set[int] = set(),
         parent_id: Optional[int] = None,
         page: int = 0,
         page_size: int = 5,
@@ -654,7 +620,7 @@ class Tasks(ListRecords):
 
     @listener(event="delete", source=["./view.*"])
     def on_child_deleted(self, event: "Event"):
-        # redisplay tasks
+        # redisplay list
         return True
 
     @listener(event="_display", source=["./add"])
@@ -671,7 +637,7 @@ class Tasks(ListRecords):
             # chech why event.source is necessary
             # if it's necessary make if statement readable and obouse to
             # someone who dont know the jembe
-            self.state.editing_tasks.add(event.source.state.record_id)
+            self.state.editing_records.add(event.source.state.record_id)
 
     @listener(event="cancel", source=["./add"])
     def on_add_cancel(self, event: "Event"):
@@ -684,49 +650,11 @@ class Tasks(ListRecords):
     @listener(event=["save", "cancel"], source=["./edit.*"])
     def on_edit_finish(self, event: "Event"):
         if event.source:
-            self.state.editing_tasks.remove(event.source.state.record_id)
+            self.state.editing_records.remove(event.source.state.record_id)
 
 
-# Projects
-##########
-# TODO procede with modifing this version until we reduce duplicate code and make configurable reusable components and extend version
-# add generalized templates  list_records
-# TODO display generic error dialog when error is hapend in x-jembe request
-# TODO add dommorph
-# TODO add task mark completed
-# TODO add more fields to project and task
-# TODO make it looks nice
-# TODO add remove polyfil in js (??)
-# TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
-# TODO use regular if else for readability in examples
-# TODO extensive comment all python code that is not understud to someone who does know python
-# TODO make course that will be created to build this version step by step
-# TODO When going back with browser execute confirmation if needed --for next version
-# generate system event _browser_navigation
-# TODO create API for calling other copmponenet actions like ---- no need for this you can always add listeners if needed
-# self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
-# self.emit("callDisplay", force=True|False).to("..")
-@config(
-    ListRecords.Config(
-        model=Project,
-        components=dict(
-            edit=(
-                EditRecord,
-                EditRecord.Config(
-                    model=Project,
-                    form=ProjectForm,
-                    ask_for_prev_next_record=True,
-                    components=dict(tasks=Tasks,),
-                    inject_into_components=lambda self, _config: dict(
-                        parent_id=self.state.record_id
-                    ),
-                ),
-            ),
-            add=(AddRecord, AddRecord.Config(model=Project, form=ProjectForm),),
-        ),
-    ),
-)
-class Projects(ListRecords):
+@config(ListRecords.Config(template=("", "common/list_records_swap.html")))  # type: ignore
+class ListRecordsSwap(ListRecords):
     def __init__(
         self,
         display_mode: Optional[str] = None,
@@ -764,11 +692,98 @@ class Projects(ListRecords):
         return self.render_template()
 
 
+# Projects
+##########
+# TODO add support for common_templates in this app for common components
+# TODO display generic error dialog when error is hapend in x-jembe request
+# TODO add dommorph
+# TODO add task mark completed
+# TODO add more fields to project and task
+# TODO make it looks nice
+# TODO add remove polyfil in js (??)
+# TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
+# TODO use regular if else for readability in examples
+# TODO extensive comment all python code that is not understud to someone who does know python
+# TODO make course that will be created to build this version step by step
+# TODO When going back with browser execute confirmation if needed --for next version
+# generate system event _browser_navigation
+# TODO create API for calling other copmponenet actions like ---- no need for this you can always add listeners if needed
+# self.emit("callAction", action="acton_name", params=dict()).to("exec_name")
+# self.emit("callDisplay", force=True|False).to("..")
 @jmb.page(
     "main",
     Component.Config(
         components=dict(
-            projects=Projects,
+            projects=(
+                ListRecordsSwap,
+                ListRecordsSwap.Config(
+                    model=Project,
+                    components=dict(
+                        edit=(
+                            EditRecord,
+                            EditRecord.Config(
+                                model=Project,
+                                form=ProjectForm,
+                                ask_for_prev_next_record=True,
+                                components=dict(
+                                    tasks=(
+                                        ListRecordsInline,
+                                        ListRecordsInline.Config(
+                                            model=Task,
+                                            parent_id_field_name="project_id",
+                                            components=dict(
+                                                view=(
+                                                    ViewRecord,
+                                                    ViewRecord.Config(
+                                                        model=Task,
+                                                        template=ViewRecord.Config.TEMPLATES[
+                                                            "inline"
+                                                        ],
+                                                        changes_url=False,
+                                                    ),
+                                                ),
+                                                add=(
+                                                    AddRecord,
+                                                    AddRecord.Config(
+                                                        model=Task,
+                                                        form=TaskForm,
+                                                        parent_id_field_name="project_id",
+                                                        template=AddRecord.Config.TEMPLATES[
+                                                            "inline"
+                                                        ],
+                                                        changes_url=False,
+                                                    ),
+                                                ),
+                                                edit=(
+                                                    EditRecord,
+                                                    EditRecord.Config(
+                                                        model=Task,
+                                                        form=TaskForm,
+                                                        template=EditRecord.Config.TEMPLATES[
+                                                            "inline"
+                                                        ],
+                                                        changes_url=False,
+                                                    ),
+                                                ),
+                                            ),
+                                            inject_into_components=lambda self, _config: dict(
+                                                parent_id=self.state.parent_id
+                                            ),
+                                        ),
+                                    )
+                                ),
+                                inject_into_components=lambda self, _config: dict(
+                                    parent_id=self.state.record_id
+                                ),
+                            ),
+                        ),
+                        add=(
+                            AddRecord,
+                            AddRecord.Config(model=Project, form=ProjectForm),
+                        ),
+                    ),
+                ),
+            ),
             confirmation=ConfirmationDialog,
             notifications=Notifications,
         )
