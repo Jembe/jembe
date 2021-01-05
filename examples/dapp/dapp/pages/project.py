@@ -116,6 +116,8 @@ class Notifications(Component):
 
 # lib
 #######
+
+
 class FormLoadDumpMixin:
     @classmethod
     def dump_init_param(cls, name: str, value: Any) -> Any:
@@ -156,6 +158,7 @@ class ViewRecord(OnConfirmationSupportMixin, Component):
             self.model = model
             if template is None:
                 template = (self.default_template_name, self.TEMPLATES["default"])
+
             super().__init__(
                 template=template,
                 components=components,
@@ -361,6 +364,7 @@ class EditRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
 class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
         TEMPLATES = dict(default="common/add.html", inline="common/add_inline.html")
+        BASE_TEMPLATE = None
 
         def __init__(
             self,
@@ -472,6 +476,9 @@ class AddRecord(FormLoadDumpMixin, OnConfirmationSupportMixin, Component):
 
 class ListRecords(OnConfirmationSupportMixin, Component):
     class Config(Component.Config):
+        TEMPLATES: Dict[str, str] = dict()
+        BASE_TEMPLATE = "common/list_records.html"
+
         def __init__(
             self,
             model: Type["Model"],
@@ -498,8 +505,10 @@ class ListRecords(OnConfirmationSupportMixin, Component):
                 ]
             if url_query_params is None:
                 url_query_params = dict(p="page", ps="page_size")
+
             if template is None:
-                template = (self.default_template_name, "common/list_records.html")
+                template = ("", self.BASE_TEMPLATE)
+
             super().__init__(
                 template=template,
                 components=components,
@@ -604,8 +613,10 @@ class ListRecords(OnConfirmationSupportMixin, Component):
         )
 
 
-@config(ListRecords.Config(template=("", "common/list_records_inline.html")))  # type: ignore
 class ListRecordsInline(ListRecords):
+    class Config(ListRecords.Config):
+        BASE_TEMPLATE = "common/list_records_inline.html"
+
     def __init__(
         self,
         display_mode: Optional[str] = None,
@@ -653,8 +664,10 @@ class ListRecordsInline(ListRecords):
             self.state.editing_records.remove(event.source.state.record_id)
 
 
-@config(ListRecords.Config(template=("", "common/list_records_swap.html")))  # type: ignore
 class ListRecordsSwap(ListRecords):
+    class Config(ListRecords.Config):
+        BASE_TEMPLATE = "common/list_records_swap.html"
+
     def __init__(
         self,
         display_mode: Optional[str] = None,
@@ -694,9 +707,9 @@ class ListRecordsSwap(ListRecords):
 
 # Projects
 ##########
-# TODO add support for common_templates in this app for common components
-# TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add dommorph
+# TODO add browser states to component
+# TODO display generic error dialog when error is hapend in x-jembe request
 # TODO add task mark completed
 # TODO add more fields to project and task
 # TODO make it looks nice

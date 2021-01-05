@@ -1,5 +1,5 @@
 {% if display_mode is none %}
-    {% include _config.COMMON_TEMPLATES %}
+    {% include _config.super.BASE_TEMPLATE %}
 {% elif display_mode == "edit" %}
     {% if edit_record_id %}
         {{component("edit", record_id=edit_record_id)}}

@@ -544,6 +544,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         if self.parent:
             return "{}/{}".format(self.parent.full_name, self.name)
         return "/{}".format(self.name)
+    
+
 
     @property
     def url_path(self) -> str:
@@ -647,3 +649,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 "{}/{}".format(self.full_name, component_name)
             ]
         return configs
+    @property
+    def super(self):
+        return super(self.__class__, self)

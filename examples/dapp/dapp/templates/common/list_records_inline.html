@@ -1,4 +1,4 @@
-{% extends "common/list_records.html" %}
+{% extends _config.super.BASE_TEMPLATE %}
 {% block display_rows %}
     {% if display_mode == "add"  and component("add").is_accessible %}
         {{component("add")}}
