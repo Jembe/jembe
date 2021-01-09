@@ -1,7 +1,8 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Type, List, Dict
+from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
+from .files import Storage
 from flask import g
 from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
@@ -22,7 +23,11 @@ class Jembe:
 
     X_JEMBE = "X-Jembe"
 
-    def __init__(self, app: Optional["Flask"] = None):
+    def __init__(
+        self,
+        app: Optional["Flask"] = None,
+        storages: Optional[Sequence["Storage"]] = None,
+    ):
         """Initialise jembe configuration"""
         self.__flask: "Flask"
         # all registred jembe components configs [full_name, config instance]
@@ -30,12 +35,14 @@ class Jembe:
         # pages waiting to be registred
         self._unregistred_pages: Dict[str, ComponentRef] = {}
 
+        self._storages: Dict[str, "Storage"]
+
         from .jembe_page import JembePage
 
         self.add_page("jembe", JembePage)
 
         if app is not None:
-            self.init_app(app)
+            self.init_app(app, storages)
 
     @property
     def flask(self) -> Optional["Flask"]:
@@ -47,7 +54,7 @@ class Jembe:
             #     "Jembe app is not initilised with flask app. Call init_app first."
             # )
 
-    def init_app(self, app: "Flask"):
+    def init_app(self, app: "Flask", storages: Optional[Sequence["Storage"]] = None):
         """
         This callback is used to initialize an applicaiton for the use
         with Jembe components.
@@ -56,6 +63,19 @@ class Jembe:
         jembe = self
         # app.teardown_appcontext(self.teardown)
         # app.context_processor(self.template_processor)
+        if storages is None and not hasattr(self, "_storages"):
+            upload_folder = app.config.get("JEMBE_UPLOAD_FOLDER", "../data/media")
+            storages = [
+                Storage("public", "{}/public".format(upload_folder)),
+                Storage(
+                    "private",
+                    "{}/private".format(upload_folder),
+                    type=Storage.Type.PRIVATE,
+                ),
+                Storage("tmp", "{}/temp".format(upload_folder), type=Storage.Type.TEMP),
+            ]
+        if storages is not None:
+            self._storages = {s.name: s for s in storages}
 
         self.__flask = app
         if self._unregistred_pages:
@@ -146,7 +166,7 @@ class Jembe:
                     component_class.__module__,
                     template_folder="templates",
                     static_folder="static",
-                    static_url_path="/{}/static".format(component_name)
+                    static_url_path="/{}/static".format(component_name),
                 )
 
             bp.add_url_rule(
@@ -175,6 +195,14 @@ class Jembe:
             raise JembeError(
                 "Component {} does not exist".format(exec_name_to_full_name(exec_name))
             )
+
+    def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
+        try:
+            if storage_name is None:
+                storage_name = list(self._storages.keys())[0]
+            return self._storages[storage_name]
+        except (KeyError, IndexError):
+            raise JembeError("Storage '{}' does not exist".format(storage_name))
 
 
 def get_processor():

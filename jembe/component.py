@@ -30,6 +30,8 @@ from .processor import (
     Processor,
 )
 from .common import exec_name_to_full_name, get_annotation_type
+from .files import Storage
+from jembe import processor
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Response
@@ -646,3 +648,8 @@ class Component(metaclass=ComponentMeta):
         emmit_command = EmitCommand(self.exec_name, name, params)
         processor.add_command(emmit_command)
         return emmit_command
+
+    def get_storage(self, storage_name:Optional[str]=None) -> "Storage":
+        processor = get_processor()
+        return processor.jembe.get_storage(storage_name)
+

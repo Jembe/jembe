@@ -4,7 +4,6 @@ with JUST MAKE IT WORK mindset.
 """
 from functools import cached_property
 
-from wtforms import form
 from jembe.component_config import CConfigRedisplayFlag, ComponentConfig
 from jembe.common import ComponentRef
 from jembe.utils import run_only_once

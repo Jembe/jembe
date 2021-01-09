@@ -335,6 +335,7 @@ class JembeClient {
 
   }
   getXRequestJson() {
+    // TODO get and send uploaded files
     return JSON.stringify({
       "components": Object.values(this.components).map(x => x.toJsonRequest()),
       "commands": this.commands

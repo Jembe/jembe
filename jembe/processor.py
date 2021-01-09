@@ -254,9 +254,9 @@ class CallDisplayCommand(CallActionCommand):
             return False
         return True
 
-    def execute(self):
+    def execute(self) -> Optional["Response"]:
         if not self._redisplay_needed:
-            return
+            return None
         # execute action
         action_result = getattr(self._component, self.action_name)(
             *self.args, **self.kwargs
@@ -274,9 +274,15 @@ class CallDisplayCommand(CallActionCommand):
             )
         elif isinstance(action_result, Response):
             # TODO If self.component is component directly requested via http request
-            # and it is not x-jembe request return respon
             # othervise raise JembeError
-            raise NotImplementedError()
+            if not self.processor.renderers:
+                return action_result
+            else:
+                raise JembeError(
+                    "{} action should be first one to return responses if that response is not html string but full response object".format(
+                        self._component._config.full_name
+                    )
+                )
         elif not isinstance(action_result, str):
             # Display should return html string if not raise JembeError
             raise JembeError(
@@ -292,6 +298,7 @@ class CallDisplayCommand(CallActionCommand):
                     self._component._config.full_name, self.action_name, action_result,
                 )
             )
+        return None
 
     def get_before_emit_commands(self) -> Sequence["EmitCommand"]:
         return super().get_before_emit_commands()
@@ -705,9 +712,7 @@ class InitialiseCommand(Command):
                 **self._inject_into_params,
             }
             component = self._cconfig.component_class._jembe_init_(
-                self._cconfig,
-                list(self._inject_into_params.keys()),
-                **init_params
+                self._cconfig, list(self._inject_into_params.keys()), **init_params
             )
 
             component.exec_name = self.component_exec_name
@@ -856,6 +861,8 @@ class Processor:
         # component that raised exception on initialise
         # any subsequent command on this component should be ignored
         self._raised_exception_on_initialise: Dict[str, dict] = dict()
+        # direct response if component display returns it
+        self._response:Optional["Response"] = None
 
         self.__create_commands(component_full_name)
         self._staging_commands.move_commands_to(self._commands)
@@ -1027,7 +1034,11 @@ class Processor:
         return exec_names
 
     def process_request(self) -> "Processor":
-        self._execute_commands()
+        response = self._execute_commands()
+        if response is not None:
+            self._response = response
+            return self
+
         # for all freshly rendered component who does not have parent renderers
         # eather at client (send via x-jembe.components) nor just created by
         # server call display command
@@ -1050,12 +1061,15 @@ class Processor:
 
         return self
 
-    def _execute_commands(self):
+    def _execute_commands(self) -> Optional["Response"]:
         """executes all commands from self._commands que"""
         while self._commands:
-            self._execute_command(self._commands.pop())
+            response = self._execute_command(self._commands.pop())
+            if response is not None:
+                return response
+        return None
 
-    def _execute_command(self, command: "Command"):
+    def _execute_command(self, command: "Command") -> Optional["Response"]:
         # command is over component that raised exception on initialise and
         # it is not new initialise command over that commponent, so we skip its execution
         if command.component_exec_name not in self._raised_exception_on_initialise or (
@@ -1064,7 +1078,9 @@ class Processor:
             != self._raised_exception_on_initialise[command.component_exec_name]
         ):
             try:
-                command.execute()
+                response = command.execute()
+                if response is not None:
+                    return response
                 self._staging_commands.move_commands_to(self._commands)
             except JembeError as jmberror:
                 # JembeError are exceptions raised by jembe
@@ -1078,6 +1094,7 @@ class Processor:
                 # add after commands into command que
                 for after_cmd in reversed(command.get_after_emit_commands()):
                     self.add_command(after_cmd)
+        return None
 
     def execute_initialise_command_successfully(
         self, command: "InitialiseCommand"
@@ -1195,6 +1212,8 @@ class Processor:
             ] = deepcopy(command.init_params)
 
     def build_response(self) -> "Response":
+        if self._response:
+            return self._response
         # compose full page
         if self._is_x_jembe_request:
             ajax_responses = []
