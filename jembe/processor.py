@@ -1075,7 +1075,6 @@ class Processor:
     def _execute_command(self, command: "Command") -> Optional["Response"]:
         # command is over component that raised exception on initialise and
         # it is not new initialise command over that commponent, so we skip its execution
-        print(command)
         if command.component_exec_name not in self._raised_exception_on_initialise or (
             isinstance(command, InitialiseCommand)
             and command.init_params
