@@ -824,6 +824,7 @@ def test_initialising_listener(jmb, client):
         def display(self):
             return self.render_template_string("<div>{{value}}</div>")
 
+
 def test_counter_data_on_server(jmb, client):
     """make dynamic counter with persisted data on server"""
     counters: Dict[int, int] = {1: 10, 2: 20}
@@ -1927,6 +1928,54 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
         """<button jmb:on.click="$jmb.component('a',{rid:2}).display()">C2</button>"""
         """</body></html>"""
     )
+
+
+def test_page_with_two_components(jmb, client):
+    class A(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div>A</div>")
+
+    class B(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div>B</div>")
+
+    @jmb.page("page", Component.Config(components=dict(a=A, b=B)))
+    class Page(Component):
+        def __init__(self, display_mode: str = ""):
+            if not display_mode:
+                self.state.display_mode = "a"
+            super().__init__()
+
+        @listener(event="_display", source="./*")
+        def on_child_display(self, event: "Event"):
+            self.state.display_mode = event.source_name
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component(display_mode)}}</body></html>"
+            )
+
+    r = client.get("/page/b")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":"b"},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/b" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/b"}\'>"""
+        """B"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+
+    r = client.get("/page/a")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":"a"},"url":"/page"}\'><body>"""
+        """<div jmb:name="/page/a" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a"}\'>"""
+        """A"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
 
 
 # TODO test counter with configurable increment

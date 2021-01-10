@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from flask.helpers import send_from_directory
 from flask import session
-from wtforms.widgets.core import Option
 from .exceptions import NotFound
 
 JEMBE_FILES_ACCESS_GRANTED = "jembe_files_access_granted"

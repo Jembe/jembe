@@ -211,7 +211,7 @@ def test_wiki(jmb, client):
         @listener(event="set_page_title")
         def on_set_page_title(self, event):
             self.state.title = event.title
-            return False
+            # return False
 
         @action(deferred=True)
         def display(self):

@@ -836,6 +836,9 @@ class CommandsQue:
         self.commands.clear()
         self.deferred_commands.clear()
 
+    def __repr__(self) -> str:
+        return "CommandsQue({}, defered={})".format(self.commands, self.deferred_commands)
+
 
 class Processor:
     """
@@ -862,7 +865,7 @@ class Processor:
         # any subsequent command on this component should be ignored
         self._raised_exception_on_initialise: Dict[str, dict] = dict()
         # direct response if component display returns it
-        self._response:Optional["Response"] = None
+        self._response: Optional["Response"] = None
 
         self.__create_commands(component_full_name)
         self._staging_commands.move_commands_to(self._commands)
@@ -1072,6 +1075,7 @@ class Processor:
     def _execute_command(self, command: "Command") -> Optional["Response"]:
         # command is over component that raised exception on initialise and
         # it is not new initialise command over that commponent, so we skip its execution
+        print(command)
         if command.component_exec_name not in self._raised_exception_on_initialise or (
             isinstance(command, InitialiseCommand)
             and command.init_params
@@ -1094,6 +1098,7 @@ class Processor:
                 # add after commands into command que
                 for after_cmd in reversed(command.get_after_emit_commands()):
                     self.add_command(after_cmd)
+                self._staging_commands.move_commands_to(self._commands)
         return None
 
     def execute_initialise_command_successfully(

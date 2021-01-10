@@ -17,14 +17,12 @@ from operator import add
 from inspect import getmembers, isfunction, signature, Parameter
 from .exceptions import JembeError
 from flask import url_for
-from flask.globals import current_app
-from .common import ComponentRef
 
 if TYPE_CHECKING:  # pragma: no cover
     import inspect
     from .component import Component, ComponentState
     from .processor import Processor
-    from flask import Request
+    from .common import ComponentRef
 
 UrlPath = NewType("UrlPath", str)
 
@@ -452,7 +450,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def __init__(
         self,
         template: Optional[Union[str, Iterable[str]]] = None,
-        components: Optional[Dict[str, ComponentRef]] = None,
+        components: Optional[Dict[str, "ComponentRef"]] = None,
         inject_into_components: Optional[
             Callable[["Component", "ComponentConfig"], dict]
         ] = None,  # TODO
@@ -478,7 +476,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 t if t != "" else self.default_template_name for t in template
             )
 
-        self.components: Dict[str, ComponentRef] = components if components else dict()
+        self.components: Dict[str, "ComponentRef"] = components if components else dict()
         self._inject_into_components = inject_into_components
 
         # if redisplay is set use it, otherwise leave 
@@ -613,7 +611,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
         def _update_cref(cname: str, params: Dict):
             """ Update self.compoennts """
-            comp_ref: ComponentRef = self.components[cname]
+            comp_ref: "ComponentRef" = self.components[cname]
             if not isinstance(comp_ref, tuple):
                 comp_ref = (comp_ref, dict())
                 self.components[cname] = comp_ref
