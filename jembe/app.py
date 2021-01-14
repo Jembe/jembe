@@ -2,15 +2,16 @@ from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
-from .files import Storage
+from .files import DiskStorage
 from flask import g
 from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from flask import Flask, Request, Response
+    from flask import Flask, Response
     from .component_config import ComponentConfig
     from .component import Component
+    from .files import Storage
 
 
 jembe: "Jembe"
@@ -66,13 +67,15 @@ class Jembe:
         if storages is None and not hasattr(self, "_storages"):
             upload_folder = app.config.get("JEMBE_UPLOAD_FOLDER", "../data/media")
             storages = [
-                Storage("public", "{}/public".format(upload_folder)),
-                Storage(
+                DiskStorage("public", "{}/public".format(upload_folder)),
+                DiskStorage(
                     "private",
                     "{}/private".format(upload_folder),
                     type=Storage.Type.PRIVATE,
                 ),
-                Storage("tmp", "{}/temp".format(upload_folder), type=Storage.Type.TEMP),
+                DiskStorage(
+                    "tmp", "{}/temp".format(upload_folder), type=Storage.Type.TEMP
+                ),
             ]
         if storages is not None:
             self._storages = {s.name: s for s in storages}
@@ -213,6 +216,10 @@ def get_processor():
         component_full_name = request.endpoint[len(request.blueprint) + 1 :]
         g.jmb_processor = Processor(jembe, component_full_name, request)
     return g.jmb_processor
+
+
+def get_storage(storage_name: str) -> "Storage":
+    raise NotImplementedError()
 
 
 def jembe_master_view(**kwargs) -> "Response":
