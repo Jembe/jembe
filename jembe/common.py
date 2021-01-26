@@ -1,7 +1,5 @@
-from inspect import isfunction
-import re
-from jembe.apispec.utils import relative_name
 from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
+from abc import ABC, abstractmethod
 import inspect
 from importlib import import_module
 
@@ -104,7 +102,7 @@ def get_annotation_type(annotation):
     """ returns tuple(annotation_type, is_optional)"""
 
     def _geta(annotation):
-        if isfunction(annotation):
+        if inspect.isfunction(annotation):
             # handling typing.NewType
             # TODO make it robust and to cover all cases
             return annotation.__supertype__
@@ -116,3 +114,15 @@ def get_annotation_type(annotation):
         return (_geta(get_args(annotation)[0]), True)
     else:
         return (_geta(annotation), False)
+
+
+class JembeInitParamSupport(ABC):
+    @classmethod
+    @abstractmethod
+    def dump_init_param(cls, value: Any) -> Any:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def load_init_param(cls, value: Any) -> Any:
+        raise NotImplementedError()

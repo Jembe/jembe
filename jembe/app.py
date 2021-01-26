@@ -2,7 +2,6 @@ from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
-from .files import DiskStorage
 from flask import g
 from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
@@ -64,27 +63,52 @@ class Jembe:
         jembe = self
         # app.teardown_appcontext(self.teardown)
         # app.context_processor(self.template_processor)
+
+        self.__flask = app
+
+        # Init storages
+        self._init_storages(storages)
+
+        # register all unregistred pages added to app before associating
+        # app with flask instance
+        if self._unregistred_pages:
+            for name, component in self._unregistred_pages.items():
+                self._register_page(name, component)
+            self._unregistred_pages = {}
+
+    def _init_storages(self, storages: Optional[Sequence["Storage"]]):
+        if not self.flask:
+            raise JembeError(
+                "Cannot initialise storages before "
+                "initialising jembe with flask instance"
+            )
+        from .files import DiskStorage
+
         if storages is None and not hasattr(self, "_storages"):
-            upload_folder = app.config.get("JEMBE_UPLOAD_FOLDER", "../data/media")
+            # initialise default storages
+
+            upload_folder = self.flask.config.get(
+                "JEMBE_UPLOAD_FOLDER", "../data/media"
+            )
             storages = [
                 DiskStorage("public", "{}/public".format(upload_folder)),
                 DiskStorage(
                     "private",
                     "{}/private".format(upload_folder),
-                    type=Storage.Type.PRIVATE,
+                    type=DiskStorage.Type.PRIVATE,
                 ),
                 DiskStorage(
-                    "tmp", "{}/temp".format(upload_folder), type=Storage.Type.TEMP
+                    "tmp", "{}/temp".format(upload_folder), type=DiskStorage.Type.TEMP
                 ),
             ]
-        if storages is not None:
-            self._storages = {s.name: s for s in storages}
+        if storages is None or not next(
+            (s for s in storages if s.type == DiskStorage.Type.TEMP), False
+        ):
+            raise JembeError(
+                "Temporary Storage must be configured in order for file upload to work"
+            )
 
-        self.__flask = app
-        if self._unregistred_pages:
-            for name, component in self._unregistred_pages.items():
-                self._register_page(name, component)
-            self._unregistred_pages = {}
+        self._storages = {s.name: s for s in storages}
 
     def add_page(
         self,
@@ -207,6 +231,9 @@ class Jembe:
         except (KeyError, IndexError):
             raise JembeError("Storage '{}' does not exist".format(storage_name))
 
+    def get_storages(self) -> List["Storage"]:
+        return list(self._storages.values)
+
 
 def get_processor():
     if "jmb_processor" not in g:
@@ -219,7 +246,11 @@ def get_processor():
 
 
 def get_storage(storage_name: str) -> "Storage":
-    raise NotImplementedError()
+    return get_processor().jembe.get_storage(storage_name)
+
+
+def get_storages() -> List["Storage"]:
+    return get_processor().jembe.get_storages()
 
 
 def jembe_master_view(**kwargs) -> "Response":

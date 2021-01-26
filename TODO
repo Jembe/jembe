@@ -18,13 +18,18 @@ Public Dev Lunch:
     ✔ Build site and code examples for waitlist @done(21-01-09 19:37)
     ✔ SEO on waitlist site and promote @done(21-01-09 19:37)
     ☐ Promote waitlist
-  DEv:
+  Dev:
     ☐ Rendering same component twice brakes the jembe
   Files:
-    ☐ send uploaded files toggether with x-jembe request
-    ☐ save uplaodaed files in tmp storage
-    ☐ do mapping for state params for JmbFile and JmbFileField (WtForms)
-    ☐ when request processing is finished delete all uploaded files from tmp storage if they are not moved to permanent storage
+    ✘ send uploaded files toggether with x-jembe request @cancelled(21-01-22 08:15)
+    ☐ Send multi-form request before x-jembe request
+    ☐ multi-form request saves files in temporary storage 
+    ☐ and return mapping between component init params and temporary files
+    ☐ add this mapping to x-jembe request
+    ☐ send x-jembe request
+    ☐ replace component init params with actual files in temporary storage
+    ☐ process x-jembe request
+    ☐ delete files from temporary storage received by multi-form request if thay still exist in temporary storage
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)

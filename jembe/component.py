@@ -29,9 +29,8 @@ from .processor import (
     EmitCommand,
     Processor,
 )
-from .common import exec_name_to_full_name, get_annotation_type
+from .common import JembeInitParamSupport, exec_name_to_full_name, get_annotation_type
 from .files import Storage
-from jembe import processor
 
 if TYPE_CHECKING:  # pragma: no cover
     from flask import Response
@@ -419,6 +418,19 @@ class Component(metaclass=ComponentMeta):
             try:
                 if atype == set or get_origin(atype) == set:
                     return None if (is_optional and value is None) else list(value)
+                elif (
+                    atype == JembeInitParamSupport
+                    or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
+                    or (
+                        isclass(get_origin(atype))
+                        and issubclass(get_origin(atype), JembeInitParamSupport)
+                    )
+                ):
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else atype.dump_init_param(value)
+                    )
             except Exception as e:
                 raise ValueError(e)
             return value
@@ -464,7 +476,9 @@ class Component(metaclass=ComponentMeta):
                 raise ValueError("Parameter without annotation")
             atype, is_optional = get_annotation_type(param_hint.annotation)
             try:
-                if atype == int:
+                if atype == bool:
+                    return None if (is_optional and value is None) else bool(value)
+                elif atype == int:
                     return None if (is_optional and value is None) else int(value)
                 elif atype == str:
                     return None if (is_optional and value is None) else str(value)
@@ -480,10 +494,26 @@ class Component(metaclass=ComponentMeta):
                     return None if (is_optional and value is None) else set(value)
                 elif get_origin(atype) == collectionsSequence:
                     return None if (is_optional and value is None) else tuple(value)
+                elif (
+                    atype == JembeInitParamSupport
+                    or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
+                    or (
+                        isclass(get_origin(atype))
+                        and issubclass(get_origin(atype), JembeInitParamSupport)
+                    )
+                ):
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else atype.load_from_init(value)
+                    )
             except Exception as e:
+                from pdb import set_trace
+
+                set_trace()
                 raise ValueError(e)
 
-            raise ValueError("Unsuported annotation type")
+            raise ValueError("Unsuported annotation type {}".format(param_hint.annotation))
 
         if name in cls._jembe_init_signature.parameters:
             try:
@@ -626,7 +656,7 @@ class Component(metaclass=ComponentMeta):
             # command to render subcomponents
             "component": self._render_subcomponent_template,
             # add helpers
-            "_config": self._config
+            "_config": self._config,
         }
 
     def _render_subcomponent_template(
@@ -649,7 +679,7 @@ class Component(metaclass=ComponentMeta):
         processor.add_command(emmit_command)
         return emmit_command
 
-    def get_storage(self, storage_name:Optional[str]=None) -> "Storage":
+    def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
         processor = get_processor()
         return processor.jembe.get_storage(storage_name)
 

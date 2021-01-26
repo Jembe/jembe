@@ -4,22 +4,20 @@ from .component_config import UrlPath, config
 from .component import Component
 
 # from flask import send_from_directory
-from .app import get_processor
+from .app import get_storage
 
 if TYPE_CHECKING:
     from flask import Response
 
 
 class FileComponent(Component):
+    """Serve files from Jembe Storages on Direct HTTP request"""
+
     def __init__(self, storage_name: str, file_path: UrlPath):
         super().__init__()
 
     def display(self) -> Union[str, "Response"]:
-        return (
-            get_processor()
-            .jembe.get_storage(self.state.storage_name)
-            .send_file(self.state.file_path)
-        )
+        return get_storage(self.state.storage_name).send_file(self.state.file_path)
 
 
 @config(Component.Config(components=dict(file=FileComponent)))

@@ -1,11 +1,12 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, Any, Dict
 from enum import Enum
 from abc import ABC, abstractmethod
 
 from flask.helpers import send_from_directory
 from flask import session
-from .app import get_storage
-from .exceptions import NotFound
+from .app import get_storage, get_storages
+from .exceptions import JembeError, NotFound
+from .common import JembeInitParamSupport
 
 if TYPE_CHECKING:
     from flask import Response
@@ -14,7 +15,7 @@ JEMBE_FILES_ACCESS_GRANTED = "jembe_files_access_granted"
 JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE = 500
 
 
-class File:
+class File(JembeInitParamSupport):
     storage: "Storage"
     path: str
 
@@ -38,15 +39,51 @@ class File:
     def revoke_access(self):
         self.storage.revoke_access_to_file(self.path)
 
-    @abstractmethod
+    def in_temp_storage(self) -> bool:
+        return self.storage.type == self.storage.Type.TEMP
+
+    def in_public_storage(self) -> bool:
+        return self.storage.type == self.storage.Type.PUBLIC
+
+    def in_private_storage(self) -> bool:
+        return self.storage.type == self.storage.Type.PRIVATE
+
     def copy_to(self, storage: Union["Storage", str], subdir: str = ""):
+        # TODO remove abstract instead call appropriate storage method
         raise NotImplementedError()
 
-    @abstractmethod
     def move_to(self, storage: Union["Storage", str], subdir: str = ""):
+        # TODO remove abstract instead call appropriate storage method
         raise NotImplementedError()
 
-    @abstractmethod
+    def copy_to_public(self, subdir: str = ""):
+        try:
+            storage = next(s for s in get_storages() if s.type == s.Type.PUBLIC)
+            self.copy_to(storage, subdir)
+        except StopIteration:
+            raise JembeError("No public storage configured")
+
+    def copy_to_private(self, subdir: str = ""):
+        try:
+            storage = next(s for s in get_storages() if s.type == s.Type.PRIVATE)
+            self.copy_to(storage, subdir)
+        except StopIteration:
+            raise JembeError("No private storage configured")
+
+    def move_to_public(self, subdir: str = ""):
+        try:
+            storage = next(s for s in get_storages() if s.type == s.Type.PUBLIC)
+            self.move_to(storage, subdir)
+        except StopIteration:
+            raise JembeError("No public storage configured")
+
+    def move_to_private(self, subdir: str = ""):
+        try:
+            storage = next(s for s in get_storages() if s.type == s.Type.PRIVATE)
+            self.move_to(storage, subdir)
+        except StopIteration:
+            raise JembeError("No private storage configured")
+
     def open(
         self,
         mode="r",
@@ -59,9 +96,22 @@ class File:
     ):
         raise NotImplementedError()
 
-    @abstractmethod
     def exists(self) -> bool:
         raise NotImplementedError()
+
+    @classmethod
+    def dump_init_param(cls, value: "File") -> Any:
+        return dict(
+            path=value.path,
+            storage=value.storage.name
+        )
+
+    @classmethod
+    def load_init_param(cls, value: Dict[str, str]) -> "File":
+        return File(value["storage"], value["path"])
+
+    def __str__(self) -> str:
+        return "<File: storage={}, path={}>".format(self.storage, self.path)
 
 
 class Storage(ABC):
@@ -164,7 +214,6 @@ class DiskStorage(Storage):
         if self.can_access_file(file_path):
             return send_from_directory(self.folder, file_path)
         raise NotFound
-
 
     def store_file(self, file: Union[File, str], subdir: str = "", move=False):
         """
