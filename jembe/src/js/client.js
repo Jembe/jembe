@@ -67,6 +67,14 @@ class ComponentRef {
     }
   }
 }
+class UploadedFile {
+  constructor(execName, paramName, fileUploadId, files) {
+    this.execName = execName
+    this.paramName = paramName
+    this.fileUploadId = fileUploadId
+    this.files = files
+  }
+}
 /**
  * Handle all jembe logic on client side, primarly building, sending, processing 
  * and refreshing page for/on x-jembe requests
@@ -78,6 +86,7 @@ class JembeClient {
     this.getComponentsFromDocument()
     this.updateLocation(true)
     this.commands = []
+    this.filesForUpload = {}
     this.domParser = new DOMParser()
     this.xRequestUrl = null
 
@@ -333,6 +342,44 @@ class JembeClient {
       }
     )
 
+  }
+  addFilesForUpload(execName, paramName, files) {
+    // remove existing files for same param name
+    let existingFileId = null
+    for (const uf of Object.values(this.filesForUpload)) {
+      if (uf.execName === execName && uf.paramName === paramName) {
+        existingFileId = uf.fileUploadId
+      }
+    }
+    if (existingFileId !== null) {
+      delete this.filesForUpload[existingFileId]
+    }
+    if (files.length > 0) {
+      // add files to paramName
+      let fileId = null
+      while (fileId == null || Object.keys(this.filesForUpload).includes(fileId)) {
+        fileId = Math.random().toString(36).substring(7)
+      }
+      this.filesForUpload[fileId] = new UploadedFile(
+        execName, paramName, fileId, files
+      )
+      // add init command if not exist
+      this.addInitialiseCommand(execName, {
+        [paramName]: fileId
+      })
+    } else {
+      // remove init command if only containt file init param
+      let initCommandIndex = this.commands.findIndex(cmd =>
+      (cmd.componentExecName === execName
+        && cmd.type === "init"
+        && Object.keys(cmd.initParams).includes(paramName)
+        && Object.keys(cmd.initParams).length === 1
+      )
+      )
+      if (initCommandIndex >= 0) {
+        this.commands.splice(initCommandIndex, 1)
+      }
+    }
   }
   getXRequestJson() {
     // TODO get and send uploaded files

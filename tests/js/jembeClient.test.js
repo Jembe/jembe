@@ -468,7 +468,7 @@ test("update keyed components", () => {
           <template jmb-placeholder="/projects/edit/tasks/view.3"></template>
         </body>
        </html>`,
-       "actions":[]
+      "actions": []
     },
     {
       "execName": "/projects/edit/tasks/add",
@@ -476,7 +476,7 @@ test("update keyed components", () => {
       "url": "/projects/edit/1/tasks/add",
       "changesUrl": false,
       "dom": `<div>Add task</div>`,
-      "actions":[]
+      "actions": []
     }
   ]
   const components = window.jembeClient.getComponentsFromXResponse(xResponse)
@@ -555,11 +555,69 @@ test('update nested component templates', () => {
     },
   ]
   window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
-  console.log(document.documentElement.outerHTML)
   expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/page"><head></head><body>
       <div jmb:name="/page/a"><div jmb:name="/page/a/b"><div jmb:name="/page/a/b/c">C</div></div></div>
       
     
   </body></html>`
   )
+})
+
+// upload
+test('addFilesForUploadCommand store files in jembeClient', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
+      <body></body>
+    </html>
+  `)
+  const foo = new File(["foo"], "foo.txt", {
+    type: "text/plain",
+  });
+  const bar = new File(["bar"], "bar.txt", {
+    type: "text/plain",
+  });
+  const jc = window.jembeClient
+
+  jc.addFilesForUpload("/page", "photo", [foo])
+
+  // should add file to filesForUpload
+  let keys = Object.keys(jc.filesForUpload)
+  expect(keys.length).toBe(1)
+  const fooId = keys[0]
+  const fooUploadedFile = jc.filesForUpload[keys[0]]
+  expect(fooUploadedFile.fileUploadId).toBe(fooId)
+  expect(fooUploadedFile.execName).toBe("/page")
+  expect(fooUploadedFile.paramName).toBe("photo")
+  expect(fooUploadedFile.files[0]).toBe(foo)
+
+  // should add/ upload init command
+  expect(jc.commands.length).toBe(1)
+  expect(jc.commands[0].type).toBe("init")
+  expect(jc.commands[0].initParams.photo).toBe(fooId)
+
+  // replace file
+  jc.addFilesForUpload("/page", "photo", [bar])
+  keys = Object.keys(jc.filesForUpload)
+  expect(keys.length).toBe(1)
+  const barId = keys[0]
+  const barUploadedFile = jc.filesForUpload[keys[0]]
+  expect(fooId).not.toBe(barId)
+  expect(barUploadedFile.fileUploadId).toBe(barId)
+  expect(barUploadedFile.execName).toBe("/page")
+  expect(barUploadedFile.paramName).toBe("photo")
+  expect(barUploadedFile.files[0]).toBe(bar)
+
+  // should add/ upload init command
+  expect(jc.commands.length).toBe(1)
+  expect(jc.commands[0].type).toBe("init")
+  expect(jc.commands[0].initParams.photo).toBe(barId)
+
+
+  //delete file
+  jc.addFilesForUpload("/page", "photo", [])
+  expect(Object.keys(jc.filesForUpload).length).toBe(0)
+  
+  // should add/ upload init command
+  expect(jc.commands.length).toBe(0)
+
 })

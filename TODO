@@ -20,16 +20,37 @@ Public Dev Lunch:
     ☐ Promote waitlist
   Dev:
     ☐ Rendering same component twice brakes the jembe
+    ☐ Calling action from comoponet if other componet changed state must be confirmed (losse of data)
   Files:
     ✘ send uploaded files toggether with x-jembe request @cancelled(21-01-22 08:15)
-    ☐ Send multi-form request before x-jembe request
-    ☐ multi-form request saves files in temporary storage 
-    ☐ and return mapping between component init params and temporary files
-    ☐ add this mapping to x-jembe request
-    ☐ send x-jembe request
-    ☐ replace component init params with actual files in temporary storage
-    ☐ process x-jembe request
-    ☐ delete files from temporary storage received by multi-form request if thay still exist in temporary storage
+    Send multi-form request before x-jembe request:
+      ✔ add AddFileForUpload command to JembeClient(js) that will store: @done(21-02-08 21:40)
+      ✔ component name, init param name, file name that is about to be uploaded and random generated file upload id @done(21-02-08 21:40)
+      ✔ it will also set coresponding init param of the random generated file upload id ?? @done(21-02-08 21:40)
+      ✔ it will replace any existing "file" on that component init_param if it already exists (delete if file is empty) @done(21-02-08 21:40)
+      ✔ add AddFilesForUpload command that will add multiple files for one component init_param, it should replace files if already exist (remove files if list is empty) @done(21-02-08 21:40)
+      ☐ if files list is not empty and x-jembe request is about to be submited, send x-jembe=fileupload request first with list of all files that need to be uploaded with their id, componet initparam 
+      ☐ x-jembe=fileupload request should return *save files u default temp storage) and return dict(uploadid, (storage_name, file_path)) with fileupload_request_id (unique)
+      ☐ JembeClient should replace all uplaoded files with (storage=storage_name, path=file_path) with date returned from x-jembe=fileupload request
+      ☐ JembeClient can now finaly send regular x-jembe request with fileupload id set to fileupload_request_id returned by previous request
+    Reciving x-jembe=fileupload requst:
+      ☐ in temp storage create new dir with named by session id (if not exists)
+      ☐ in that directory create new directory uniquly named (fileupload_request_id)
+      ☐ uplaod all files to this directory
+      ☐ for all uploaded files create coresponding File instances (storage=temp, path=sessid/fileuplaod_request_id/filename)
+      ☐ return json data (as specified before )
+    Reciving x-jembe request with fileuplaod id set:
+      ☐ for every file check if sessid/fileupload_request_id part of path is valid if not 403
+      ☐ process request regulary
+      ☐ when processing is finished delete sessiion_id/fileupload_request_id dir (in backgroud posibly)
+      ☐ if session_id dir is empty delete it to
+    ✘ multi-form request saves files in temporary storage @cancelled(21-02-03 21:46)
+    ✘ and return mapping between component init params and temporary files @cancelled(21-02-03 21:46)
+    ✘ add this mapping to x-jembe request @cancelled(21-02-03 21:46)
+    ✘ send x-jembe request @cancelled(21-02-03 21:46)
+    ✘ replace component init params with actual files in temporary storage @cancelled(21-02-03 21:47)
+    ✘ process x-jembe request @cancelled(21-02-03 21:47)
+    ✘ delete files from temporary storage received by multi-form request if thay still exist in temporary storage @cancelled(21-02-03 21:47)
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)

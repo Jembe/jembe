@@ -505,12 +505,9 @@ class Component(metaclass=ComponentMeta):
                     return (
                         None
                         if (is_optional and value is None)
-                        else atype.load_from_init(value)
+                        else atype.load_init_param(value)
                     )
             except Exception as e:
-                from pdb import set_trace
-
-                set_trace()
                 raise ValueError(e)
 
             raise ValueError("Unsuported annotation type {}".format(param_hint.annotation))
