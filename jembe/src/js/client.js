@@ -381,8 +381,20 @@ class JembeClient {
       }
     }
   }
+  getXUploadRequestFormData() {
+    if (Object.keys(this.filesForUpload).length === 0) {
+      // no files for uplaod
+      return null
+    }
+    let fd = new FormData()
+    for (const uf of Object.values(this.filesForUpload)) {
+      for (const file of uf.files) {
+        fd.append(uf.fileUploadId, file)
+      }
+    }
+    return fd
+  }
   getXRequestJson() {
-    // TODO get and send uploaded files
     return JSON.stringify({
       "components": Object.values(this.components).map(x => x.toJsonRequest()),
       "commands": this.commands
@@ -391,40 +403,82 @@ class JembeClient {
   setXRequestUrl(url) {
     this.xRequestUrl = url
   }
-  executeCommands(updateLocation = true) {
+  executeUpload() {
     const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
-    const requestBody = this.getXRequestJson()
-    // reset commads since we create request body from it
-    this.commands = []
-    // fetch request and process response
-    window.fetch(url, {
+    const uploadFormData = this.getXUploadRequestFormData()
+    if (uploadFormData === null) {
+      return new Promise((resolve, reject) => {
+        resolve(null)
+      })
+    }
+    return window.fetch(url, {
       method: "POST",
       cache: "no-cache",
       credentials: "same-origin",
       redirect: "follow",
       referrer: "no-referrer",
-      headers: { 'X-JEMBE': true },
-      body: requestBody
-    }).then(
-      response => {
-        if (response.ok) {
-          return response.json()
-        } else {
-          console.error("Request not successfull")
+      headers: { 'X-JEMBE': 'upload' },
+      body: uploadFormData
+    }).then(response => {
+        if (!response.ok) {
+          throw Error(response.statusText)
         }
+        return response.json()
+    }).then(json => {
+          // fileupload returns files = dict(fileUploadId, [{storage=storage_name, path=file_path}]) and unique fileUplaodResponseId
+          for (const fileUploadId of Object.keys(json.files)) {
+          // replace all uploaded files init params with 
+          //(storage=storage_name, path=file_path) returned from x-jembe=fileupload request
+            const ufiles = json.files[fileUploadId]
+            const fu = this.filesForUpload[fileUploadId]
+            this.addInitialiseCommand(
+              fu.execName, {
+                [fu.paramName]: ufiles
+              }
+            )
+          }
+
+          this.filesForUpload = {}
+          return json.fileUploadResponseId
+    })
+  }
+  executeCommands(updateLocation = true) {
+    const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
+    this.executeUpload().then(
+      fileUploadResponseId => {
+        const requestBody = this.getXRequestJson()
+        // reset commads since we create request body from it
+        this.commands = []
+        // fetch request and process response
+        window.fetch(url, {
+          method: "POST",
+          cache: "no-cache",
+          credentials: "same-origin",
+          redirect: "follow",
+          referrer: "no-referrer",
+          headers: { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId },
+          body: requestBody
+        }).then(response => {
+            if (!response.ok) {
+              throw Error(response.statusText)
+            }
+            return response.json()
+        }).then(
+          json => this.getComponentsFromXResponse(json)
+        ).then(
+          components => {
+            this.updateDocument(components)
+            if (updateLocation) {
+              this.updateLocation()
+            }
+        }).catch(error => {
+          throw error
+          // console.error("Error in request", error)
+        })
       }
     ).catch(error => {
       console.error("Error in request", error)
-    }).then(
-      json => this.getComponentsFromXResponse(json)
-    ).then(
-      components => {
-        this.updateDocument(components)
-        if (updateLocation) {
-          this.updateLocation()
-        }
-      }
-    )
+    })
   }
   updateLocation(replace = false) {
     let topComponent = null

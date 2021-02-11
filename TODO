@@ -29,10 +29,10 @@ Public Dev Lunch:
       ✔ it will also set coresponding init param of the random generated file upload id ?? @done(21-02-08 21:40)
       ✔ it will replace any existing "file" on that component init_param if it already exists (delete if file is empty) @done(21-02-08 21:40)
       ✔ add AddFilesForUpload command that will add multiple files for one component init_param, it should replace files if already exist (remove files if list is empty) @done(21-02-08 21:40)
-      ☐ if files list is not empty and x-jembe request is about to be submited, send x-jembe=fileupload request first with list of all files that need to be uploaded with their id, componet initparam 
-      ☐ x-jembe=fileupload request should return *save files u default temp storage) and return dict(uploadid, (storage_name, file_path)) with fileupload_request_id (unique)
-      ☐ JembeClient should replace all uplaoded files with (storage=storage_name, path=file_path) with date returned from x-jembe=fileupload request
-      ☐ JembeClient can now finaly send regular x-jembe request with fileupload id set to fileupload_request_id returned by previous request
+      ✔ if files list is not empty and x-jembe request is about to be submited, send x-jembe=fileupload request first with list of all files that need to be uploaded with their id, componet initparam @done(21-02-11 09:42)
+      ☐ x-jembe=fileupload request should return *save files u default temp storage) and return dict(uploadid, [(storage_name, file_path)]) with fileupload_request_id (unique)
+      ✔ JembeClient should replace all uplaoded files with (storage=storage_name, path=file_path) with date returned from x-jembe=fileupload request @done(21-02-11 09:43)
+      ✔ JembeClient can now finaly send regular x-jembe request with fileupload id set to fileupload_request_id returned by previous request @done(21-02-11 09:43)
     Reciving x-jembe=fileupload requst:
       ☐ in temp storage create new dir with named by session id (if not exists)
       ☐ in that directory create new directory uniquly named (fileupload_request_id)

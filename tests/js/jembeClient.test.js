@@ -620,4 +620,51 @@ test('addFilesForUploadCommand store files in jembeClient', () => {
   // should add/ upload init command
   expect(jc.commands.length).toBe(0)
 
+  // support multiple files upload for one param
+  jc.addFilesForUpload("/page", "photo", [foo, bar])
+  keys = Object.keys(jc.filesForUpload)
+  expect(keys.length).toBe(1)
+  expect(jc.filesForUpload[keys[0]].files[0]).toBe(foo)
+  expect(jc.filesForUpload[keys[0]].files[1]).toBe(bar)
+})
+
+test('create file X Upload request  in jembeClient', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
+      <body></body>
+    </html>
+  `)
+  const foo = new File(["foo"], "foo.txt", {
+    type: "text/plain",
+  });
+  const bar = new File(["bar"], "bar.txt", {
+    type: "text/plain",
+  });
+  const jc = window.jembeClient
+
+  // dont create upload request if no files are submited
+  let fd = jc.getXUploadRequestFormData()
+  expect(fd).toBe(null)
+
+  // create upload request when files are submited
+  jc.addFilesForUpload("/page", "photo", [foo])
+  fd = jc.getXUploadRequestFormData()
+  expect(fd).not.toBeNull()
+  let fooUploadId =Object.keys(jc.filesForUpload)[0] 
+  expect(fd.has(fooUploadId)).toBe(true)
+  expect(fd.get(fooUploadId)).toBe(foo)
+
+  jc.addFilesForUpload("/page", "photo", [bar])
+  fd = jc.getXUploadRequestFormData()
+  let barUploadId =Object.keys(jc.filesForUpload)[0] 
+  expect(fd.get(barUploadId)).toBe(bar)
+
+  jc.addFilesForUpload("/page", "photo", [])
+  fd = jc.getXUploadRequestFormData()
+  expect(fd).toBe(null)
+
+  jc.addFilesForUpload("/page", "photo", [foo, bar])
+  fd = jc.getXUploadRequestFormData()
+  let uploadId =Object.keys(jc.filesForUpload)[0] 
+  expect(fd.getAll(uploadId).length).toBe(2)
 })
