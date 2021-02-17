@@ -1,6 +1,7 @@
 import os
 import pytest
 from jembe import Jembe
+from jembe.files import Storage
 from jembe.exceptions import JembeError
 
 from flask import Flask as _Flask
@@ -10,6 +11,8 @@ class Flask(_Flask):
     testing = True
     secret_key = "test key"
 
+class TempTestStorage(Storage):
+    pass
 
 @pytest.fixture
 def app():

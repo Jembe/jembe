@@ -1,4 +1,11 @@
-from .app import Jembe, get_storage, get_storages
+from .app import (
+    Jembe,
+    get_storage,
+    get_storages,
+    get_private_storage,
+    get_public_storage,
+    get_temp_storage,
+)
 from .component import Component
 from .common import JembeInitParamSupport
 from .component_config import action, listener, redisplay, config, UrlPath
@@ -22,6 +29,9 @@ __all__ = (
     "Jembe",
     "get_storage",
     "get_storages",
+    "get_private_storage",
+    "get_public_storage",
+    "get_temp_storage",
     "Component",
     "JembeInitParamSupport",
     "action",

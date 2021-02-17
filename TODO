@@ -34,16 +34,17 @@ Public Dev Lunch:
       ✔ JembeClient should replace all uplaoded files with (storage=storage_name, path=file_path) with date returned from x-jembe=fileupload request @done(21-02-11 09:43)
       ✔ JembeClient can now finaly send regular x-jembe request with fileupload id set to fileupload_request_id returned by previous request @done(21-02-11 09:43)
     Reciving x-jembe=fileupload requst:
-      ☐ in temp storage create new dir with named by session id (if not exists)
-      ☐ in that directory create new directory uniquly named (fileupload_request_id)
-      ☐ uplaod all files to this directory
-      ☐ for all uploaded files create coresponding File instances (storage=temp, path=sessid/fileuplaod_request_id/filename)
-      ☐ return json data (as specified before )
+      ✔ Create tests for upload on server side @done(21-02-17 11:24)
+      ✘ in temp storage create new dir with named by session id (if not exists) @cancelled(21-02-17 11:24)
+      ✔ in that directory create new directory uniquly named (fileupload_request_id) @done(21-02-17 11:24)
+      ✔ uplaod all files to this directory @done(21-02-17 11:24)
+      ✔ for all uploaded files create coresponding File instances (storage=temp, path=sessid/fileuplaod_request_id/filename) @done(21-02-17 11:25)
+      ✔ return json data (as specified before ) @done(21-02-17 11:25)
     Reciving x-jembe request with fileuplaod id set:
       ☐ for every file check if sessid/fileupload_request_id part of path is valid if not 403
-      ☐ process request regulary
-      ☐ when processing is finished delete sessiion_id/fileupload_request_id dir (in backgroud posibly)
-      ☐ if session_id dir is empty delete it to
+      ✔ process request regulary @done(21-02-17 11:53)
+      ✔ when processing is finished delete sessiion_id/fileupload_request_id dir (in backgroud posibly) @done(21-02-17 11:53)
+      ✔ if session_id dir is empty delete it to @done(21-02-17 11:53)
     ✘ multi-form request saves files in temporary storage @cancelled(21-02-03 21:46)
     ✘ and return mapping between component init params and temporary files @cancelled(21-02-03 21:46)
     ✘ add this mapping to x-jembe request @cancelled(21-02-03 21:46)
@@ -51,6 +52,9 @@ Public Dev Lunch:
     ✘ replace component init params with actual files in temporary storage @cancelled(21-02-03 21:47)
     ✘ process x-jembe request @cancelled(21-02-03 21:47)
     ✘ delete files from temporary storage received by multi-form request if thay still exist in temporary storage @cancelled(21-02-03 21:47)
+
+☐ MorphDOM
+☐ AlpineJS (something similar) integration
 
 Archive:
   ✔ Display simple page @started(20-08-18 10:32) @done(20-08-18 12:35) @lasted(2h3m27s) @project(Public Dev Lunch)

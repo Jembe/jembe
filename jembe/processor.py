@@ -9,7 +9,7 @@ from typing import (
     Sequence,
     Deque,
     Any,
-    NamedTuple,
+    NamedTuple, final,
 )
 from abc import ABC, abstractmethod
 import re
@@ -24,7 +24,7 @@ from flask.globals import current_app
 from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
-from flask import json, jsonify, Response
+from flask import json, jsonify, Response, g
 from .common import (
     convert_to_annotated_type,
     exec_name_to_full_name,
@@ -837,7 +837,9 @@ class CommandsQue:
         self.deferred_commands.clear()
 
     def __repr__(self) -> str:
-        return "CommandsQue({}, defered={})".format(self.commands, self.deferred_commands)
+        return "CommandsQue({}, defered={})".format(
+            self.commands, self.deferred_commands
+        )
 
 
 class Processor:
@@ -848,6 +850,8 @@ class Processor:
     """
 
     def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
+        g.jmb_processor = self
+
         self.jembe = jembe
         self.request = request
 
@@ -1037,32 +1041,37 @@ class Processor:
         return exec_names
 
     def process_request(self) -> "Processor":
-        response = self._execute_commands()
-        if response is not None:
-            self._response = response
+        try:
+            response = self._execute_commands()
+
+            if response is not None:
+                self._delete_tmp_uploads()
+                self._response = response
+                return self
+
+            # for all freshly rendered component who does not have parent renderers
+            # eather at client (send via x-jembe.components) nor just created by
+            # server call display command
+            needs_render_exec_names = set(
+                chain.from_iterable(
+                    accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
+                    for exec_name, cr in self.renderers.items()
+                    if cr.fresh == True
+                )
+            )
+            missing_render_exec_names = needs_render_exec_names - set(self.renderers.keys())
+            for exec_name in sorted(
+                missing_render_exec_names,
+                key=lambda exec_name: self.components[exec_name]._config.hiearchy_level,
+            ):
+                self.add_command(CallDisplayCommand(exec_name))
+            self._staging_commands.move_commands_to(self._commands)
+
+            self._execute_commands()
             return self
 
-        # for all freshly rendered component who does not have parent renderers
-        # eather at client (send via x-jembe.components) nor just created by
-        # server call display command
-        needs_render_exec_names = set(
-            chain.from_iterable(
-                accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
-                for exec_name, cr in self.renderers.items()
-                if cr.fresh == True
-            )
-        )
-        missing_render_exec_names = needs_render_exec_names - set(self.renderers.keys())
-        for exec_name in sorted(
-            missing_render_exec_names,
-            key=lambda exec_name: self.components[exec_name]._config.hiearchy_level,
-        ):
-            self.add_command(CallDisplayCommand(exec_name))
-        self._staging_commands.move_commands_to(self._commands)
-
-        self._execute_commands()
-
-        return self
+        finally:
+            self._delete_tmp_uploads()
 
     def _execute_commands(self) -> Optional["Response"]:
         """executes all commands from self._commands que"""
@@ -1368,5 +1377,33 @@ class Processor:
 
     @cached_property
     def _is_x_jembe_request(self) -> bool:
-        return bool(self.request.headers.get(self.jembe.X_JEMBE, False))
+        return bool(
+            self.request.headers.has_key(self.jembe.X_JEMBE)
+            and self.request.headers.get(self.jembe.X_JEMBE) != "upload"
+        )
 
+    @cached_property
+    def _is_x_jembe_upload_followup_request(self) -> bool:
+        return self._is_x_jembe_request and self.request.headers.has_key(
+            self.jembe.X_RELATED_UPLOAD
+        )
+
+    @cached_property
+    def is_x_jembe_upload_request(self) -> bool:
+        return bool(self.request.headers.get(self.jembe.X_JEMBE, None) == "upload")
+
+    def _delete_tmp_uploads(self):
+        from jembe.app import get_temp_storage
+
+        if self._is_x_jembe_upload_followup_request:
+            upload_request_id = self.request.headers.get(self.jembe.X_RELATED_UPLOAD)
+            ts = get_temp_storage()
+            try:
+                ts.rmtree(ts.path_join("uploads", upload_request_id))
+            except:
+                # TODO log error
+                pass
+            try:
+                ts.rmdir("uploads")
+            except:
+                pass

@@ -36,6 +36,7 @@ class DemoUploadSimple(Component):
 
 class DemoUploadWtForm(Component):
     """Uses wtForm and simulates saving to database by processing phot in save() action"""
+
     pass
     # def __init__(self, form: Optional[EditForm] = None, file: Optional[JFile] = None):
     #     super().__init__()

@@ -404,7 +404,7 @@ class JembeClient {
     this.xRequestUrl = url
   }
   executeUpload() {
-    const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
+    const url = "/jembe/upload_files"
     const uploadFormData = this.getXUploadRequestFormData()
     if (uploadFormData === null) {
       return new Promise((resolve, reject) => {
@@ -420,26 +420,26 @@ class JembeClient {
       headers: { 'X-JEMBE': 'upload' },
       body: uploadFormData
     }).then(response => {
-        if (!response.ok) {
-          throw Error(response.statusText)
-        }
-        return response.json()
+      if (!response.ok) {
+        throw Error(response.statusText)
+      }
+      return response.json()
     }).then(json => {
-          // fileupload returns files = dict(fileUploadId, [{storage=storage_name, path=file_path}]) and unique fileUplaodResponseId
-          for (const fileUploadId of Object.keys(json.files)) {
-          // replace all uploaded files init params with 
-          //(storage=storage_name, path=file_path) returned from x-jembe=fileupload request
-            const ufiles = json.files[fileUploadId]
-            const fu = this.filesForUpload[fileUploadId]
-            this.addInitialiseCommand(
-              fu.execName, {
-                [fu.paramName]: ufiles
-              }
-            )
-          }
+      // fileupload returns files = dict(fileUploadId, [{storage=storage_name, path=file_path}]) and unique fileUplaodResponseId
+      for (const fileUploadId of Object.keys(json.files)) {
+        // replace all uploaded files init params with 
+        //(storage=storage_name, path=file_path) returned from x-jembe=fileupload request
+        const ufiles = json.files[fileUploadId]
+        const fu = this.filesForUpload[fileUploadId]
+        this.addInitialiseCommand(
+          fu.execName, {
+          [fu.paramName]: ufiles
+        }
+        )
+      }
 
-          this.filesForUpload = {}
-          return json.fileUploadResponseId
+      this.filesForUpload = {}
+      return json.fileUploadResponseId
     })
   }
   executeCommands(updateLocation = true) {
@@ -456,13 +456,13 @@ class JembeClient {
           credentials: "same-origin",
           redirect: "follow",
           referrer: "no-referrer",
-          headers: { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId },
+          headers: fileUploadResponseId !== null ? { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId } : { 'X-JEMBE': 'commands' },
           body: requestBody
         }).then(response => {
-            if (!response.ok) {
-              throw Error(response.statusText)
-            }
-            return response.json()
+          if (!response.ok) {
+            throw Error(response.statusText)
+          }
+          return response.json()
         }).then(
           json => this.getComponentsFromXResponse(json)
         ).then(
@@ -471,10 +471,10 @@ class JembeClient {
             if (updateLocation) {
               this.updateLocation()
             }
-        }).catch(error => {
-          throw error
-          // console.error("Error in request", error)
-        })
+          }).catch(error => {
+            throw error
+            // console.error("Error in request", error)
+          })
       }
     ).catch(error => {
       console.error("Error in request", error)

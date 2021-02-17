@@ -530,7 +530,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         try:
             return getattr(self, "_parent")
         except AttributeError:
-            import pdb; pdb.set_trace()
             raise JembeError(
                 "Component Config {} is not initialised properly, 'parent' is missing.".format(
                     self.full_name

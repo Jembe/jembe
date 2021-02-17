@@ -510,7 +510,9 @@ class Component(metaclass=ComponentMeta):
             except Exception as e:
                 raise ValueError(e)
 
-            raise ValueError("Unsuported annotation type {}".format(param_hint.annotation))
+            raise ValueError(
+                "Unsuported annotation type {}".format(param_hint.annotation)
+            )
 
         if name in cls._jembe_init_signature.parameters:
             try:

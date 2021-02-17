@@ -1,4 +1,5 @@
 from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
+from os import path
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
@@ -22,6 +23,7 @@ class Jembe:
     """
 
     X_JEMBE = "X-Jembe"
+    X_RELATED_UPLOAD = "X-Jembe-Related-Upload"
 
     def __init__(
         self,
@@ -88,17 +90,17 @@ class Jembe:
             # initialise default storages
 
             upload_folder = self.flask.config.get(
-                "JEMBE_UPLOAD_FOLDER", "../data/media"
+                "JEMBE_UPLOAD_FOLDER", path.join("..", "data", "media")
             )
             storages = [
-                DiskStorage("public", "{}/public".format(upload_folder)),
+                DiskStorage("public", path.join(upload_folder, "public")),
                 DiskStorage(
                     "private",
-                    "{}/private".format(upload_folder),
+                    path.join(upload_folder, "private"),
                     type=DiskStorage.Type.PRIVATE,
                 ),
                 DiskStorage(
-                    "tmp", "{}/temp".format(upload_folder), type=DiskStorage.Type.TEMP
+                    "tmp", path.join(upload_folder, "temp"), type=DiskStorage.Type.TEMP
                 ),
             ]
         if storages is None or not next(
@@ -223,16 +225,39 @@ class Jembe:
                 "Component {} does not exist".format(exec_name_to_full_name(exec_name))
             )
 
-    def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
+    def get_storage_by_type(
+        self, storage_type: "Storage.Type", storage_name: Optional[str] = None
+    ) -> "Storage":
+        # returs named storage if exist and it's right type
+        if storage_name is not None:
+            try:
+                if self._storages[storage_name].type == storage_type:
+                    return self._storages[storage_name]
+                else:
+                    raise JembeError(
+                        "Storage '{}' is not '{}'".format(
+                            storage_name, storage_type.value
+                        )
+                    )
+            except KeyError:
+                raise JembeError("Storage '{}' does not exist".format(storage_name))
+
+        # returns first storage of adequate type
         try:
-            if storage_name is None:
-                storage_name = list(self._storages.keys())[0]
-            return self._storages[storage_name]
-        except (KeyError, IndexError):
-            raise JembeError("Storage '{}' does not exist".format(storage_name))
+            return next(s for s in self._storages.values() if s.type == storage_type)
+        except StopIteration:
+            raise JembeError(
+                "Storage of type '{}' does not exist".format(storage_type.value)
+            )
 
     def get_storages(self) -> List["Storage"]:
-        return list(self._storages.values)
+        return list(self._storages.values())
+
+    def get_storage(self, storage_name: str) -> "Storage":
+        try:
+            return self._storages[storage_name]
+        except KeyError:
+            raise JembeError("Storage '{}' does not exist".format(storage_name))
 
 
 def get_processor():
@@ -241,7 +266,7 @@ def get_processor():
         if not (request.endpoint and request.blueprint):
             raise JembeError("Request {} can't be handled by jembe processor")
         component_full_name = request.endpoint[len(request.blueprint) + 1 :]
-        g.jmb_processor = Processor(jembe, component_full_name, request)
+        return Processor(jembe, component_full_name, request)
     return g.jmb_processor
 
 
@@ -251,6 +276,24 @@ def get_storage(storage_name: str) -> "Storage":
 
 def get_storages() -> List["Storage"]:
     return get_processor().jembe.get_storages()
+
+
+def get_temp_storage(storage_name: Optional[str] = None) -> "Storage":
+    from .files import Storage
+
+    return get_processor().jembe.get_storage_by_type(Storage.Type.TEMP, storage_name)
+
+
+def get_public_storage(storage_name: Optional[str] = None) -> "Storage":
+    from .files import Storage
+
+    return get_processor().jembe.get_storage_by_type(Storage.Type.PUBLIC, storage_name)
+
+
+def get_private_storage(storage_name: Optional[str] = None) -> "Storage":
+    from .files import Storage
+
+    return get_processor().jembe.get_storage_by_type(Storage.Type.PRIVATE, storage_name)
 
 
 def jembe_master_view(**kwargs) -> "Response":

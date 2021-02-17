@@ -68,12 +68,16 @@ class JembeComponentAPI {
    * @param {*} value 
    */
   set(stateName, value) {
-    let params = {}
-    params[stateName] = value
-    this.jembeClient.addInitialiseCommand(
-      this.execName,
-      params
-    )
+    if (value instanceof FileList) {
+      this.jembeClient.addFilesForUpload(this.execName, stateName, value)
+    } else {
+      let params = {}
+      params[stateName] = value
+      this.jembeClient.addInitialiseCommand(
+        this.execName,
+        params
+      )
+    }
   }
   emit(eventName, kwargs = {}, to = null) {
     this.jembeClient.addEmitCommand(

@@ -1,10 +1,16 @@
-from typing import TYPE_CHECKING, Union, Any, Dict
+import shutil
+from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
+import os
+from shutil import rmtree
 from abc import ABC, abstractmethod
+from uuid import uuid1
 
 from flask.helpers import send_from_directory
-from flask import session
-from .app import get_storage, get_storages
+from flask import session, current_app, url_for
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import cached_property, secure_filename
+from .app import get_private_storage, get_public_storage, get_storage
 from .exceptions import JembeError, NotFound
 from .common import JembeInitParamSupport
 
@@ -48,41 +54,45 @@ class File(JembeInitParamSupport):
     def in_private_storage(self) -> bool:
         return self.storage.type == self.storage.Type.PRIVATE
 
-    def copy_to(self, storage: Union["Storage", str], subdir: str = ""):
-        # TODO remove abstract instead call appropriate storage method
-        raise NotImplementedError()
+    @property
+    def url(self) -> str:
+        return url_for(
+            "jembe./jembe/file",
+            component_key="",
+            component_key__1="",
+            storage_name__1=self.storage.name,
+            file_path__1=self.path,
+        )
 
-    def move_to(self, storage: Union["Storage", str], subdir: str = ""):
-        # TODO remove abstract instead call appropriate storage method
-        raise NotImplementedError()
+    @property
+    def basename(self) -> str:
+        return self.storage.basename(self.path)
 
-    def copy_to_public(self, subdir: str = ""):
-        try:
-            storage = next(s for s in get_storages() if s.type == s.Type.PUBLIC)
-            self.copy_to(storage, subdir)
-        except StopIteration:
-            raise JembeError("No public storage configured")
+    def copy_to(self, storage: Union["Storage", str], subdir: str = "") -> "File":
+        if isinstance(storage, str):
+            storage = get_storage(storage)
+        return storage.store_file(self, subdir)
 
-    def copy_to_private(self, subdir: str = ""):
-        try:
-            storage = next(s for s in get_storages() if s.type == s.Type.PRIVATE)
-            self.copy_to(storage, subdir)
-        except StopIteration:
-            raise JembeError("No private storage configured")
+    def move_to(self, storage: Union["Storage", str], subdir: str = "") -> "File":
+        file = self.copy_to(storage, subdir)
+        self.storage.remove(self.path)
+        return file
+
+    def copy_to_public(self, subdir: str = "") -> "File":
+        return self.copy_to(get_public_storage(), subdir)
+
+    def copy_to_private(self, subdir: str = "") -> "File":
+        return self.copy_to(get_private_storage(), subdir)
 
     def move_to_public(self, subdir: str = ""):
-        try:
-            storage = next(s for s in get_storages() if s.type == s.Type.PUBLIC)
-            self.move_to(storage, subdir)
-        except StopIteration:
-            raise JembeError("No public storage configured")
+        file = self.move_to(get_public_storage(), subdir)
+        self.storage = file.storage
+        self.path = file.path
 
     def move_to_private(self, subdir: str = ""):
-        try:
-            storage = next(s for s in get_storages() if s.type == s.Type.PRIVATE)
-            self.move_to(storage, subdir)
-        except StopIteration:
-            raise JembeError("No private storage configured")
+        file = self.move_to(get_private_storage(), subdir)
+        self.storage = file.storage
+        self.path = file.path
 
     def open(
         self,
@@ -101,14 +111,16 @@ class File(JembeInitParamSupport):
 
     @classmethod
     def dump_init_param(cls, value: "File") -> Any:
-        return dict(
-            path=value.path,
-            storage=value.storage.name
-        )
+        return dict(path=value.path, storage=value.storage.name)
 
     @classmethod
-    def load_init_param(cls, value: Dict[str, str]) -> "File":
-        return File(value["storage"], value["path"])
+    def load_init_param(
+        cls, value: Union[Dict[str, str], List[Dict[str, str]]]
+    ) -> "File":
+        if isinstance(value, dict):
+            return File(value["storage"], value["path"])
+        else:
+            return File(value[0]["storage"], value[0]["path"])
 
     def __str__(self) -> str:
         return "<File: storage={}, path={}>".format(self.storage, self.path)
@@ -187,7 +199,9 @@ class Storage(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def store_file(self, file: Union[File, str], subdir: str = "", move=False):
+    def store_file(
+        self, file: Union[File, FileStorage, str], subdir: str = "", move=False
+    ) -> File:
         """
         Store file inside this storage dir with unique file name inside subdir
 
@@ -200,6 +214,42 @@ class Storage(ABC):
     def remove_file(self, file: Union[File, str]):
         raise NotImplementedError()
 
+    @abstractmethod
+    def isdir(self, dir_path: str) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def isfile(self, file_path: str) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def exists(self, path: str) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def makedirs(self, path: str, mode=0o777):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def path_join(self, path: str, *paths: str) -> str:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def rmdir(self, dir_path: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def rmtree(self, dir_path: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def remove(self, file_path: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def basename(self, path: str) -> str:
+        raise NotImplementedError()
+
 
 class DiskStorage(Storage):
     """Stores files on disk"""
@@ -208,21 +258,82 @@ class DiskStorage(Storage):
         self, name: str, folder: str, type: Storage.Type = Storage.Type.PUBLIC
     ):
         super().__init__(name, type=type)
-        self.folder = folder
+
+        self._folder = folder
+
+    @cached_property
+    def folder(self) -> str:
+        if not os.path.isabs(self._folder):
+            return os.path.join(current_app.root_path, self._folder)  # type:ignore
+        return self._folder
 
     def send_file(self, file_path: str) -> "Response":
         if self.can_access_file(file_path):
             return send_from_directory(self.folder, file_path)
         raise NotFound
 
-    def store_file(self, file: Union[File, str], subdir: str = "", move=False):
+    def _get_unique_filename(self, filename: Optional[str], subdir: str) -> str:
+        sfn = secure_filename(filename)
+        while self.exists(os.path.join(subdir, sfn)):
+            sfn_base, sfn_ext = os.path.splitext(sfn)
+            sfn = secure_filename(
+                "{}_{}{}".format(sfn_base, str(uuid1()).split("-")[0], sfn_ext)
+            )
+        return sfn
+
+    def store_file(
+        self, file: Union[File, FileStorage, str], subdir: str = "", move=False
+    ) -> File:
         """
         Store file inside this storage dir with unique file name inside subdir
 
         file -- Jembe File instance or full file path relative to JEMBE_UPLOAD_FOLDER
         move -- if True then remove file from original location
         """
-        raise NotImplementedError()
+        if isinstance(file, File):
+            sfn = self._get_unique_filename(file.basename, subdir)
+            if isinstance(file.storage, DiskStorage):
+                shutil.copy(
+                    os.path.join(file.storage.folder, file.path),
+                    os.path.join(self.folder, subdir, sfn),
+                )
+                return File(self, os.path.join(subdir, sfn))
+            else:
+                raise NotImplementedError()
+        elif isinstance(file, FileStorage):
+            sfn = self._get_unique_filename(file.filename, subdir)
+            file.save(os.path.join(self.folder, subdir, sfn))
+            return File(self, os.path.join(subdir, sfn))
+        else:
+            # file is instance of str
+            raise NotImplementedError()
 
     def remove_file(self, file: Union[File, str]):
         raise NotImplementedError()
+
+    def isdir(self, dir_path: str) -> bool:
+        return os.path.isdir(os.path.join(self.folder, dir_path))
+
+    def isfile(self, file_path: str) -> bool:
+        return os.path.isfile(os.path.join(self.folder, file_path))
+
+    def exists(self, path: str) -> bool:
+        return os.path.exists(os.path.join(self.folder, path))
+
+    def makedirs(self, path: str, mode=0o777):
+        os.makedirs(os.path.join(self.folder, path), mode)
+
+    def path_join(self, path: str, *paths: str) -> str:
+        return os.path.join(path, *paths)
+
+    def rmdir(self, dir_path: str):
+        os.rmdir(os.path.join(self.folder, dir_path))
+
+    def rmtree(self, dir_path: str):
+        rmtree(os.path.join(self.folder, dir_path))
+
+    def remove(self, file_path: str):
+        os.remove(os.path.join(self.folder, file_path))
+
+    def basename(self, path: str) -> str:
+        return os.path.basename(path)
