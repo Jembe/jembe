@@ -411,13 +411,21 @@ class Component(metaclass=ComponentMeta):
 
         """
 
-        def _dump_supported_types(value, param_hint):
-            if param_hint.annotation == Parameter.empty:
-                raise ValueError("Parameter without annotation")
-            atype, is_optional = get_annotation_type(param_hint.annotation)
+        def _dump_supported_types(value, annotation):
+            atype, is_optional = get_annotation_type(annotation)
             try:
                 if atype == set or get_origin(atype) == set:
                     return None if (is_optional and value is None) else list(value)
+                if atype == list or get_origin(atype) == list:
+                    # TODO support tuple, dict etc.
+                    el_annotation = get_args(atype)[0]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else list(
+                            _dump_supported_types(v, el_annotation) for v in value
+                        )
+                    )
                 elif (
                     atype == JembeInitParamSupport
                     or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
@@ -437,9 +445,10 @@ class Component(metaclass=ComponentMeta):
 
         if name in cls._jembe_init_signature.parameters:
             try:
-                return _dump_supported_types(
-                    value, cls._jembe_init_signature.parameters[name]
-                )
+                param_hint = cls._jembe_init_signature.parameters[name]
+                if param_hint.annotation == Parameter.empty:
+                    raise ValueError("Parameter without annotation")
+                return _dump_supported_types(value, param_hint.annotation)
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
@@ -468,13 +477,11 @@ class Component(metaclass=ComponentMeta):
               because hint checking can be expensive)
         """
 
-        def _load_supported_types(value, param_hint):
+        def _load_supported_types(value, annotation):
             """ returns loaded value or raise ValueError"""
             # TODO add support for multiple annotation types Union[a,b,c] etc
 
-            if param_hint.annotation == Parameter.empty:
-                raise ValueError("Parameter without annotation")
-            atype, is_optional = get_annotation_type(param_hint.annotation)
+            atype, is_optional = get_annotation_type(annotation)
             try:
                 if atype == bool:
                     return None if (is_optional and value is None) else bool(value)
@@ -485,14 +492,25 @@ class Component(metaclass=ComponentMeta):
                 elif atype == float:
                     return None if (is_optional and value is None) else float(value)
                 elif atype == dict or get_origin(atype) == dict:
+                    # TODO recursive dict
                     return None if (is_optional and value is None) else dict(value)
                 elif atype == tuple or get_origin(atype) == tuple:
+                    # TODO recursive tuple
                     return None if (is_optional and value is None) else tuple(value)
                 elif atype == list or get_origin(atype) == list:
-                    return None if (is_optional and value is None) else list(value)
+                    el_annotation = get_args(atype)[0]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else list(
+                            _load_supported_types(v, el_annotation) for v in value
+                        )
+                    )
                 elif atype == set or get_origin(atype) == set:
+                    # TODO recursive set
                     return None if (is_optional and value is None) else set(value)
                 elif get_origin(atype) == collectionsSequence:
+                    # TODO recursive collection
                     return None if (is_optional and value is None) else tuple(value)
                 elif (
                     atype == JembeInitParamSupport
@@ -510,15 +528,14 @@ class Component(metaclass=ComponentMeta):
             except Exception as e:
                 raise ValueError(e)
 
-            raise ValueError(
-                "Unsuported annotation type {}".format(param_hint.annotation)
-            )
+            raise ValueError("Unsuported annotation type {}".format(annotation))
 
         if name in cls._jembe_init_signature.parameters:
             try:
-                return _load_supported_types(
-                    value, cls._jembe_init_signature.parameters[name]
-                )
+                param_hint = cls._jembe_init_signature.parameters[name]
+                if param_hint.annotation == Parameter.empty:
+                    raise ValueError("Parameter without annotation")
+                return _load_supported_types(value, param_hint.annotation)
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(

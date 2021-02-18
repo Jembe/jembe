@@ -73,6 +73,16 @@ class UploadedFile {
     this.paramName = paramName
     this.fileUploadId = fileUploadId
     this.files = files
+    this.multipleFiles = files instanceof FileList || files instanceof Array
+  }
+  addToFormData(formData) {
+    if (this.multipleFiles) {
+      for (const file of this.files) {
+        formData.append(this.fileUploadId, file)
+      }
+    } else {
+      formData.append(this.fileUploadId, this.files)
+    }
   }
 }
 /**
@@ -354,7 +364,9 @@ class JembeClient {
     if (existingFileId !== null) {
       delete this.filesForUpload[existingFileId]
     }
-    if (files.length > 0) {
+
+    if (((files instanceof FileList || files instanceof Array) && files.length > 0)
+      || (files instanceof File)) {
       // add files to paramName
       let fileId = null
       while (fileId == null || Object.keys(this.filesForUpload).includes(fileId)) {
@@ -388,9 +400,7 @@ class JembeClient {
     }
     let fd = new FormData()
     for (const uf of Object.values(this.filesForUpload)) {
-      for (const file of uf.files) {
-        fd.append(uf.fileUploadId, file)
-      }
+      uf.addToFormData(fd)
     }
     return fd
   }
@@ -433,7 +443,7 @@ class JembeClient {
         const fu = this.filesForUpload[fileUploadId]
         this.addInitialiseCommand(
           fu.execName, {
-          [fu.paramName]: ufiles
+          [fu.paramName]: fu.multipleFiles ? ufiles : ufiles[0]
         }
         )
       }

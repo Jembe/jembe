@@ -667,4 +667,9 @@ test('create file X Upload request  in jembeClient', () => {
   fd = jc.getXUploadRequestFormData()
   let uploadId =Object.keys(jc.filesForUpload)[0] 
   expect(fd.getAll(uploadId).length).toBe(2)
+
+  jc.addFilesForUpload("/page", "photo", foo)
+  fd = jc.getXUploadRequestFormData()
+  uploadId =Object.keys(jc.filesForUpload)[0] 
+  expect(fd.getAll(uploadId).length).toBe(1)
 })

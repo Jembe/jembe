@@ -68,7 +68,7 @@ class JembeComponentAPI {
    * @param {*} value 
    */
   set(stateName, value) {
-    if (value instanceof FileList) {
+    if (value instanceof FileList || value instanceof File) {
       this.jembeClient.addFilesForUpload(this.execName, stateName, value)
     } else {
       let params = {}

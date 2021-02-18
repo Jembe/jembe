@@ -1,6 +1,7 @@
 from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from os import path
 from flask import Blueprint, request
+from flask.globals import current_app
 from .processor import Processor
 from .exceptions import JembeError
 from flask import g

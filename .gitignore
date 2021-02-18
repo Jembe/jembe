@@ -28,3 +28,7 @@ htmlcov/
 .coverage.*
 *,cover
 yarn-error.log
+
+
+
+data

@@ -33,7 +33,7 @@ def app_ctx(app):
 
 @pytest.fixture
 def req_ctx(app):
-    with app.test_request_context() as ctx:
+    with app.test_request_context(path="/") as ctx:
         yield ctx
 
 

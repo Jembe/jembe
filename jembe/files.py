@@ -117,10 +117,12 @@ class File(JembeInitParamSupport):
     def load_init_param(
         cls, value: Union[Dict[str, str], List[Dict[str, str]]]
     ) -> "File":
-        if isinstance(value, dict):
-            return File(value["storage"], value["path"])
-        else:
-            return File(value[0]["storage"], value[0]["path"])
+        # handelse both list and dict in order to support 
+        # using $jmb.set(xx, $el.files) instead of jmb.set(xx, $el.files[0]) 
+        # for regular, not multiple, file upload input
+        if isinstance(value, list):
+            value = value[0]
+        return File(value["storage"], value["path"])
 
     def __str__(self) -> str:
         return "<File: storage={}, path={}>".format(self.storage, self.path)
@@ -167,6 +169,7 @@ class Storage(ABC):
         try:
             if file_path not in session[JEMBE_FILES_ACCESS_GRANTED][self.name]:
                 session[JEMBE_FILES_ACCESS_GRANTED][self.name].insert(0, file_path)
+                session.modified = True
 
             if (
                 len(session[JEMBE_FILES_ACCESS_GRANTED])
@@ -175,12 +178,14 @@ class Storage(ABC):
                 session[JEMBE_FILES_ACCESS_GRANTED] = session[
                     JEMBE_FILES_ACCESS_GRANTED
                 ][:JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE]
+                session.modified = True
         except KeyError:
             if JEMBE_FILES_ACCESS_GRANTED not in session:
                 session[JEMBE_FILES_ACCESS_GRANTED] = dict()
             if self.name not in session[JEMBE_FILES_ACCESS_GRANTED]:
                 session[JEMBE_FILES_ACCESS_GRANTED][self.name] = list()
             session[JEMBE_FILES_ACCESS_GRANTED][self.name].insert(0, file_path)
+            session.modified = True
 
     def revoke_access_to_file(self, file_path: str):
         """Reveke access to file from current user"""

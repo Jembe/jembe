@@ -1030,7 +1030,7 @@ class JembeComponentAPI {
 
 
   set(stateName, value) {
-    if (value instanceof FileList) {
+    if (value instanceof FileList || value instanceof File) {
       this.jembeClient.addFilesForUpload(this.execName, stateName, value);
     } else {
       let params = {};
@@ -1301,6 +1301,17 @@ class UploadedFile {
     this.paramName = paramName;
     this.fileUploadId = fileUploadId;
     this.files = files;
+    this.multipleFiles = files instanceof FileList || files instanceof Array;
+  }
+
+  addToFormData(formData) {
+    if (this.multipleFiles) {
+      for (const file of this.files) {
+        formData.append(this.fileUploadId, file);
+      }
+    } else {
+      formData.append(this.fileUploadId, this.files);
+    }
   }
 
 }
@@ -1597,7 +1608,7 @@ class JembeClient {
       delete this.filesForUpload[existingFileId];
     }
 
-    if (files.length > 0) {
+    if ((files instanceof FileList || files instanceof Array) && files.length > 0 || files instanceof File) {
       // add files to paramName
       let fileId = null;
 
@@ -1629,9 +1640,7 @@ class JembeClient {
     let fd = new FormData();
 
     for (const uf of Object.values(this.filesForUpload)) {
-      for (const file of uf.files) {
-        fd.append(uf.fileUploadId, file);
-      }
+      uf.addToFormData(fd);
     }
 
     return fd;
@@ -1682,7 +1691,7 @@ class JembeClient {
         const ufiles = json.files[fileUploadId];
         const fu = this.filesForUpload[fileUploadId];
         this.addInitialiseCommand(fu.execName, {
-          [fu.paramName]: ufiles
+          [fu.paramName]: fu.multipleFiles ? ufiles : ufiles[0]
         });
       }
 
@@ -1817,7 +1826,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "38061" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "44659" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

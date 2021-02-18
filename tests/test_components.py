@@ -1978,126 +1978,43 @@ def test_page_with_two_components(jmb, client):
     ).encode("utf-8")
 
 
-# TODO test counter with configurable increment
-# TODO
-# def test_blog(jmb, client):
-#     # TODO create mock post class with mock blog posts
-#     class ViewBlogPost(Component):
-#         def __init__(self, uuid: "UUID"):
-#             self.uuid = uuid
-#             self.title = "Blog post title"
-#             self.content = "Blog post content"
-#             super().__init__()
+def test_component_load_dump_params(app, jmb):
+    from jembe import File
 
-#         def display(self):
-#             return self.render_template_string(
-#                 """
-#                 <div>
-#                     <h2>{{uuid}} {{title}}</h2>
-#                     <div>{{content}}</div>
-#                     <a jmb:click="$emit_up('close')">Back</a>
-#                 </div>
-#             """
-#             )
+    class FC(Component):
+        def __init__(self, files: Optional[List[File]] = None):
+            super().__init__()
 
-#         @jmb.page("blog", Component.Config(components={"post": ViewBlogPost}))
-#         class BlogPage(Component):
-#             def __init__(
-#                 self,
-#                 render_post: bool = False,
-#                 order_by: Optional[str] = None,
-#                 page_size: Optional[int] = None,
-#                 page: Optional[int] = None,
-#             ):
-#                 self.state.order_by = (
-#                     order_by
-#                     if order_by is not None
-#                     else self.get_query_param("o", "-id")
-#                 )
-#                 self.state.page_size = (
-#                     page_size
-#                     if page_size is not None
-#                     else self.get_query_param("s", 10)
-#                 )
-#                 self.state.page = (
-#                     page if page is not None else self.get_query_param("p", 1)
-#                 )
-#                 super().__init__()
+    @jmb.page("page", Component.Config(components=dict(fc=FC)))
+    class Page(Component):
+        pass
 
-#             def url(self) -> str:
-#                 """
-#                 bulding url (window.location) in order to allow navigation bach forward
-#                 and sharing urls
-#                 """
-#                 return build_url(
-#                     super.url(),
-#                     o=self.state.order_by,
-#                     s=self.state.page_size,
-#                     p=self.state.page,
-#                 )
+    with app.test_request_context(path="/page"):
+        files_json = [
+            {
+                "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-08-14_11-06-33.png",
+                "storage": "tmp",
+            },
+            {
+                "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-07-22_23-21-24.png",
+                "storage": "tmp",
+            },
+            {
+                "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-07-22_23-21-21.png",
+                "storage": "tmp",
+            },
+        ]
+        files = FC.load_init_param("files", files_json)
 
-#             @action
-#             def next_page(self):
-#                 self.state.order_by += 1
-#                 return self.display()
+        assert isinstance(files, list)
+        assert len(files) == 3
+        assert isinstance(files[0], File)
+        f: File = files[0]
+        assert (
+            f.path
+            == "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-08-14_11-06-33.png"
+        )
+        assert f.in_temp_storage() == True
 
-#             @action
-#             def prev_page(self):
-#                 self.state.order_by -= 1
-#                 return self.display()
-
-#             @listener("_render", child=True)
-#             def on_render_post(self, event: "Event"):
-#                 self.state.render_post = True
-
-#             @listener("close", child=True)
-#             def on_post_close(self, event:"Event"):
-#                 self.state.render_post = False
-#                 return self.display()
-
-#             def display(self):
-#                 if self.state.render_post:
-#                     return self.render_template_string(
-#                         """
-#                         <html>
-#                         <head>
-#                             <title>Blog</title>
-#                         </head>
-#                         <body>
-#                             {{component("post")}}
-#                         </body>
-#                         </html>
-#                         """
-#                     )
-#                 else:
-#                     self.posts = []
-#                     return self.render_template_string(
-#                         """
-#                         <html>
-#                         <head>
-#                             <title>Blog</title>
-#                         </head>
-#                         <body>
-#                             <ul>
-#                                 {% for post in posts %}
-#                                 <li>
-#                                     <a jmb:click="$component('post', uuid=post.uuid)">
-#                                         {{post.title}}
-#                                     </a>
-#                                 </li>
-#                                 {% endfor %}
-#                             </ul>
-#                         </body>
-#                         </html>
-#                         """
-#                     )
-
-#     # TODO create tests for
-#     # displaying blog lists with jmb:click navigation
-#     # displaying blog post with jmb:click back event
-#     # calling blog with direct request
-#     # calling post with direct request
-#     # calling post with ajax request
-#     # calling calling back event
-#     # incoplete ajax calls should return badrequest
-#     assert False == True
+        files_dump = FC.dump_init_param("files", files)
+        assert json.dumps(files_dump) == json.dumps(files_json)
