@@ -1,17 +1,15 @@
-import shutil
 from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
+import shutil
 import os
-from shutil import rmtree
 from abc import ABC, abstractmethod
 from uuid import uuid1
 
-from flask.helpers import send_from_directory
-from flask import session, current_app, url_for
+from flask import session, current_app, url_for, send_from_directory, session
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import cached_property, secure_filename
 from .app import get_private_storage, get_public_storage, get_storage
-from .exceptions import JembeError, NotFound
+from .exceptions import NotFound
 from .common import JembeInitParamSupport
 
 if TYPE_CHECKING:
@@ -335,7 +333,7 @@ class DiskStorage(Storage):
         os.rmdir(os.path.join(self.folder, dir_path))
 
     def rmtree(self, dir_path: str):
-        rmtree(os.path.join(self.folder, dir_path))
+        shutil.rmtree(os.path.join(self.folder, dir_path))
 
     def remove(self, file_path: str):
         os.remove(os.path.join(self.folder, file_path))

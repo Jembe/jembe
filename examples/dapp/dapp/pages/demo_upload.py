@@ -1,7 +1,6 @@
-from typing import Sequence, TYPE_CHECKING, Optional, Union, List
-from jembe.component_config import listener
-from dataclasses import dataclass
-from jembe import Component, File
+from typing import TYPE_CHECKING, Optional, Union, List, Any
+from jembe import Component, File, listener
+from wtforms import Form, BooleanField, FileField, validators
 from dapp.jmb import jmb
 
 # from wtforms import Form, FileField
@@ -55,27 +54,48 @@ class MultiUploadSimple(Component):
         super().__init__()
 
 
+class PhotoForm(Form):
+    photo = FileField("Photo", [validators.regexp("^[^/\\]\.[jpg|png]$")])
+    upload_to_public = BooleanField(
+        "Upload to public storage", [validators.input_required()], default=True
+    )
+
+
 class DemoUploadWtForm(Component):
-    """Uses wtForm and simulates saving to database by processing phot in save() action"""
+    """Uses wtForm and simulates saving to database by processing photo in save() action"""
 
-    pass
-    # def __init__(self, form: Optional[EditForm] = None, file: Optional[JFile] = None):
-    #     super().__init__()
+    def __init__(self, form: Optional[PhotoForm] = None):
+        if form is None:
+            form = PhotoForm()
 
-    # def save(self):
-    #     if self.state.file.is_uploaded:
-    #         self.state.file = self.state.file.moveto(
-    #             self.get_storage("private"), to="test"
-    #         )
-    #     if self.state.form.is_valid():
-    #         if self.form.photo.jfile.is_uploaded:
-    #             jfile = self.get_storage("private").movein(
-    #                 self.form.photo.jfile, to="test"
-    #             )
-    #             project.photo = jfile
+        if (
+            form.photo.data is not None
+            and form.photo.data.in_temp_storage()
+        ):
+            if form.upload_to_public.data:
+                form.photo.data.move_to_public()
+            else:
+                form.photo.data.move_to_private()
+                form.photo.data.grant_access()
+        self.state.form = form
+        super().__init__()
 
-    #             """{{project.photo|jfile_url}}"""
+    @classmethod
+    def dump_init_param(cls, name: str, value: Any) -> Any:
+        if name == "form":
+            result = value.data.copy() if value is not None else dict()
+            if "photo" in result and result["photo"] is not None:
+                result ["photo"] = File.dump_init_param(result ["photo"])
+            return result 
+        return super().dump_init_param(name, value)  # type:ignore
 
+    @classmethod
+    def load_init_param(cls, name: str, value: Any) -> Any:
+        if name == "form":
+            if "photo" in value and value["photo"] is not None:
+                value["photo"] = File.load_init_param(value["photo"])
+            return PhotoForm(data=value)
+        return super().load_init_param(name, value)  # type:ignore
 
 @jmb.page(
     "demo_upload",
