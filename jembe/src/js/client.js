@@ -20,10 +20,18 @@ class ComponentRef {
     this.isPageComponent = this.hierarchyLevel === 2
 
     this.state = data.state
+    // data of local js component
+    // needs to be preserved when merging with new dom
+    this.localData = {
+      // not accessible by componentApi (timers etc)
+      private: {},
+      // accessible by componentAPI (used by component Api for various purpose)
+      public: {}
+    }
     this.url = data.url
     this.changesUrl = data.changesUrl
     this.actions = data.actions !== undefined ? data.actions : []
-    this.dom = typeof dom !== "string" ? dom : this._transformXResponseDom(dom)
+    this.dom = this._cleanDom(dom)
     this.onDocument = onDocument
 
     this.placeHolders = {}
@@ -34,7 +42,7 @@ class ComponentRef {
   mount(force = false) {
     if (this.api === null || force) {
       this._getPlaceHoldersAndJmbAttributes()
-      this.api = new JembeComponentAPI(this.jembeClient, this.execName, this)
+      this.api = new JembeComponentAPI(this)
       this.dom.jmbComponentApi = this.api
       this.previousJmbComponentApi = null
     }
@@ -49,6 +57,46 @@ class ComponentRef {
     }
   }
 
+  /**
+   * 
+   * @param {*} components dict of components currently merged and displayd on page
+   * @param {*} documentElement refenrenc root document element
+   */
+  merge(components, documentElement) {
+    if (this.isPageComponent) {
+      // if page component is already on document do nothing
+      if (this.onDocument) {
+        return
+      }
+      const previousJmbComponentApi = documentElement.jmbComponentApi
+      if (previousJmbComponentApi !== undefined) {
+        previousJmbComponentApi.unmount()
+        this.previousJmbComponentApi = previousJmbComponentApi
+      }
+      documentElement.innerHTML = this.dom.innerHTML
+      this.dom = documentElement
+      this.dom.setAttribute("jmb:name", this.execName)
+      this.mount(true) // because we use innerHTML not appendChild
+      this.onDocument = true
+    } else {
+      // search this.components for component with placeholder for this component
+      let parentComponent = Object.values(components).filter(
+        comp => Object.keys(comp.placeHolders).includes(this.execName)
+      )[0]
+      let originalDom = parentComponent.placeHolders[this.execName]
+      if (!(this.onDocument && originalDom.isSameNode(this.dom))) {
+        if (originalDom.jmbComponentApi !== undefined) {
+          originalDom.jmbComponentApi.unmount()
+          this.previousJmbComponentApi = originalDom.jmbComponentApi
+        }
+        parentComponent.placeHolders[this.execName].replaceWith(this.dom)
+        parentComponent.placeHolders[this.execName] = this.dom
+        this.mount()
+        this.onDocument = true
+      }
+    }
+
+  }
   _getPlaceHoldersAndJmbAttributes() {
     this.placeHolders = {}
     this.jmbDoubleDotAttributes = []
@@ -74,39 +122,44 @@ class ComponentRef {
       }
     )
   }
-  _transformXResponseDom(domString) {
+  _cleanDom(dom) {
     // if html dom has only one child use that child to put jmb:name tag
     // if not enclose html with div and put jmb:name into it
     // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
     // html after integration with document
-    domString = domString.trim()
-    if (!this.isPageComponent) {
-      let template = this.jembeClient.document.createElement("template")
-      template.innerHTML = domString
-      // check is it needed to add souranding DIV tag
-      if (template.content.childNodes.length > 1 ||
-        template.content.childNodes.length === 0 ||
-        template.content.firstChild.nodeType === Node.TEXT_NODE ||
-        (template.content.childNodes.length === 1 &&
-          (template.content.firstChild.hasAttribute("jmb:name") ||
-            template.content.firstChild.hasAttribute("jmb-placeholder")))) {
-        let div = this.jembeClient.document.createElement("div")
-        let curChild = template.content.firstChild
-        while (curChild) {
-          let nextChild = curChild.nextSibling
-          div.appendChild(curChild)
-          curChild = nextChild
+    if (typeof dom === "string") {
+      let domString = dom.trim()
+      if (!this.isPageComponent) {
+
+        let template = this.jembeClient.document.createElement("template")
+        template.innerHTML = domString
+        // check is it needed to add souranding DIV tag
+        if (template.content.childNodes.length > 1 ||
+          template.content.childNodes.length === 0 ||
+          template.content.firstChild.nodeType === Node.TEXT_NODE ||
+          (template.content.childNodes.length === 1 &&
+            (template.content.firstChild.hasAttribute("jmb:name") ||
+              template.content.firstChild.hasAttribute("jmb-placeholder")))) {
+          let div = this.jembeClient.document.createElement("div")
+          let curChild = template.content.firstChild
+          while (curChild) {
+            let nextChild = curChild.nextSibling
+            div.appendChild(curChild)
+            curChild = nextChild
+          }
+          template.content.appendChild(div)
         }
-        template.content.appendChild(div)
+        // add jmb:name tag
+        template.content.firstChild.setAttribute("jmb:name", this.execName)
+        dom = template.content.firstChild
+      } else {
+        const doc = this.jembeClient.domParser.parseFromString(domString, "text/html")
+        doc.documentElement.setAttribute("jmb:name", this.execName)
+        dom = doc.documentElement
       }
-      // add jmb:name tag
-      template.content.firstChild.setAttribute("jmb:name", this.execName)
-      return template.content.firstChild
-    } else {
-      const doc = this.jembeClient.domParser.parseFromString(domString, "text/html")
-      doc.documentElement.setAttribute("jmb:name", this.execName)
-      return doc.documentElement
     }
+    dom.removeAttribute('jmb:data')
+    return dom
   }
 }
 class UploadedFile {
@@ -149,22 +202,18 @@ class JembeClient {
    * and create ComponentRefs
    */
   getComponentsFromDocument() {
-    // 
     this.components = {}
-    // TODO traverse dom dont use querySelectorAll
     let componentsNodes = this.document.querySelectorAll("[jmb\\:name][jmb\\:data]")
     for (const componentNode of componentsNodes) {
-      const execName = componentNode.getAttribute('jmb:name')
       const componentRef = new ComponentRef(
         this,
-        execName,
+        componentNode.getAttribute('jmb:name'),
         eval(`(${componentNode.getAttribute('jmb:data')})`),
         componentNode,
         true
       )
-      componentNode.removeAttribute('jmb:data')
+      this.components[componentRef.execName] = componentRef
       componentRef.mount()
-      this.components[execName] = componentRef
     }
   }
   /**
@@ -233,47 +282,15 @@ class JembeClient {
     let processingExecNames = [pageExecName]
     this.components = {}
     while (processingExecNames.length > 0) {
-      const currentExecName = processingExecNames.shift()
-      const currentCompoRef = currentComponents[currentExecName]
-      this.mergeComponent(currentCompoRef)
+      const currentCompoRef = currentComponents[
+        processingExecNames.shift()
+      ]
+      currentCompoRef.merge(this.components, this.document.documentElement)
       this.components[currentCompoRef.execName] = currentCompoRef
       currentCompoRef.mount()
       for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
         processingExecNames.push(placeHolderName)
       }
-    }
-  }
-  /**
-   * Replaces component dom in this.document
-   * and update this.components
-   */
-  mergeComponent(componentRef) {
-    if (this.isPageExecName(componentRef.execName)) {
-      // if page component is already on document do nothing
-      if (!componentRef.onDocument) {
-        if (this.document.documentElement.jmbComponentApi !== undefined) {
-          this.document.documentElement.jmbComponentApi.unmount()
-          componentRef.previousJmbComponentApi = this.document.documentElement.jmbComponentApi
-        }
-        this.document.documentElement.innerHTML = componentRef.dom.innerHTML
-        componentRef.dom = this.document.documentElement
-        componentRef.dom.setAttribute("jmb:name", componentRef.execName)
-        componentRef.mount(true) // because we use innerHTML not appendChild
-        componentRef.onDocument = true
-      }
-    } else {
-      // search this.components for component with placeholder for this component
-      let parentComponent = Object.values(this.components).filter(
-        comp => Object.keys(comp.placeHolders).includes(componentRef.execName)
-      )[0]
-      if (parentComponent.placeHolders[componentRef.execName].jmbComponentApi !== undefined) {
-        parentComponent.placeHolders[componentRef.execName].jmbComponentApi.unmount()
-        componentRef.previousJmbComponentApi = parentComponent.placeHolders[componentRef.execName].jmbComponentApi
-      }
-      parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom)
-      parentComponent.placeHolders[componentRef.execName] = componentRef.dom
-      componentRef.mount()
-      componentRef.onDocument = true
     }
   }
   isPageExecName(execName) {

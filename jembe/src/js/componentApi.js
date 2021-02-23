@@ -20,12 +20,21 @@ import { clearTimeout } from "timers";
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
  */
 class JembeComponentAPI {
-  constructor(jembeClient, execName, componentRef) {
-    /** @type {JembeClient} */
-    this.jembeClient = jembeClient
-    /** @type {ComponentRef} */
-    this.componentRef = componentRef
-    this.execName = execName
+  constructor(componentRef, jembeClient = undefined, execName = undefined) {
+    if (componentRef !== undefined && componentRef !== null) {
+      /** @type {JembeClient} */
+      this.jembeClient = componentRef.jembeClient
+      /** @type {ComponentRef} */
+      this.componentRef = componentRef
+      this.execName = componentRef.execName
+    } else {
+      /** @type {JembeClient} */
+      this.jembeClient = jembeClient
+      /** @type {ComponentRef} */
+      this.componentRef = undefined
+      this.execName = execName
+
+    }
     this.refs = {}
 
     // internal
@@ -128,7 +137,7 @@ class JembeComponentAPI {
       )
       index++
     }
-    return new JembeComponentAPI(this.jembeClient, execName)
+    return new JembeComponentAPI(undefined, this.jembeClient, execName)
   }
   init(relativeExecName, kwargs = {}) {
     return this.component(relativeExecName, kwargs)
