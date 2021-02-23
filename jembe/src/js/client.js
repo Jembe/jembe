@@ -12,30 +12,44 @@ import { deepCopy, walkComponentDom } from "./utils.js";
  */
 class ComponentRef {
 
-  constructor(execName, data, dom, onDocument) {
+  constructor(jembeClient, execName, data, dom, onDocument) {
+    this.jembeClient = jembeClient
+
     this.execName = execName
+    this.hierarchyLevel = execName.split("/").length
+    this.isPageComponent = this.hierarchyLevel === 2
+
     this.state = data.state
     this.url = data.url
     this.changesUrl = data.changesUrl
     this.actions = data.actions !== undefined ? data.actions : []
-    this.dom = dom
+    this.dom = typeof dom !== "string" ? dom : this._transformXResponseDom(dom)
+    this.onDocument = onDocument
+
     this.placeHolders = {}
     this.jmbDoubleDotAttributes = []
-    this.onDocument = onDocument
     this.api = null
-    this.hierarchyLevel = execName.split("/").length
     this.previousJmbComponentApi = null
   }
-  mount(jembeClient, force = false) {
+  mount(force = false) {
     if (this.api === null || force) {
-      this.getPlaceHoldersAndJmbAttributes()
-      this.api = new JembeComponentAPI(jembeClient, this.execName, this)
+      this._getPlaceHoldersAndJmbAttributes()
+      this.api = new JembeComponentAPI(this.jembeClient, this.execName, this)
       this.dom.jmbComponentApi = this.api
       this.previousJmbComponentApi = null
     }
   }
+  unmount() {
 
-  getPlaceHoldersAndJmbAttributes() {
+  }
+  toJsonRequest() {
+    return {
+      "execName": this.execName,
+      "state": this.state
+    }
+  }
+
+  _getPlaceHoldersAndJmbAttributes() {
     this.placeHolders = {}
     this.jmbDoubleDotAttributes = []
     walkComponentDom(
@@ -60,10 +74,38 @@ class ComponentRef {
       }
     )
   }
-  toJsonRequest() {
-    return {
-      "execName": this.execName,
-      "state": this.state
+  _transformXResponseDom(domString) {
+    // if html dom has only one child use that child to put jmb:name tag
+    // if not enclose html with div and put jmb:name into it
+    // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
+    // html after integration with document
+    domString = domString.trim()
+    if (!this.isPageComponent) {
+      let template = this.jembeClient.document.createElement("template")
+      template.innerHTML = domString
+      // check is it needed to add souranding DIV tag
+      if (template.content.childNodes.length > 1 ||
+        template.content.childNodes.length === 0 ||
+        template.content.firstChild.nodeType === Node.TEXT_NODE ||
+        (template.content.childNodes.length === 1 &&
+          (template.content.firstChild.hasAttribute("jmb:name") ||
+            template.content.firstChild.hasAttribute("jmb-placeholder")))) {
+        let div = this.jembeClient.document.createElement("div")
+        let curChild = template.content.firstChild
+        while (curChild) {
+          let nextChild = curChild.nextSibling
+          div.appendChild(curChild)
+          curChild = nextChild
+        }
+        template.content.appendChild(div)
+      }
+      // add jmb:name tag
+      template.content.firstChild.setAttribute("jmb:name", this.execName)
+      return template.content.firstChild
+    } else {
+      const doc = this.jembeClient.domParser.parseFromString(domString, "text/html")
+      doc.documentElement.setAttribute("jmb:name", this.execName)
+      return doc.documentElement
     }
   }
 }
@@ -114,57 +156,15 @@ class JembeClient {
     for (const componentNode of componentsNodes) {
       const execName = componentNode.getAttribute('jmb:name')
       const componentRef = new ComponentRef(
+        this,
         execName,
         eval(`(${componentNode.getAttribute('jmb:data')})`),
         componentNode,
         true
       )
       componentNode.removeAttribute('jmb:data')
-      componentRef.mount(this)
+      componentRef.mount()
       this.components[execName] = componentRef
-    }
-  }
-  transformXResponseDom(execName, domString) {
-    // if html dom has only one child use that child to put jmb:name tag
-    // if not enclose html with div and put jmb:name into it
-    // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
-    // html after integration with document
-    domString = domString.trim()
-    if (!this.isPageExecName(execName)) {
-      let template = this.document.createElement("template")
-      template.innerHTML = domString
-      if (template.content.childNodes.length > 1) {
-        let div = this.document.createElement("div")
-        let curChild = template.content.firstChild
-        while (curChild) {
-          let nextChild = curChild.nextSibling
-          div.appendChild(curChild)
-          curChild = nextChild
-        }
-        template.content.appendChild(div)
-      }
-      // check is it needed to add souranding DIV tag
-      // add jmb:name tag
-      if (template.content.childNodes.length > 1 ||
-        template.content.childNodes.length === 0 ||
-        template.content.firstChild.nodeType === Node.TEXT_NODE ||
-        (template.content.childNodes.length === 1 &&
-          (template.content.firstChild.hasAttribute("jmb:name") ||
-            template.content.firstChild.hasAttribute("jmb-placeholder")))) {
-        let div = this.document.createElement("div")
-        for (const child of template.content.childNodes) {
-          div.appendChild(child)
-        }
-        div.setAttribute("jmb:name", execName)
-        return div
-      } else {
-        template.content.firstChild.setAttribute("jmb:name", execName)
-        return template.content.firstChild
-      }
-    } else {
-      const doc = this.domParser.parseFromString(domString, "text/html")
-      doc.documentElement.setAttribute("jmb:name", execName)
-      return doc.documentElement
     }
   }
   /**
@@ -177,6 +177,7 @@ class JembeClient {
     for (const xComp of xJembeResponse) {
       const dom = xComp.dom
       components[xComp.execName] = new ComponentRef(
+        this,
         xComp.execName,
         {
           "url": xComp.url,
@@ -184,7 +185,7 @@ class JembeClient {
           "state": xComp.state,
           "actions": xComp.actions
         },
-        this.transformXResponseDom(xComp.execName, xComp.dom),
+        xComp.dom,
         false
       )
     }
@@ -236,7 +237,7 @@ class JembeClient {
       const currentCompoRef = currentComponents[currentExecName]
       this.mergeComponent(currentCompoRef)
       this.components[currentCompoRef.execName] = currentCompoRef
-      currentCompoRef.mount(this)
+      currentCompoRef.mount()
       for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
         processingExecNames.push(placeHolderName)
       }
@@ -257,7 +258,7 @@ class JembeClient {
         this.document.documentElement.innerHTML = componentRef.dom.innerHTML
         componentRef.dom = this.document.documentElement
         componentRef.dom.setAttribute("jmb:name", componentRef.execName)
-        componentRef.mount(this, true) // because we use innerHTML not appendChild
+        componentRef.mount(true) // because we use innerHTML not appendChild
         componentRef.onDocument = true
       }
     } else {
@@ -271,7 +272,7 @@ class JembeClient {
       }
       parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom)
       parentComponent.placeHolders[componentRef.execName] = componentRef.dom
-      componentRef.mount(this)
+      componentRef.mount()
       componentRef.onDocument = true
     }
   }
