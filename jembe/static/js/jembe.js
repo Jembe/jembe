@@ -980,24 +980,36 @@ var _timers = require("timers");
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
  */
 class JembeComponentAPI {
-  constructor(jembeClient, execName, componentRef) {
-    /** @type {JembeClient} */
-    this.jembeClient = jembeClient;
-    /** @type {ComponentRef} */
+  constructor(componentRef, jembeClient = undefined, execName = undefined) {
+    if (componentRef !== undefined && componentRef !== null) {
+      /** @type {JembeClient} */
+      this.jembeClient = componentRef.jembeClient;
+      /** @type {ComponentRef} */
 
-    this.componentRef = componentRef;
-    this.execName = execName;
+      this.componentRef = componentRef;
+      this.execName = componentRef.execName;
+      this.localData = componentRef.localData;
+    } else {
+      /** @type {JembeClient} */
+      this.jembeClient = jembeClient;
+      /** @type {ComponentRef} */
+
+      this.componentRef = undefined;
+      this.execName = execName;
+      this.localData = {};
+    }
+
     this.refs = {}; // internal
 
     this.onReadyEvents = [];
     this.unnamedTimers = [];
-    this.namedTimers = {};
     this.previouseNamedTimers = {};
 
-    if (componentRef !== undefined && componentRef.previousJmbComponentApi !== null) {
-      this.previouseNamedTimers = (0, _utils.deepCopy)(componentRef.previousJmbComponentApi.namedTimers);
-    } // initialistion
+    if (this.localData.namedTimers !== undefined) {
+      this.previouseNamedTimers = this.localData.namedTimers;
+    }
 
+    this.localData.namedTimers = {}; // initialistion
 
     this.initialiseJmbOnListeners();
   }
@@ -1080,7 +1092,7 @@ class JembeComponentAPI {
       index++;
     }
 
-    return new JembeComponentAPI(this.jembeClient, execName);
+    return new JembeComponentAPI(undefined, this.jembeClient, execName);
   }
 
   init(relativeExecName, kwargs = {}) {
@@ -1158,9 +1170,9 @@ class JembeComponentAPI {
           expression = `
           var timerId = window.setTimeout(function() {
             ${expression};
-            delete $jmb.namedTimers['${actionName}'];
+            delete $jmb.localData.namedTimers['${actionName}'];
           }, ${timer});
-          $jmb.namedTimers['${actionName}'] = {id: timerId, start: ${start}};
+          $jmb.localData.namedTimers['${actionName}'] = {id: timerId, start: ${start}};
           `;
         } else {
           //run emidiatly like on.ready
@@ -1204,12 +1216,14 @@ class JembeComponentAPI {
     return Promise.resolve(new _utils.AsyncFunction(['scope', ...Object.keys(helpers)], `with(scope) { ${expression} }`)(scope, ...Object.values(helpers)));
   }
 
+  mount() {}
+
   unmount() {
     for (const timerId of this.unnamedTimers) {
       window.clearTimeout(timerId);
     }
 
-    for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
+    for (const [timerName, timerInfo] of Object.entries(this.localData.namedTimers)) {
       window.clearTimeout(timerInfo.id);
     }
   }
@@ -1240,31 +1254,96 @@ var _utils = require("./utils.js");
  * Reference to component html with associated data
  */
 class ComponentRef {
-  constructor(execName, data, dom, onDocument) {
+  constructor(jembeClient, execName, data, dom, onDocument) {
+    this.jembeClient = jembeClient;
     this.execName = execName;
+    this.hierarchyLevel = execName.split("/").length;
+    this.isPageComponent = this.hierarchyLevel === 2;
     this.state = data.state;
     this.url = data.url;
     this.changesUrl = data.changesUrl;
     this.actions = data.actions !== undefined ? data.actions : [];
-    this.dom = dom;
+    this.dom = this._cleanDom(dom);
+    this.onDocument = onDocument; // data of local js component
+    // needs to be preserved when merging with new dom
+
+    this.localData = {};
+    this.mounted = false;
     this.placeHolders = {};
     this.jmbDoubleDotAttributes = [];
-    this.onDocument = onDocument;
     this.api = null;
-    this.hierarchyLevel = execName.split("/").length;
-    this.previousJmbComponentApi = null;
   }
 
-  mount(jembeClient, force = false) {
-    if (this.api === null || force) {
-      this.getPlaceHoldersAndJmbAttributes();
-      this.api = new _componentApi.JembeComponentAPI(jembeClient, this.execName, this);
-      this.dom.jmbComponentApi = this.api;
-      this.previousJmbComponentApi = null;
+  mount(localData = undefined) {
+    if (!this.mounted) {
+      if (localData !== undefined) {
+        this.localData = localData;
+      }
+
+      this._getPlaceHoldersAndJmbAttributes();
+
+      this.api = new _componentApi.JembeComponentAPI(this);
+      this.api.mount();
     }
+
+    this.mounted = true;
   }
 
-  getPlaceHoldersAndJmbAttributes() {
+  unmount() {
+    if (this.mounted) {
+      this.api.unmount();
+      this.api = null;
+    }
+
+    this.mounted = false;
+  }
+
+  toJsonRequest() {
+    return {
+      "execName": this.execName,
+      "state": this.state
+    };
+  }
+
+  merge(parentComponent, originalComponent) {
+    if (this.isPageComponent && this.onDocument) {
+      // if page component is already on document do nothing
+      // because it is already mounted and it's not changed
+      return;
+    }
+
+    if (this.onDocument && originalComponent !== undefined && originalComponent.dom.isSameNode(this.dom)) {
+      // no need to unmount-merge-mount component that is already on document
+      if (!parentComponent.placeHolders[this.execName].isSameNode(this.dom)) {
+        // but if paramet is changed we need to update parent place holders
+        parentComponent.placeHolders[this.execName].replaceWith(this.dom);
+        parentComponent.placeHolders[this.execName] = this.dom;
+      }
+
+      return;
+    }
+
+    if (originalComponent !== undefined) {
+      originalComponent.unmount();
+    }
+
+    if (this.isPageComponent) {
+      let documentElement = this.jembeClient.document.documentElement; // TODO morph dom
+
+      documentElement.innerHTML = this.dom.innerHTML;
+      this.dom = documentElement;
+      this.dom.setAttribute("jmb:name", this.execName);
+    } else {
+      // TODO morph dom
+      parentComponent.placeHolders[this.execName].replaceWith(this.dom);
+      parentComponent.placeHolders[this.execName] = this.dom;
+    }
+
+    this.mount(originalComponent !== undefined && originalComponent.execName === this.execName ? originalComponent.localData : undefined);
+    this.onDocument = true;
+  }
+
+  _getPlaceHoldersAndJmbAttributes() {
     this.placeHolders = {};
     this.jmbDoubleDotAttributes = [];
     (0, _utils.walkComponentDom)(this.dom, el => {
@@ -1286,11 +1365,41 @@ class ComponentRef {
     });
   }
 
-  toJsonRequest() {
-    return {
-      "execName": this.execName,
-      "state": this.state
-    };
+  _cleanDom(dom) {
+    // if html dom has only one child use that child to put jmb:name tag
+    // if not enclose html with div and put jmb:name into it
+    if (typeof dom === "string") {
+      let domString = dom.trim();
+
+      if (!this.isPageComponent) {
+        let template = this.jembeClient.document.createElement("template");
+        template.innerHTML = domString; // check is it needed to add souranding DIV tag
+
+        if (template.content.childNodes.length > 1 || template.content.childNodes.length === 0 || template.content.firstChild.nodeType === Node.TEXT_NODE || template.content.childNodes.length === 1 && (template.content.firstChild.hasAttribute("jmb:name") || template.content.firstChild.hasAttribute("jmb-placeholder"))) {
+          let div = this.jembeClient.document.createElement("div");
+          let curChild = template.content.firstChild;
+
+          while (curChild) {
+            let nextChild = curChild.nextSibling;
+            div.appendChild(curChild);
+            curChild = nextChild;
+          }
+
+          template.content.appendChild(div);
+        } // add jmb:name tag
+
+
+        template.content.firstChild.setAttribute("jmb:name", this.execName);
+        dom = template.content.firstChild;
+      } else {
+        const doc = this.jembeClient.domParser.parseFromString(domString, "text/html");
+        doc.documentElement.setAttribute("jmb:name", this.execName);
+        dom = doc.documentElement;
+      }
+    }
+
+    dom.removeAttribute('jmb:data');
+    return dom;
   }
 
 }
@@ -1340,63 +1449,13 @@ class JembeClient {
 
 
   getComponentsFromDocument() {
-    // 
-    this.components = {}; // TODO traverse dom dont use querySelectorAll
-
+    this.components = {};
     let componentsNodes = this.document.querySelectorAll("[jmb\\:name][jmb\\:data]");
 
     for (const componentNode of componentsNodes) {
-      const execName = componentNode.getAttribute('jmb:name');
-      const componentRef = new ComponentRef(execName, eval(`(${componentNode.getAttribute('jmb:data')})`), componentNode, true);
-      componentNode.removeAttribute('jmb:data');
-      componentRef.mount(this);
-      this.components[execName] = componentRef;
-    }
-  }
-
-  transformXResponseDom(execName, domString) {
-    // if html dom has only one child use that child to put jmb:name tag
-    // if not enclose html with div and put jmb:name into it
-    // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
-    // html after integration with document
-    domString = domString.trim();
-
-    if (!this.isPageExecName(execName)) {
-      let template = this.document.createElement("template");
-      template.innerHTML = domString;
-
-      if (template.content.childNodes.length > 1) {
-        let div = this.document.createElement("div");
-        let curChild = template.content.firstChild;
-
-        while (curChild) {
-          let nextChild = curChild.nextSibling;
-          div.appendChild(curChild);
-          curChild = nextChild;
-        }
-
-        template.content.appendChild(div);
-      } // check is it needed to add souranding DIV tag
-      // add jmb:name tag
-
-
-      if (template.content.childNodes.length > 1 || template.content.childNodes.length === 0 || template.content.firstChild.nodeType === Node.TEXT_NODE || template.content.childNodes.length === 1 && (template.content.firstChild.hasAttribute("jmb:name") || template.content.firstChild.hasAttribute("jmb-placeholder"))) {
-        let div = this.document.createElement("div");
-
-        for (const child of template.content.childNodes) {
-          div.appendChild(child);
-        }
-
-        div.setAttribute("jmb:name", execName);
-        return div;
-      } else {
-        template.content.firstChild.setAttribute("jmb:name", execName);
-        return template.content.firstChild;
-      }
-    } else {
-      const doc = this.domParser.parseFromString(domString, "text/html");
-      doc.documentElement.setAttribute("jmb:name", execName);
-      return doc.documentElement;
+      const componentRef = new ComponentRef(this, componentNode.getAttribute('jmb:name'), eval(`(${componentNode.getAttribute('jmb:data')})`), componentNode, true);
+      this.components[componentRef.execName] = componentRef;
+      componentRef.mount();
     }
   }
   /**
@@ -1411,12 +1470,12 @@ class JembeClient {
 
     for (const xComp of xJembeResponse) {
       const dom = xComp.dom;
-      components[xComp.execName] = new ComponentRef(xComp.execName, {
+      components[xComp.execName] = new ComponentRef(this, xComp.execName, {
         "url": xComp.url,
         "changesUrl": xComp.changesUrl,
         "state": xComp.state,
         "actions": xComp.actions
-      }, this.transformXResponseDom(xComp.execName, xComp.dom), false);
+      }, xComp.dom, false);
     }
 
     return components;
@@ -1453,7 +1512,8 @@ class JembeClient {
     // one on the document
 
 
-    let pageExecNames = Object.keys(currentComponents).filter(execName => this.isPageExecName(execName));
+    let pageExecNames = Object.values(currentComponents).filter(c => c.isPageComponent).map(c => c.execName); // execName of new pageComponent 
+
     let pageExecName = pageExecNames[0];
 
     if (pageExecNames.length > 1) {
@@ -1465,60 +1525,24 @@ class JembeClient {
     }
 
     let processingExecNames = [pageExecName];
-    this.components = {};
+    let newComponents = {};
 
     while (processingExecNames.length > 0) {
-      const currentExecName = processingExecNames.shift();
-      const currentCompoRef = currentComponents[currentExecName];
-      this.mergeComponent(currentCompoRef);
-      this.components[currentCompoRef.execName] = currentCompoRef;
-      currentCompoRef.mount(this);
+      const currentComponent = currentComponents[processingExecNames.shift()];
+      let orignalComponent = this.components[currentComponent.execName];
+      let parentComponent = Object.values(newComponents).find(c => Object.keys(c.placeHolders).includes(currentComponent.execName));
+      currentComponent.merge(parentComponent, orignalComponent); // if (parentComponent !== undefined) {
+      //   parentComponent.placeHolders[currentComponent.execName] = currentComponent.dom
+      // }
 
-      for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
+      newComponents[currentComponent.execName] = currentComponent; // currentComponent.mount()
+
+      for (const placeHolderName of Object.keys(currentComponent.placeHolders)) {
         processingExecNames.push(placeHolderName);
       }
     }
-  }
-  /**
-   * Replaces component dom in this.document
-   * and update this.components
-   */
 
-
-  mergeComponent(componentRef) {
-    if (this.isPageExecName(componentRef.execName)) {
-      // if page component is already on document do nothing
-      if (!componentRef.onDocument) {
-        if (this.document.documentElement.jmbComponentApi !== undefined) {
-          this.document.documentElement.jmbComponentApi.unmount();
-          componentRef.previousJmbComponentApi = this.document.documentElement.jmbComponentApi;
-        }
-
-        this.document.documentElement.innerHTML = componentRef.dom.innerHTML;
-        componentRef.dom = this.document.documentElement;
-        componentRef.dom.setAttribute("jmb:name", componentRef.execName);
-        componentRef.mount(this, true); // because we use innerHTML not appendChild
-
-        componentRef.onDocument = true;
-      }
-    } else {
-      // search this.components for component with placeholder for this component
-      let parentComponent = Object.values(this.components).filter(comp => Object.keys(comp.placeHolders).includes(componentRef.execName))[0];
-
-      if (parentComponent.placeHolders[componentRef.execName].jmbComponentApi !== undefined) {
-        parentComponent.placeHolders[componentRef.execName].jmbComponentApi.unmount();
-        componentRef.previousJmbComponentApi = parentComponent.placeHolders[componentRef.execName].jmbComponentApi;
-      }
-
-      parentComponent.placeHolders[componentRef.execName].replaceWith(componentRef.dom);
-      parentComponent.placeHolders[componentRef.execName] = componentRef.dom;
-      componentRef.mount(this);
-      componentRef.onDocument = true;
-    }
-  }
-
-  isPageExecName(execName) {
-    return execName.split("/").length === 2;
+    this.components = newComponents;
   }
 
   addInitialiseCommand(execName, initParams) {
@@ -1826,7 +1850,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "35923" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "35581" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

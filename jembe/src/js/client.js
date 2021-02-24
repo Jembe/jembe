@@ -20,35 +20,38 @@ class ComponentRef {
     this.isPageComponent = this.hierarchyLevel === 2
 
     this.state = data.state
-    // data of local js component
-    // needs to be preserved when merging with new dom
-    this.localData = {
-      // not accessible by componentApi (timers etc)
-      private: {},
-      // accessible by componentAPI (used by component Api for various purpose)
-      public: {}
-    }
     this.url = data.url
     this.changesUrl = data.changesUrl
     this.actions = data.actions !== undefined ? data.actions : []
     this.dom = this._cleanDom(dom)
     this.onDocument = onDocument
 
+    // data of local js component
+    // needs to be preserved when merging with new dom
+    this.localData = {}
+
+    this.mounted = false
     this.placeHolders = {}
     this.jmbDoubleDotAttributes = []
     this.api = null
-    this.previousJmbComponentApi = null
   }
-  mount(force = false) {
-    if (this.api === null || force) {
+  mount(localData = undefined) {
+    if (!this.mounted) {
+      if (localData !== undefined) {
+        this.localData = localData
+      }
       this._getPlaceHoldersAndJmbAttributes()
       this.api = new JembeComponentAPI(this)
-      this.dom.jmbComponentApi = this.api
-      this.previousJmbComponentApi = null
+      this.api.mount()
     }
+    this.mounted = true
   }
   unmount() {
-
+    if (this.mounted) {
+      this.api.unmount()
+      this.api = null
+    }
+    this.mounted = false
   }
   toJsonRequest() {
     return {
@@ -57,44 +60,45 @@ class ComponentRef {
     }
   }
 
-  /**
-   * 
-   * @param {*} components dict of components currently merged and displayd on page
-   * @param {*} documentElement refenrenc root document element
-   */
-  merge(components, documentElement) {
-    if (this.isPageComponent) {
+  merge(parentComponent, originalComponent) {
+    if (this.isPageComponent && this.onDocument) {
       // if page component is already on document do nothing
-      if (this.onDocument) {
-        return
+      // because it is already mounted and it's not changed
+      return
+    }
+    if (this.onDocument
+      && originalComponent !== undefined
+      && originalComponent.dom.isSameNode(this.dom)) {
+      // no need to unmount-merge-mount component that is already on document
+      if (!parentComponent.placeHolders[this.execName].isSameNode(this.dom)) {
+        // but if paramet is changed we need to update parent place holders
+        parentComponent.placeHolders[this.execName].replaceWith(this.dom)
+        parentComponent.placeHolders[this.execName] = this.dom
       }
-      const previousJmbComponentApi = documentElement.jmbComponentApi
-      if (previousJmbComponentApi !== undefined) {
-        previousJmbComponentApi.unmount()
-        this.previousJmbComponentApi = previousJmbComponentApi
-      }
+      return
+    }
+    if (originalComponent !== undefined) {
+      originalComponent.unmount()
+    }
+
+    if (this.isPageComponent) {
+      let documentElement = this.jembeClient.document.documentElement
+      // TODO morph dom
       documentElement.innerHTML = this.dom.innerHTML
       this.dom = documentElement
       this.dom.setAttribute("jmb:name", this.execName)
-      this.mount(true) // because we use innerHTML not appendChild
-      this.onDocument = true
     } else {
-      // search this.components for component with placeholder for this component
-      let parentComponent = Object.values(components).filter(
-        comp => Object.keys(comp.placeHolders).includes(this.execName)
-      )[0]
-      let originalDom = parentComponent.placeHolders[this.execName]
-      if (!(this.onDocument && originalDom.isSameNode(this.dom))) {
-        if (originalDom.jmbComponentApi !== undefined) {
-          originalDom.jmbComponentApi.unmount()
-          this.previousJmbComponentApi = originalDom.jmbComponentApi
-        }
-        parentComponent.placeHolders[this.execName].replaceWith(this.dom)
-        parentComponent.placeHolders[this.execName] = this.dom
-        this.mount()
-        this.onDocument = true
-      }
+      // TODO morph dom
+      parentComponent.placeHolders[this.execName].replaceWith(this.dom)
+      parentComponent.placeHolders[this.execName] = this.dom
     }
+
+    this.mount(
+      originalComponent !== undefined && originalComponent.execName === this.execName
+        ? originalComponent.localData
+        : undefined
+    )
+    this.onDocument = true
 
   }
   _getPlaceHoldersAndJmbAttributes() {
@@ -125,8 +129,6 @@ class ComponentRef {
   _cleanDom(dom) {
     // if html dom has only one child use that child to put jmb:name tag
     // if not enclose html with div and put jmb:name into it
-    // TODO: How to run event handlers onclick jmb:on.click <script> etc found in
-    // html after integration with document
     if (typeof dom === "string") {
       let domString = dom.trim()
       if (!this.isPageComponent) {
@@ -162,6 +164,8 @@ class ComponentRef {
     return dom
   }
 }
+
+
 class UploadedFile {
   constructor(execName, paramName, fileUploadId, files) {
     this.execName = execName
@@ -268,9 +272,12 @@ class JembeClient {
     // will be ignored.
     // chose root/page component from compoents if it exist otherwise use
     // one on the document
-    let pageExecNames = Object.keys(currentComponents).filter(
-      execName => this.isPageExecName(execName)
+    let pageExecNames = Object.values(currentComponents).filter(
+      c => c.isPageComponent
+    ).map(
+      c => c.execName
     )
+    // execName of new pageComponent 
     let pageExecName = pageExecNames[0]
     if (pageExecNames.length > 1) {
       for (const pen of pageExecNames) {
@@ -280,21 +287,26 @@ class JembeClient {
       }
     }
     let processingExecNames = [pageExecName]
-    this.components = {}
+    let newComponents = {}
     while (processingExecNames.length > 0) {
-      const currentCompoRef = currentComponents[
+      const currentComponent = currentComponents[
         processingExecNames.shift()
       ]
-      currentCompoRef.merge(this.components, this.document.documentElement)
-      this.components[currentCompoRef.execName] = currentCompoRef
-      currentCompoRef.mount()
-      for (const placeHolderName of Object.keys(currentCompoRef.placeHolders)) {
+      let orignalComponent = this.components[currentComponent.execName]
+      let parentComponent = Object.values(newComponents).find(
+        c => Object.keys(c.placeHolders).includes(currentComponent.execName)
+      )
+      currentComponent.merge(parentComponent, orignalComponent)
+      // if (parentComponent !== undefined) {
+      //   parentComponent.placeHolders[currentComponent.execName] = currentComponent.dom
+      // }
+      newComponents[currentComponent.execName] = currentComponent
+      // currentComponent.mount()
+      for (const placeHolderName of Object.keys(currentComponent.placeHolders)) {
         processingExecNames.push(placeHolderName)
       }
     }
-  }
-  isPageExecName(execName) {
-    return execName.split("/").length === 2
+    this.components = newComponents
   }
 
   addInitialiseCommand(execName, initParams) {

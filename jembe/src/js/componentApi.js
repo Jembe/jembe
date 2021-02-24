@@ -27,24 +27,26 @@ class JembeComponentAPI {
       /** @type {ComponentRef} */
       this.componentRef = componentRef
       this.execName = componentRef.execName
+      this.localData = componentRef.localData
     } else {
       /** @type {JembeClient} */
       this.jembeClient = jembeClient
       /** @type {ComponentRef} */
       this.componentRef = undefined
       this.execName = execName
-
+      this.localData = {}
     }
     this.refs = {}
 
     // internal
     this.onReadyEvents = []
     this.unnamedTimers = []
-    this.namedTimers = {}
     this.previouseNamedTimers = {}
-    if (componentRef !== undefined && componentRef.previousJmbComponentApi !== null) {
-      this.previouseNamedTimers = deepCopy(componentRef.previousJmbComponentApi.namedTimers) 
+    if (this.localData.namedTimers !== undefined) {
+      this.previouseNamedTimers = this.localData.namedTimers
     } 
+
+    this.localData.namedTimers = {}
 
     // initialistion
     this.initialiseJmbOnListeners()
@@ -203,9 +205,9 @@ class JembeComponentAPI {
           expression = `
           var timerId = window.setTimeout(function() {
             ${expression};
-            delete $jmb.namedTimers['${actionName}'];
+            delete $jmb.localData.namedTimers['${actionName}'];
           }, ${timer});
-          $jmb.namedTimers['${actionName}'] = {id: timerId, start: ${start}};
+          $jmb.localData.namedTimers['${actionName}'] = {id: timerId, start: ${start}};
           `
         } else {
           //run emidiatly like on.ready
@@ -257,11 +259,14 @@ class JembeComponentAPI {
       )
     )
   }
+  mount() {
+
+  }
   unmount() {
     for (const timerId of this.unnamedTimers) {
       window.clearTimeout(timerId)
     }
-    for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
+    for (const [timerName, timerInfo] of Object.entries(this.localData.namedTimers)) {
       window.clearTimeout(timerInfo.id)
     }
   }
