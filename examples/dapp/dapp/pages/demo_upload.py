@@ -118,7 +118,11 @@ class DemoUploadPage(Component):
     def display(self) -> Union[str, "Response"]:
         return self.render_template_string(
             """
-            <html><body>
+            <html>
+            <head>
+                <link rel="stylesheet" href="{{ url_for('static', filename='css/dapp.css') }}">
+            </head>
+            <body>
             <nav>
                 <a href="{{component('simple').url}}" jmb:on.click="{{component().jrl}};$event.stopPropagation();$event.preventDefault();">Simple Upload</a>
                 <a href="{{component('multi').url}}" jmb:on.click="{{component().jrl}};$event.stopPropagation();$event.preventDefault();">Multiple Upload</a>

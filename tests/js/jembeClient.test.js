@@ -101,6 +101,7 @@ test('indentify components from x-jembe response v2', () => {
     `<td jmb:name="/page/test">test</td>`
   )
 })
+
 test('indentify components from x-jembe response - page component', () => {
   const xResponse = [
     {
@@ -154,6 +155,7 @@ test('update document with x-response - page component', () => {
       <body>Test1</body></html>`
   )
 })
+
 test('update document with x-response', () => {
   buildDocument(`
     <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>

@@ -4,8 +4,9 @@
     # jmb:model=
     <button jmb:on.click="$jmb.call('increase',10)"
 */
-import { JembeComponentAPI } from "./componentApi.js";
-import { deepCopy, walkComponentDom } from "./utils.js";
+import { JembeComponentAPI } from "./componentApi.js"
+import { deepCopy, walkComponentDom } from "./utils.js"
+import morphdom from "./morphdom/index.js"
 
 /**
  * Reference to component html with associated data
@@ -77,6 +78,7 @@ class ComponentRef {
       }
       return
     }
+
     if (originalComponent !== undefined) {
       originalComponent.unmount()
     }
@@ -84,12 +86,13 @@ class ComponentRef {
     if (this.isPageComponent) {
       let documentElement = this.jembeClient.document.documentElement
       // TODO morph dom
-      documentElement.innerHTML = this.dom.innerHTML
-      this.dom = documentElement
+      this.dom = documentElement = this._morphdom(documentElement, this.dom)
+      // documentElement.innerHTML = this.dom.innerHTML
       this.dom.setAttribute("jmb:name", this.execName)
     } else {
       // TODO morph dom
-      parentComponent.placeHolders[this.execName].replaceWith(this.dom)
+      this.dom = this._morphdom(parentComponent.placeHolders[this.execName], this.dom)
+      // parentComponent.placeHolders[this.execName].replaceWith(this.dom)
       parentComponent.placeHolders[this.execName] = this.dom
     }
 
@@ -100,6 +103,37 @@ class ComponentRef {
     )
     this.onDocument = true
 
+  }
+  _morphdom(from, to) {
+    return morphdom(
+      from,
+      to,
+      {
+        getNodeKey: node => {
+          return (node.nodeType === Node.ELEMENT_NODE && node.hasAttribute('jmb:name'))
+            ? node.getAttribute('jmb:name')
+            : node.id
+        },
+        onBeforeElUpdated: (fromEl, toEl) => {
+          // spec - https://dom.spec.whatwg.org/#concept-node-equals
+          if (fromEl.isEqualNode(toEl)) {
+            return false
+          }
+          // don't pass to next component or template
+          if (!this.isPageComponent
+            && from.hasAttribute('jmb:name')
+            && from.getAttribute('jmb:name') !== this.execName) return false
+          if (from.hasAttribute('jmb-placeholder')
+            && from.getAttribute('jmb-placeholder') !== this.execName) return false
+
+          // TODO add jmb:ingore
+          // TODO rename jmb-placeholder to jmb:placeholder
+
+          return true
+        },
+        childrenOnly: this.isPageComponent
+      }
+    )
   }
   _getPlaceHoldersAndJmbAttributes() {
     this.placeHolders = {}
