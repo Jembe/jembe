@@ -31,7 +31,12 @@ import { clearTimeout } from "timers";
  * All changes to state valiables should call display if defer modifier is not present
  * If no chages are made to state variables (only to $local etc) display will not be called
  * 
- * what to use j-on.click j-data and j-ignore 
+ * what to use jmb-on.click j-on.click jmb-on.click
+ * jmb-local, jmb-local.init, jmb-local.update
+ * jmb-show, jmb-bind, jmb-on, jmb-model
+ * jmb-text jmb-html, jmb-ref jmb-if, jmb-for, jmb-transition, jmb-spread, jmb-cloak
+ * 
+ * jmb-data, jmb-name, jmb-placeholder
  */
 class JembeComponentAPI {
   constructor(componentRef, jembeClient = undefined, execName = undefined) {
