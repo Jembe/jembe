@@ -1326,9 +1326,9 @@ class Processor:
         """
 
         def set_jmb_attrs(elem):
-            elem.set("jmb:name", exec_name)
+            elem.set("jmb-name", exec_name)
             elem.set(
-                "jmb:data",
+                "jmb-data",
                 json.dumps(
                     dict(
                         actions=[
@@ -1362,7 +1362,7 @@ class Processor:
             if (
                 len(root[0]) == 1
                 and "jmb-placeholder" not in root[0][0].attrib
-                and "jmb:name" not in root[0][0].attrib
+                and "jmb-name" not in root[0][0].attrib
             ):
                 set_jmb_attrs(root[0][0])
             else:

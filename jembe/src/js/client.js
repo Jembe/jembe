@@ -88,7 +88,7 @@ class ComponentRef {
       // TODO morph dom
       this.dom = documentElement = this._morphdom(documentElement, this.dom)
       // documentElement.innerHTML = this.dom.innerHTML
-      this.dom.setAttribute("jmb:name", this.execName)
+      this.dom.setAttribute("jmb-name", this.execName)
     } else {
       // TODO morph dom
       this.dom = this._morphdom(parentComponent.placeHolders[this.execName], this.dom)
@@ -110,8 +110,8 @@ class ComponentRef {
       to,
       {
         getNodeKey: node => {
-          return (node.nodeType === Node.ELEMENT_NODE && node.hasAttribute('jmb:name'))
-            ? node.getAttribute('jmb:name')
+          return (node.nodeType === Node.ELEMENT_NODE && node.hasAttribute('jmb-name'))
+            ? node.getAttribute('jmb-name')
             : node.id
         },
         onBeforeElUpdated: (fromEl, toEl) => {
@@ -121,8 +121,8 @@ class ComponentRef {
           }
           // don't pass to next component or template
           if (!this.isPageComponent
-            && fromEl.hasAttribute('jmb:name')
-            && fromEl.getAttribute('jmb:name') !== this.execName) return false
+            && fromEl.hasAttribute('jmb-name')
+            && fromEl.getAttribute('jmb-name') !== this.execName) return false
           if (fromEl.hasAttribute('jmb-placeholder')
             && fromEl.getAttribute('jmb-placeholder') !== this.execName) return false
           if (fromEl.hasAttribute('jmb-ignore')) {
@@ -163,8 +163,8 @@ class ComponentRef {
     )
   }
   _cleanDom(dom) {
-    // if html dom has only one child use that child to put jmb:name tag
-    // if not enclose html with div and put jmb:name into it
+    // if html dom has only one child use that child to put jmb-name tag
+    // if not enclose html with div and put jmb-name into it
     if (typeof dom === "string") {
       let domString = dom.trim()
       if (!this.isPageComponent) {
@@ -176,7 +176,7 @@ class ComponentRef {
           template.content.childNodes.length === 0 ||
           template.content.firstChild.nodeType === Node.TEXT_NODE ||
           (template.content.childNodes.length === 1 &&
-            (template.content.firstChild.hasAttribute("jmb:name") ||
+            (template.content.firstChild.hasAttribute("jmb-name") ||
               template.content.firstChild.hasAttribute("jmb-placeholder")))) {
           let div = this.jembeClient.document.createElement("div")
           let curChild = template.content.firstChild
@@ -187,16 +187,16 @@ class ComponentRef {
           }
           template.content.appendChild(div)
         }
-        // add jmb:name tag
-        template.content.firstChild.setAttribute("jmb:name", this.execName)
+        // add jmb-name tag
+        template.content.firstChild.setAttribute("jmb-name", this.execName)
         dom = template.content.firstChild
       } else {
         const doc = this.jembeClient.domParser.parseFromString(domString, "text/html")
-        doc.documentElement.setAttribute("jmb:name", this.execName)
+        doc.documentElement.setAttribute("jmb-name", this.execName)
         dom = doc.documentElement
       }
     }
-    dom.removeAttribute('jmb:data')
+    dom.removeAttribute('jmb-data')
     return dom
   }
 }
@@ -238,17 +238,17 @@ class JembeClient {
     window.onpopstate = this.onHistoryPopState
   }
   /**
-   * Finds all jmb:name and associate jmb:data tags in document 
+   * Finds all jmb-name and associate jmb-data tags in document 
    * and create ComponentRefs
    */
   getComponentsFromDocument() {
     this.components = {}
-    let componentsNodes = this.document.querySelectorAll("[jmb\\:name][jmb\\:data]")
+    let componentsNodes = this.document.querySelectorAll("[jmb-name][jmb-data]")
     for (const componentNode of componentsNodes) {
       const componentRef = new ComponentRef(
         this,
-        componentNode.getAttribute('jmb:name'),
-        eval(`(${componentNode.getAttribute('jmb:data')})`),
+        componentNode.getAttribute('jmb-name'),
+        eval(`(${componentNode.getAttribute('jmb-data')})`),
         componentNode,
         true
       )
@@ -591,7 +591,7 @@ class JembeClient {
    * @param {*} domNode 
    */
   component(domNode) {
-    const componentExecName = domNode.closest('[jmb\\:name]').getAttribute('jmb:name')
+    const componentExecName = domNode.closest('[jmb-name]').getAttribute('jmb-name')
     return this.components[componentExecName].api
   }
 }

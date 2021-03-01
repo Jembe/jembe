@@ -5,7 +5,7 @@ import { buildDocument } from "./utils.js";
 test('identify component on simple page', () => {
   buildDocument(
     `<!DOCTYPE html>
-    <html lang="en" jmb:name="/simple_page" jmb:data='{"changesUrl":true,"state":{},"url":"/simple_page","actions":[]}'>
+    <html lang="en" jmb-name="/simple_page" jmb-data='{"changesUrl":true,"state":{},"url":"/simple_page","actions":[]}'>
     <head>
         <title>Simple page</title>
     </head>
@@ -26,11 +26,11 @@ test('identify component on simple page', () => {
 test('indentify components on page with counter', () => {
   buildDocument(`
     <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-    <html jmb:name="/cpage" jmb:data='{"changesUrl":true,"state":{},"url":"/cpage","actions":[]}'>
+    <html jmb-name="/cpage" jmb-data='{"changesUrl":true,"state":{},"url":"/cpage","actions":[]}'>
       <head></head>
       <body>
-        <div jmb:name="/cpage/counter" 
-             jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter","actions":[]}'>
+        <div jmb-name="/cpage/counter" 
+             jmb-data='{"changesUrl":true,"state":{"value":0},"url":"/cpage/counter","actions":[]}'>
           <div>Count: 0</div>
           <a jmb:click="increase()">increase</a>
         </div>
@@ -38,8 +38,8 @@ test('indentify components on page with counter', () => {
     </html>
   `)
 
-  expect(document.documentElement.outerHTML).toContain(`<html jmb:name="/cpage">`)
-  expect(document.documentElement.outerHTML).toContain(`<div jmb:name="/cpage/counter">`)
+  expect(document.documentElement.outerHTML).toContain(`<html jmb-name="/cpage">`)
+  expect(document.documentElement.outerHTML).toContain(`<div jmb-name="/cpage/counter">`)
   expect(Object.keys(window.jembeClient.components).length).toBe(2)
 
   const cPageCompRef = jembeClient.components["/cpage"]
@@ -75,7 +75,7 @@ test('indentify components from x-jembe response v1', () => {
   expect(counterCompRef.changesUrl).toBe(true)
   expect(counterCompRef.url).toBe('/cpage/counter')
   expect(counterCompRef.dom.outerHTML).toBe(
-    `<div jmb:name="/cpage/counter"><div>Count: 1</div><a jmb:on.click="increase()">increase</a></div>`
+    `<div jmb-name="/cpage/counter"><div>Count: 1</div><a jmb:on.click="increase()">increase</a></div>`
   )
 })
 test('indentify components from x-jembe response v2', () => {
@@ -98,7 +98,7 @@ test('indentify components from x-jembe response v2', () => {
   expect(counterCompRef.changesUrl).toBe(true)
   expect(counterCompRef.url).toBe('/page/test')
   expect(counterCompRef.dom.outerHTML).toBe(
-    `<td jmb:name="/page/test">test</td>`
+    `<td jmb-name="/page/test">test</td>`
   )
 })
 
@@ -125,7 +125,7 @@ test('indentify components from x-jembe response - page component', () => {
   expect(pageCompRef.changesUrl).toBe(true)
   expect(pageCompRef.url).toBe('/page')
   expect(pageCompRef.dom.outerHTML).toBe(
-    `<html jmb:name="/page"><head><template jmb-placeholder="/page/title"></template></head>
+    `<html jmb-name="/page"><head><template jmb-placeholder="/page/title"></template></head>
       <body><template jmb-placeholder="/page/tasks"></template>
       </body></html>`,
   )
@@ -135,7 +135,7 @@ test('indentify components from x-jembe response - page component', () => {
 
 test('update document with x-response - page component', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
       <head><title>Test</title></head>
       <body>Test</body></html>`)
   const xResponse = [
@@ -151,22 +151,22 @@ test('update document with x-response - page component', () => {
   ]
   window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page1"><head><title>Test1</title></head>
+    `<html jmb-name="/page1"><head><title>Test1</title></head>
       <body>Test1</body></html>`
   )
 })
 
 test('update document with x-response', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
-        <title jmb:name="/page/title" jmb:data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title","actions":[]}'>
+        <title jmb-name="/page/title" jmb-data='{"changesUrl":false,"state":{"title":"Title"},"url":"/page/title","actions":[]}'>
           Title
         </title>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -204,11 +204,11 @@ test('update document with x-response', () => {
   ]
   window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page"><head>
-        <title jmb:name="/page/title">Task</title>
+    `<html jmb-name="/page"><head>
+        <title jmb-name="/page/title">Task</title>
       </head>
       <body>
-        <div jmb:name="/page/view">Task 1</div>
+        <div jmb-name="/page/view">Task 1</div>
       
     </body></html>`
   )
@@ -238,11 +238,11 @@ test('update document with x-response', () => {
     ]
   ))
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page"><head>
-        <title jmb:name="/page/title">Title changed</title>
+    `<html jmb-name="/page"><head>
+        <title jmb-name="/page/title">Title changed</title>
       </head>
       <body>
-        <div jmb:name="/page/view">Task 1</div>
+        <div jmb-name="/page/view">Task 1</div>
       
     </body></html>`
   )
@@ -250,12 +250,12 @@ test('update document with x-response', () => {
 
 test('build initialise and display command', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -291,12 +291,12 @@ test('build initialise and display command', () => {
 })
 test('initialise same component two times', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -330,7 +330,7 @@ test('initialise same component two times', () => {
 
 test('update x-response dom with souranding div', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -365,15 +365,15 @@ test('update x-response dom with souranding div', () => {
     }
   ]
   let components = window.jembeClient.getComponentsFromXResponse(xResponse)
-  expect(components["/page/test1"].dom.outerHTML).toBe('<div jmb:name="/page/test1"></div>')
-  expect(components["/page/test2"].dom.outerHTML).toBe('<div jmb:name="/page/test2"><div>1</div><div>2</div></div>')
-  expect(components["/page/test3"].dom.outerHTML).toBe('<div jmb:name="/page/test3">Test 3</div>')
-  expect(components["/page/test4"].dom.outerHTML).toBe('<div jmb:name="/page/test4"></div>')
+  expect(components["/page/test1"].dom.outerHTML).toBe('<div jmb-name="/page/test1"></div>')
+  expect(components["/page/test2"].dom.outerHTML).toBe('<div jmb-name="/page/test2"><div>1</div><div>2</div></div>')
+  expect(components["/page/test3"].dom.outerHTML).toBe('<div jmb-name="/page/test3">Test 3</div>')
+  expect(components["/page/test4"].dom.outerHTML).toBe('<div jmb-name="/page/test4"></div>')
 })
 
 test('update window.location on x-response', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -400,10 +400,10 @@ test('update window.location on x-response', () => {
 
 test("update url when change_url is false", () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body>
-        <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{"page":0,"page_size":10},"url":"/page/tasks","actions":[]}'>
              Tasks
         </div>
       </body>
@@ -432,8 +432,8 @@ test("update url when change_url is false", () => {
   })
   window.jembeClient.updateLocation()
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page"><head></head><body>
-        <div jmb:name="/page/tasks">Tasks<div jmb:name="/page/tasks/confirm">Confirm</div></div>
+    `<html jmb-name="/page"><head></head><body>
+        <div jmb-name="/page/tasks">Tasks<div jmb-name="/page/tasks/confirm">Confirm</div></div>
       
     
   </body></html>`
@@ -443,13 +443,13 @@ test("update url when change_url is false", () => {
 })
 test("update keyed components", () => {
   buildDocument(`
-    <html jmb:name="/projects" jmb:data='{"changesUrl":true,"state":{},"url":"/tasks","actions":[]}'>
+    <html jmb-name="/projects" jmb-data='{"changesUrl":true,"state":{},"url":"/tasks","actions":[]}'>
       <body>
-        <div jmb:name="/projects/edit" jmb:data='{"changesUrl":true,"state":{"id":1},"url":"/projects/edit/1","actions":[]}'>
-          <div jmb:name="/projects/edit/tasks" jmb:data='{"changesUrl":true,"state":{},"url":"/projects/edit/1/tasks","actions":[]}'>
-            <div jmb:name="/projects/edit/tasks/view.1" jmb:data='{"changesUrl":false,"state":{"id":1},"url":"/projects/edit/1/tasks/view.1/1","actions":[]}'>Task 1</div>
-            <div jmb:name="/projects/edit/tasks/view.2" jmb:data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.2/2","actions":[]}'>Task 2</div>
-            <div jmb:name="/projects/edit/tasks/view.3" jmb:data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.3/3","actions":[]}'>Task 3</div>
+        <div jmb-name="/projects/edit" jmb-data='{"changesUrl":true,"state":{"id":1},"url":"/projects/edit/1","actions":[]}'>
+          <div jmb-name="/projects/edit/tasks" jmb-data='{"changesUrl":true,"state":{},"url":"/projects/edit/1/tasks","actions":[]}'>
+            <div jmb-name="/projects/edit/tasks/view.1" jmb-data='{"changesUrl":false,"state":{"id":1},"url":"/projects/edit/1/tasks/view.1/1","actions":[]}'>Task 1</div>
+            <div jmb-name="/projects/edit/tasks/view.2" jmb-data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.2/2","actions":[]}'>Task 2</div>
+            <div jmb-name="/projects/edit/tasks/view.3" jmb-data='{"changesUrl":false,"state":{"id":2},"url":"/projects/edit/1/tasks/view.3/3","actions":[]}'>Task 3</div>
           </div>
         </div>
       </body>
@@ -483,14 +483,14 @@ test("update keyed components", () => {
   ]
   const components = window.jembeClient.getComponentsFromXResponse(xResponse)
   window.jembeClient.updateDocument(components)
-  expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/projects"><head></head><body>
-        <div jmb:name="/projects/edit">
-          <div jmb:name="/projects/edit/tasks">
+  expect(document.documentElement.outerHTML).toBe(`<html jmb-name="/projects"><head></head><body>
+        <div jmb-name="/projects/edit">
+          <div jmb-name="/projects/edit/tasks">
         
-          <div jmb:name="/projects/edit/tasks/add">Add task</div>
-          <div jmb:name="/projects/edit/tasks/view.1">Task 1</div>
-          <div jmb:name="/projects/edit/tasks/view.2">Task 2</div>
-          <div jmb:name="/projects/edit/tasks/view.3">Task 3</div>
+          <div jmb-name="/projects/edit/tasks/add">Add task</div>
+          <div jmb-name="/projects/edit/tasks/view.1">Task 1</div>
+          <div jmb-name="/projects/edit/tasks/view.2">Task 2</div>
+          <div jmb-name="/projects/edit/tasks/view.3">Task 3</div>
         
        </div>
         </div>
@@ -502,7 +502,7 @@ test("update keyed components", () => {
 
 test('dont add souranundin div to component if not necessary', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body>
       </body>
     </html>
@@ -521,15 +521,15 @@ test('dont add souranundin div to component if not necessary', () => {
   const components = jembeClient.getComponentsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
   expect(components["/page/test"].dom.outerHTML).toBe(
-    `<div jmb:name="/page/test">a</div>`
+    `<div jmb-name="/page/test">a</div>`
   )
 })
 
 test('update nested component templates', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <body>
-      <div jmb:name="/page/a" jmb:data='{"changesUrl":true,"state":{},"url":"/page/a","actions":[]}'></div>
+      <div jmb-name="/page/a" jmb-data='{"changesUrl":true,"state":{},"url":"/page/a","actions":[]}'></div>
       </body>
     </html>
   `)
@@ -557,8 +557,8 @@ test('update nested component templates', () => {
     },
   ]
   window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
-  expect(document.documentElement.outerHTML).toBe(`<html jmb:name="/page"><head></head><body>
-      <div jmb:name="/page/a"><div jmb:name="/page/a/b"><div jmb:name="/page/a/b/c">C</div></div></div>
+  expect(document.documentElement.outerHTML).toBe(`<html jmb-name="/page"><head></head><body>
+      <div jmb-name="/page/a"><div jmb-name="/page/a/b"><div jmb-name="/page/a/b/c">C</div></div></div>
       
     
   </body></html>`
@@ -568,7 +568,7 @@ test('update nested component templates', () => {
 // upload
 test('addFilesForUploadCommand store files in jembeClient', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -632,7 +632,7 @@ test('addFilesForUploadCommand store files in jembeClient', () => {
 
 test('create file X Upload request  in jembeClient', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{"photo":null},"url":"/page","actions":[]}'>
       <body></body>
     </html>
   `)
@@ -678,7 +678,7 @@ test('create file X Upload request  in jembeClient', () => {
 
 test('dont merge under jmb-ignore', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
       <head><title>Test</title></head>
       <body>Test<div jmb-ignore>T1</div></body></html>`)
   const xResponse = [
@@ -694,7 +694,7 @@ test('dont merge under jmb-ignore', () => {
   ]
   window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page1"><head><title>Test1</title></head>
+    `<html jmb-name="/page1"><head><title>Test1</title></head>
       <body>Test1<div jmb-ignore="">T1</div></body></html>`
   )
   window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(
@@ -710,7 +710,7 @@ test('dont merge under jmb-ignore', () => {
       },
     ]))
   expect(document.documentElement.outerHTML).toBe(
-    `<html jmb:name="/page1"><head><title>Test2</title></head>
+    `<html jmb-name="/page1"><head><title>Test2</title></head>
       <body>Test2</body></html>`
   )
 })

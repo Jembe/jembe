@@ -3,12 +3,12 @@ import { buildDocument } from "./utils.js";
 
 test('call component action from javascript event', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-             jmb:data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
              <button onclick="jembeClient.component(this).call('test_action'); jembeClient.executeCommands();">Test</button>
         </div>
       </body>
@@ -40,12 +40,12 @@ test('call component action from javascript event', () => {
 })
 test('call component action with params from javascript event', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-            jmb:data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+            jmb-data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
             <button onclick="
                 jembeClient.component(this).call('test_action', {1:1,2:2,t:'test',l:'a'}); 
                 jembeClient.executeCommands();">
@@ -81,12 +81,12 @@ test('call component action with params from javascript event', () => {
 })
 test('call nested component actions from javascript event', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-            jmb:data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+            jmb-data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
             <button onclick="
                 jembeClient.component(this).component('view',{a:1, b:2}).call('display'); 
                 jembeClient.component(this).component('/nav/view1', {id:1}).call('display');
@@ -158,12 +158,12 @@ test('call nested component actions from javascript event', () => {
 })
 test('call nested component actions', () => {
   buildDocument(`
-    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
       <head>
       </head>
       <body>
-        <div jmb:name="/page/tasks" 
-            jmb:data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
+        <div jmb-name="/page/tasks" 
+            jmb-data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
             <button jmb:on.click="
                 $jmb.component('view',{a:1, b:2}).call('display'); 
                 $jmb.component('/nav/view1', {id:1}).call('display');
@@ -233,10 +233,10 @@ test('call nested component actions', () => {
 })
 test("back button", () => {
   buildDocument(`
-    <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{"mode":"edit"},"url":"/tasks","actions":[]}'>
+    <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"mode":"edit"},"url":"/tasks","actions":[]}'>
       <body>
-        <div jmb:name="/tasks/edit" 
-            jmb:data='{"changesUrl":true,"state":{"record_id":1},"url":"/tasks/edit/1","actions":[]}'>
+        <div jmb-name="/tasks/edit" 
+            jmb-data='{"changesUrl":true,"state":{"record_id":1},"url":"/tasks/edit/1","actions":[]}'>
             <button jmb:on.click="$jmb.component('..',{mode:'list'}).display()">
                 Back
             </button>
@@ -275,7 +275,7 @@ test("back button", () => {
 })
 test("directly calling components actions", () => {
   buildDocument(`
-    <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{},"url":"/tasks","actions":["my_action"]}'>
+    <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{},"url":"/tasks","actions":["my_action"]}'>
       <body>
           <button jmb:on.click="my_action({a:'AA'})">
               Back
@@ -308,7 +308,7 @@ test("directly calling components actions", () => {
 })
 test("test setting nested component init params", () => {
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{"obj":{"a":"A", "b":{1:"1"}},"ar":[]},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{"obj":{"a":"A", "b":{1:"1"}},"ar":[]},"url":"/test","actions":[]}'>
       <body>
           <button jmb:on.click="
             $jmb.set('obj.a','AAA')">
@@ -357,7 +357,7 @@ test("test setting nested component init params", () => {
 test("test on ready event", () => {
   window.fetch = jest.fn(() => {return Promise.resolve({ ok: true, json: async () => [] })})
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <p jmb:on.ready="$el.remove()"></p>
         <div jmb:on.ready="$el.innerText='test'"></div>
@@ -374,7 +374,7 @@ test("test on ready event", () => {
 test("test on delay event modifier", () => {
   jest.useFakeTimers()
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <div id="one" jmb:on.ready.delay="$el.innerText='one'"></div>
         <div id="two" jmb:on.ready.delay.200ms="$el.innerText='one'"></div>
@@ -401,7 +401,7 @@ test("test on refresh delay clears all timers", () => {
   jest.useFakeTimers()
   document.test = undefined
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <div id="one" jmb:on.ready.delay.5ms.defer="document.test='one'"></div>
       </body>
@@ -415,7 +415,7 @@ test("test on refresh delay clears all timers", () => {
       "changesUrl": true,
       "actions": [],
       "dom": `
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <div id="one" jmb:on.ready.delay.3ms.defer="document.test='two'"></div>
       </body>
@@ -436,7 +436,7 @@ test("test on refresh delay continue named timers", () => {
   jest.useFakeTimers()
   document.test = undefined
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='one'"></div>
       </body>
@@ -450,7 +450,7 @@ test("test on refresh delay continue named timers", () => {
       "changesUrl": true,
       "actions": [],
       "dom": `
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
         <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='two'"></div>
       </body>
@@ -469,7 +469,7 @@ test("test on refresh delay continue named timers", () => {
 
 test("test call action without named params", () => {
   buildDocument(`
-    <html jmb:name="/test" jmb:data='{"changesUrl":true,"state":{},"url":"/test","actions":["choose"]}'>
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":["choose"]}'>
       <body>
           <button jmb:on.click="choose('test')">Test</button>
       </body>
@@ -503,7 +503,7 @@ test("test call action without named params", () => {
 })
 test("$jmb.set not deferred shout call display", () => {
   buildDocument(`
-    <html jmb:name="/tasks" jmb:data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
+    <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
       <body>
           <button id="test1" jmb:on.click="$jmb.set('a', 1)">Test 1</button>
           <button id="test2" jmb:on.click.defer="$jmb.set('a', 2)">Test 2</button>

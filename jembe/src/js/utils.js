@@ -3,8 +3,8 @@
  * @param {Element} el 
  */
 function elIsNewComponent(el) {
-  if (el.hasAttribute('jmb:name')) {
-    return el.getAttribute('jmb:name')
+  if (el.hasAttribute('jmb-name')) {
+    return el.getAttribute('jmb-name')
   } else if (el.hasAttribute('jmb-placeholder')) {
     return el.getAttribute('jmb-placeholder')
   } else {
@@ -14,7 +14,7 @@ function elIsNewComponent(el) {
 
 function walkComponentDom(el, callback, callbackOnNewComponent, myExecName) {
   if (myExecName === undefined) {
-    myExecName = el.getAttribute('jmb:name')
+    myExecName = el.getAttribute('jmb-name')
   }
   let componentExecName = elIsNewComponent(el)
   if (componentExecName !== null && componentExecName !== myExecName) {

@@ -21,7 +21,7 @@ def test_simple_page(jmb, client):
     assert r.status_code == 200
     assert b"<h1>Simple page</h1>" in r.data
     assert (
-        b'<html lang="en" jmb:name="/simple_page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/simple_page"}\''
+        b'<html lang="en" jmb-name="/simple_page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/simple_page"}\''
         in r.data
     )
 
@@ -35,7 +35,7 @@ def test_empty_page(jmb, client):
     r = client.get("/page")
     assert r.status_code == 200
     assert (
-        b'<html jmb:name="/page" jmb:data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'>'
+        b'<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'>'
         in r.data
     )
     assert b"<div></div>" in r.data
@@ -136,7 +136,7 @@ def test_counter_on_page(jmb, client):
     assert b"Counter: 0" in res.data
     assert b"c=0" in res.data
     assert (
-        b'jmb:name="/cop" jmb:data=\'{"actions":["increase"],"changesUrl":true,"state":{"counter":0},"url":"/cop"}\''
+        b'jmb-name="/cop" jmb-data=\'{"actions":["increase"],"changesUrl":true,"state":{"counter":0},"url":"/cop"}\''
         in res.data
     )
     assert b'<button jmb:click="increase()"' in res.data
