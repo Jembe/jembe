@@ -18,6 +18,20 @@ import { clearTimeout } from "timers";
  * $jmb.[init|component]('componentRelativeOrFullName', {kwargs})[.call|.display|.emit]
  * 
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
+ * 
+ * RETHINKIG
+ * From alpine: $el, $refs, $event, $dispatch, $nextTick, $watch
+ * From jmb: $jmb with $jmb.emit, $jmb.init|component, $jmb.call
+ *           $self - referenc on curent node
+ *           $local - reference local javascript variables tied to component.localData
+ * all actions and state params are localy avaiable so
+ * paramName = paramValue or paramName = $self.value or file = $self.files[0] are valid
+ * also actionName({kwargs}) or display() are valid
+ * param names overrides actionNames and prints warning in console if thay colides
+ * All changes to state valiables should call display if defer modifier is not present
+ * If no chages are made to state variables (only to $local etc) display will not be called
+ * 
+ * what to use j-on.click j-data and j-ignore 
  */
 class JembeComponentAPI {
   constructor(componentRef, jembeClient = undefined, execName = undefined) {

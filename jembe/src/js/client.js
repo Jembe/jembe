@@ -121,12 +121,14 @@ class ComponentRef {
           }
           // don't pass to next component or template
           if (!this.isPageComponent
-            && from.hasAttribute('jmb:name')
-            && from.getAttribute('jmb:name') !== this.execName) return false
-          if (from.hasAttribute('jmb-placeholder')
-            && from.getAttribute('jmb-placeholder') !== this.execName) return false
+            && fromEl.hasAttribute('jmb:name')
+            && fromEl.getAttribute('jmb:name') !== this.execName) return false
+          if (fromEl.hasAttribute('jmb-placeholder')
+            && fromEl.getAttribute('jmb-placeholder') !== this.execName) return false
+          if (fromEl.hasAttribute('jmb-ignore')) {
+            return false
+          }
 
-          // TODO add jmb:ingore
           // TODO rename jmb-placeholder to jmb:placeholder
 
           return true

@@ -618,7 +618,7 @@ test('addFilesForUploadCommand store files in jembeClient', () => {
   //delete file
   jc.addFilesForUpload("/page", "photo", [])
   expect(Object.keys(jc.filesForUpload).length).toBe(0)
-  
+
   // should add/ upload init command
   expect(jc.commands.length).toBe(0)
 
@@ -652,13 +652,13 @@ test('create file X Upload request  in jembeClient', () => {
   jc.addFilesForUpload("/page", "photo", [foo])
   fd = jc.getXUploadRequestFormData()
   expect(fd).not.toBeNull()
-  let fooUploadId =Object.keys(jc.filesForUpload)[0] 
+  let fooUploadId = Object.keys(jc.filesForUpload)[0]
   expect(fd.has(fooUploadId)).toBe(true)
   expect(fd.get(fooUploadId)).toBe(foo)
 
   jc.addFilesForUpload("/page", "photo", [bar])
   fd = jc.getXUploadRequestFormData()
-  let barUploadId =Object.keys(jc.filesForUpload)[0] 
+  let barUploadId = Object.keys(jc.filesForUpload)[0]
   expect(fd.get(barUploadId)).toBe(bar)
 
   jc.addFilesForUpload("/page", "photo", [])
@@ -667,11 +667,50 @@ test('create file X Upload request  in jembeClient', () => {
 
   jc.addFilesForUpload("/page", "photo", [foo, bar])
   fd = jc.getXUploadRequestFormData()
-  let uploadId =Object.keys(jc.filesForUpload)[0] 
+  let uploadId = Object.keys(jc.filesForUpload)[0]
   expect(fd.getAll(uploadId).length).toBe(2)
 
   jc.addFilesForUpload("/page", "photo", foo)
   fd = jc.getXUploadRequestFormData()
-  uploadId =Object.keys(jc.filesForUpload)[0] 
+  uploadId = Object.keys(jc.filesForUpload)[0]
   expect(fd.getAll(uploadId).length).toBe(1)
+})
+
+test('dont merge under jmb-ignore', () => {
+  buildDocument(`
+    <html jmb:name="/page" jmb:data='{"changesUrl":true,"state":{"value":0},"url":"/page","actions":[]}'>
+      <head><title>Test</title></head>
+      <body>Test<div jmb-ignore>T1</div></body></html>`)
+  const xResponse = [
+    {
+      "execName": "/page1",
+      "state": { "value": 1 },
+      "url": "/page1",
+      "changesUrl": true,
+      "dom": `<html>
+      <head><title>Test1</title></head>
+      <body>Test1<div jmb-ignore>T2</div></body></html>`
+    },
+  ]
+  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page1"><head><title>Test1</title></head>
+      <body>Test1<div jmb-ignore="">T1</div></body></html>`
+  )
+  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(
+    [
+      {
+        "execName": "/page1",
+        "state": { "value": 1 },
+        "url": "/page1",
+        "changesUrl": true,
+        "dom": `<html>
+      <head><title>Test2</title></head>
+      <body>Test2</body></html>`
+      },
+    ]))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb:name="/page1"><head><title>Test2</title></head>
+      <body>Test2</body></html>`
+  )
 })

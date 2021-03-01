@@ -978,6 +978,20 @@ var _timers = require("timers");
  * $jmb.[init|component]('componentRelativeOrFullName', {kwargs})[.call|.display|.emit]
  * 
  * $jmb.ref('referencedDomName') // jmb:ref="referencedDomName"
+ * 
+ * RETHINKIG
+ * From alpine: $el, $refs, $event, $dispatch, $nextTick, $watch
+ * From jmb: $jmb with $jmb.emit, $jmb.init|component, $jmb.call
+ *           $self - referenc on curent node
+ *           $local - reference local javascript variables tied to component.localData
+ * all actions and state params are localy avaiable so
+ * paramName = paramValue or paramName = $self.value or file = $self.files[0] are valid
+ * also actionName({kwargs}) or display() are valid
+ * param names overrides actionNames and prints warning in console if thay colides
+ * All changes to state valiables should call display if defer modifier is not present
+ * If no chages are made to state variables (only to $local etc) display will not be called
+ * 
+ * what to use j-on.click j-data and j-ignore 
  */
 class JembeComponentAPI {
   constructor(componentRef, jembeClient = undefined, execName = undefined) {
@@ -2219,9 +2233,13 @@ class ComponentRef {
         } // don't pass to next component or template
 
 
-        if (!this.isPageComponent && from.hasAttribute('jmb:name') && from.getAttribute('jmb:name') !== this.execName) return false;
-        if (from.hasAttribute('jmb-placeholder') && from.getAttribute('jmb-placeholder') !== this.execName) return false; // TODO add jmb:ingore
-        // TODO rename jmb-placeholder to jmb:placeholder
+        if (!this.isPageComponent && fromEl.hasAttribute('jmb:name') && fromEl.getAttribute('jmb:name') !== this.execName) return false;
+        if (fromEl.hasAttribute('jmb-placeholder') && fromEl.getAttribute('jmb-placeholder') !== this.execName) return false;
+
+        if (fromEl.hasAttribute('jmb-ignore')) {
+          return false;
+        } // TODO rename jmb-placeholder to jmb:placeholder
+
 
         return true;
       },
@@ -2736,7 +2754,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "42265" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "37327" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
