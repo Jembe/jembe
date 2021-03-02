@@ -1,6 +1,6 @@
 <div>
 {% for noteId, note in notifications.items() %}
-    <div jmb:on.ready.delay.200ms.defer:{{noteId}}="$jmb.set('notifications.{{noteId}}', null);$el.remove();$jmb.display();">
+    <div jmb-on.ready.delay.200ms.defer:{{noteId}}="$jmb.set('notifications.{{noteId}}', null);$el.remove();$jmb.display();">
         {{note.message}} : {{note.level}}
     </div>
 {% endfor %}

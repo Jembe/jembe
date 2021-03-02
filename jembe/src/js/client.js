@@ -1,12 +1,7 @@
-/*
-  Supported tags:
-    # jmb:on.<eventname>.<modifier>.<modifier>
-    # jmb:model=
-    <button jmb:on.click="$jmb.call('increase',10)"
-*/
-import { JembeComponentAPI } from "./componentApi.js"
+import ComponentAPI from "./componentApi/index.js"
 import { deepCopy, walkComponentDom } from "./utils.js"
 import morphdom from "./morphdom/index.js"
+import JMB from "./componentApi/magic/jmb.js"
 
 /**
  * Reference to component html with associated data
@@ -27,32 +22,22 @@ class ComponentRef {
     this.dom = this._cleanDom(dom)
     this.onDocument = onDocument
 
-    // data of local js component
-    // needs to be preserved when merging with new dom
-    this.localData = {}
-
-    this.mounted = false
     this.placeHolders = {}
-    this.jmbDoubleDotAttributes = []
     this.api = null
   }
-  mount(localData = undefined) {
-    if (!this.mounted) {
-      if (localData !== undefined) {
-        this.localData = localData
-      }
-      this._getPlaceHoldersAndJmbAttributes()
-      this.api = new JembeComponentAPI(this)
-      this.api.mount()
+  mount(originalComponentRef = undefined) {
+    this._getPlaceHolders()
+    if (this.api === null) {
+      this.api = new ComponentAPI(this)
     }
-    this.mounted = true
+    this.api.mount(originalComponentRef)
   }
   unmount() {
-    if (this.mounted) {
+    if (this.api !== null) {
       this.api.unmount()
-      this.api = null
     }
-    this.mounted = false
+    this.api = null
+    this.dom = null
   }
   toJsonRequest() {
     return {
@@ -79,31 +64,25 @@ class ComponentRef {
       return
     }
 
-    if (originalComponent !== undefined) {
-      originalComponent.unmount()
-    }
-
     if (this.isPageComponent) {
       let documentElement = this.jembeClient.document.documentElement
-      // TODO morph dom
       this.dom = documentElement = this._morphdom(documentElement, this.dom)
-      // documentElement.innerHTML = this.dom.innerHTML
       this.dom.setAttribute("jmb-name", this.execName)
     } else {
-      // TODO morph dom
       this.dom = this._morphdom(parentComponent.placeHolders[this.execName], this.dom)
-      // parentComponent.placeHolders[this.execName].replaceWith(this.dom)
       parentComponent.placeHolders[this.execName] = this.dom
     }
 
-    this.mount(
-      originalComponent !== undefined && originalComponent.execName === this.execName
-        ? originalComponent.localData
-        : undefined
-    )
     this.onDocument = true
 
+    this.mount(
+      originalComponent !== undefined && originalComponent.execName === this.execName
+        ? originalComponent
+        : undefined
+    )
+
   }
+
   _morphdom(from, to) {
     return morphdom(
       from,
@@ -137,25 +116,11 @@ class ComponentRef {
       }
     )
   }
-  _getPlaceHoldersAndJmbAttributes() {
+  _getPlaceHolders() {
     this.placeHolders = {}
-    this.jmbDoubleDotAttributes = []
     walkComponentDom(
       this.dom,
-      (el) => {
-        // populate jmbDoubleDotAttributes
-        if (el.hasAttributes()) {
-          for (const attribute of el.attributes) {
-            if (attribute.name.startsWith("jmb:")) {
-              this.jmbDoubleDotAttributes.push({
-                el: el,
-                name: attribute.name,
-                value: attribute.value
-              })
-            }
-          }
-        }
-      },
+      undefined,
       (el, execName) => {
         // populate placeHolders
         this.placeHolders[execName] = el
@@ -333,15 +298,19 @@ class JembeClient {
         c => Object.keys(c.placeHolders).includes(currentComponent.execName)
       )
       currentComponent.merge(parentComponent, orignalComponent)
-      // if (parentComponent !== undefined) {
-      //   parentComponent.placeHolders[currentComponent.execName] = currentComponent.dom
-      // }
       newComponents[currentComponent.execName] = currentComponent
-      // currentComponent.mount()
       for (const placeHolderName of Object.keys(currentComponent.placeHolders)) {
         processingExecNames.push(placeHolderName)
       }
     }
+    // unmount components that will be removed
+    for (const [execName, component] of Object.entries(this.components)) {
+      if (!Object.keys(newComponents).includes(execName)
+        || newComponents[execName] !== component) {
+        component.unmount()
+      }
+    }
+
     this.components = newComponents
   }
 
@@ -592,7 +561,7 @@ class JembeClient {
    */
   component(domNode) {
     const componentExecName = domNode.closest('[jmb-name]').getAttribute('jmb-name')
-    return this.components[componentExecName].api
+    return new JMB(this, componentExecName)
   }
 }
 

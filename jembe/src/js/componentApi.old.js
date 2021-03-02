@@ -37,6 +37,9 @@ import { clearTimeout } from "timers";
  * jmb-text jmb-html, jmb-ref jmb-if, jmb-for, jmb-transition, jmb-spread, jmb-cloak
  * 
  * jmb-data, jmb-name, jmb-placeholder
+ * 
+ * TODO implement Alpine ...:w
+ * 
  */
 class JembeComponentAPI {
   constructor(componentRef, jembeClient = undefined, execName = undefined) {
@@ -189,6 +192,9 @@ class JembeComponentAPI {
   _processJmbOnAttribute(el, attrName, attrValue) {
     let [jmbTag, onEventAndDecorators, actionName] = attrName.split(":")
     let [onTag, eventName, ...decorators] = onEventAndDecorators.split(".")
+    if (el._jmb_on_init !== undefined && el._jmb_on_init === true) {
+      return
+    }
 
     let expression = `${attrValue}`
 
@@ -245,7 +251,7 @@ class JembeComponentAPI {
         this._executeJmbOnLogic(el, event, expression)
       })
     }
-
+    el._jmb_on_init = true
   }
   _processJmbRefAttribute(el, attrName, attrValue) {
     this.refs[attrValue] = el

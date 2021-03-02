@@ -5021,6 +5021,11 @@ object.values@^1.1.0:
     function-bind "^1.1.1"
     has "^1.0.3"
 
+observable-membrane@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/observable-membrane/-/observable-membrane-1.0.1.tgz#1041074136d5d62b0fc488880bed1c3680674ec5"
+  integrity sha512-AlPC0ZuEuBYt9LSbsBGOz0rpIjkdbIH5JQMLHZrmCRkUedfVoNSFQXLYso+hXxWrRqwEhxEkQuYNg6Pch3hmqQ==
+
 on-finished@~2.3.0:
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/on-finished/-/on-finished-2.3.0.tgz#20f1336481b083cd75337992a16971aa2d906947"

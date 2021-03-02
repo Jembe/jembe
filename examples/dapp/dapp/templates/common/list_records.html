@@ -2,7 +2,7 @@
     {{model_info.verbose_name_plural}}
 </h1>
 {% if component('add').is_accessible() %}
-    <button jmb:on.click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
+    <button jmb-on:click="{{component().jrl}}">Add {{model_info.verbose_name}}</button>
 {% endif %}
 <table>
     <thead>
@@ -22,9 +22,9 @@
         {%endfor%}
         <td>
             {% if component('edit', record_id=record.id).is_accessible() %}
-                <button jmb:on.click="{{component().jrl}}">Edit</button>
+                <button jmb-on:click="{{component().jrl}}">Edit</button>
             {% endif %}
-            <button jmb:on.click="delete_record({record_id:{{record.id}}})">Delete</button>
+            <button jmb-on:click="delete_record({record_id:{{record.id}}})">Delete</button>
         </td>
     </tr>
     {% endfor %}
@@ -32,10 +32,10 @@
 </table>
 <nav>
     {% if page > 1 %}
-        <button jmb:on.click="$jmb.set('page', {{page}} - 1)">Prev</button>
+        <button jmb-on:click="$jmb.set('page', {{page}} - 1)">Prev</button>
     {% endif %}
     Page {{page}} of {{total_pages}} ({{records_count}} {{model_info.verbose_name_plural}})
     {% if total_pages > page %}
-        <button jmb:on.click="$jmb.set('page', {{page}} + 1)">Next</button>
+        <button jmb-on:click="console.log('test');$jmb.set('page', {{page}} + 1)">Next</button>
     {% endif %}
 </nav>

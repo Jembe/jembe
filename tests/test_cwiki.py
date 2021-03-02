@@ -83,7 +83,7 @@ def test_wiki(jmb, client):
             self.emit("set_page_title", title=self.page.title)
             return self.render_template_string(
                 """<div><h1>{{page.title}}</h1>"""
-                """<div>{% for c in children %}<a jmb:on.click="$jmb.set('page_path','{{c.path}}')">{{c.title}}</a><br>{% endfor %}</div></div>"""
+                """<div>{% for c in children %}<a jmb-on:click="$jmb.set('page_path','{{c.path}}')">{{c.title}}</a><br>{% endfor %}</div></div>"""
             )
 
     class Edit(Component):
@@ -131,9 +131,9 @@ def test_wiki(jmb, client):
             return self.render_template_string(
                 "<h1>Edit: {{page.title}}</h1>"
                 """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
-                """<label>Title: <input type="text" value="{{form.title}}" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-                """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-                """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+                """<label>Title: <input type="text" value="{{form.title}}" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+                """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+                """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
             )
 
         @property
@@ -197,10 +197,10 @@ def test_wiki(jmb, client):
             return self.render_template_string(
                 "<h1>Add under {{page_title}}</h1>"
                 """{% if form.error %}<div>{{form.error}}</div>{% endif %}"""
-                """<label>Name: <input type="text" value="{{form.name}}" jmb:on.change="$jmb.set('form.name', this.value)"></label>"""
-                """<label>Title: <input type="text" value="{{form.title}}" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-                """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-                """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+                """<label>Name: <input type="text" value="{{form.name}}" jmb-on.change="$jmb.set('form.name', this.value)"></label>"""
+                """<label>Title: <input type="text" value="{{form.title}}" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+                """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+                """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
             )
 
     @config(Component.Config(changes_url=False))
@@ -346,9 +346,9 @@ def test_wiki(jmb, client):
     )
     assert json_response[2]["dom"] == (
         """<h1>Edit: Root</h1>"""
-        """<label>Title: <input type="text" value="Root" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-        """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-        """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+        """<label>Title: <input type="text" value="Root" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+        """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+        """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
     )
 
     # change root title - to invalid title
@@ -397,9 +397,9 @@ def test_wiki(jmb, client):
     assert json_response[0]["dom"] == (
         """<h1>Edit: Root</h1>"""
         """<div>Title is required</div>"""
-        """<label>Title: <input type="text" value="" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-        """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-        """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+        """<label>Title: <input type="text" value="" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+        """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+        """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
     )
 
     # change root title - valid title - goto view
@@ -503,10 +503,10 @@ def test_wiki(jmb, client):
     )
     assert json_response[2]["dom"] == (
         "<h1>Add under New Root</h1>"
-        """<label>Name: <input type="text" value="" jmb:on.change="$jmb.set('form.name', this.value)"></label>"""
-        """<label>Title: <input type="text" value="" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-        """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-        """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+        """<label>Name: <input type="text" value="" jmb-on.change="$jmb.set('form.name', this.value)"></label>"""
+        """<label>Title: <input type="text" value="" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+        """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+        """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
     )
 
     # add page to root - save valid
@@ -618,10 +618,10 @@ def test_wiki(jmb, client):
     assert json_response[0]["dom"] == (
         "<h1>Add under New Root</h1>"
         "<div>Name and title are required</div>"
-        """<label>Name: <input type="text" value="" jmb:on.change="$jmb.set('form.name', this.value)"></label>"""
-        """<label>Title: <input type="text" value="Jembe Invalid Page" jmb:on.change="$jmb.set('form.title', this.value)"></label>"""
-        """<button type="button" jmb:on.click="$jmb.call('save')">Save</button>"""
-        """<button type="button" jmb:on.click="$jmb.emit('cancel', to='..')">Cancel</button>"""
+        """<label>Name: <input type="text" value="" jmb-on.change="$jmb.set('form.name', this.value)"></label>"""
+        """<label>Title: <input type="text" value="Jembe Invalid Page" jmb-on.change="$jmb.set('form.title', this.value)"></label>"""
+        """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
+        """<button type="button" jmb-on:click="$jmb.emit('cancel', to='..')">Cancel</button>"""
     )
 
     # view root page with link to jembe page
@@ -636,7 +636,7 @@ def test_wiki(jmb, client):
         """<body>"""
         """<div jmb-name="/wiki/view" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"page_path":"root"},"url":"/wiki/view/root"}\'>"""
         """<h1>New Root</h1>"""
-        """<div><a jmb:on.click="$jmb.set('page_path',\'root/jembe\')">Jembe Page</a><br></div>"""
+        """<div><a jmb-on:click="$jmb.set('page_path',\'root/jembe\')">Jembe Page</a><br></div>"""
         """</div>"""
         """</body></html>"""
     ).encode("utf-8")
@@ -767,7 +767,7 @@ def test_wiki(jmb, client):
         """<body>"""
         """<div jmb-name="/wiki/view" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"page_path":"root/jembe"},"url":"/wiki/view/root/jembe"}\'>"""
         """<h1>Jembe Page</h1>"""
-        """<div><a jmb:on.click="$jmb.set('page_path',\'root/jembe/suite\')">Jembe Suite Page</a><br></div>"""
+        """<div><a jmb-on:click="$jmb.set('page_path',\'root/jembe/suite\')">Jembe Suite Page</a><br></div>"""
         """</div>"""
         """</body></html>"""
     ).encode("utf-8")

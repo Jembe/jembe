@@ -713,7 +713,7 @@ class ListRecordsSwap(ListRecords):
 # TODO add more fields to project and task
 # TODO make it looks nice
 # TODO add remove polyfil in js (??)
-# TODO add jmb:on.keydown/keyup.enter.esc etc mofifiers
+# TODO add jmb-on.keydown/keyup.enter.esc etc mofifiers
 # TODO use regular if else for readability in examples
 # TODO extensive comment all python code that is not understud to someone who does know python
 # TODO make course that will be created to build this version step by step

@@ -2,8 +2,8 @@
 <tr>
     <td>{{record.name}}</td> 
     <td>
-        <button jmb:on.click="$jmb.component('../edit.{{record.id}}',{record_id:{{record.id}}}).display()">Edit</button>
-        <button jmb:on.click="delete_record()">Delete</button>
+        <button jmb-on:click="$jmb.component('../edit.{{record.id}}',{record_id:{{record.id}}}).display()">Edit</button>
+        <button jmb-on:click="delete_record()">Delete</button>
     </td>
 </tr>
 {% endif %}

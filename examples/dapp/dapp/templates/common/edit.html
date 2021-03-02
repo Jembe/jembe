@@ -1,10 +1,10 @@
 <h2>
-    <button jmb:on.click="cancel()">Back</button>
-    {# <button jmb:on.click="$jmb.component('..',{mode:null}).display()">Back</button> #}
+    <button jmb-on:click="cancel()">Back</button>
+    {# <button jmb-on:click="$jmb.component('..',{mode:null}).display()">Back</button> #}
     Edit {{model_info.verbose_name}} 
     <button 
         {% if prev_record_id %}
-        jmb:on.click="goto_record({{prev_record_id}})"
+        jmb-on:click="goto_record({{prev_record_id}})"
         {% else %}
         disabled
         {% endif %}>
@@ -12,7 +12,7 @@
     </button>
     <button 
         {% if next_record_id %}
-        jmb:on.click="goto_record({{next_record_id}})"
+        jmb-on:click="goto_record({{next_record_id}})"
         {% else %}
         disabled
         {% endif %}>
@@ -21,6 +21,6 @@
 </h2>
 {% for field in form  %}
     {{field.label}}:
-    {{field(**{"jmb:on.change.defer":"$jmb.set('form." + field.name +"', $el.value)", "id":false})}}
+    {{field(**{"jmb-on.change.defer":"$jmb.set('form." + field.name +"', $el.value)", "id":false})}}
 {% endfor %}
-<button jmb:on.click="save()">Save</button>
+<button jmb-on:click="save()">Save</button>

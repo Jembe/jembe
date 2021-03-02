@@ -20,7 +20,9 @@ function walkComponentDom(el, callback, callbackOnNewComponent, myExecName) {
   if (componentExecName !== null && componentExecName !== myExecName) {
     callbackOnNewComponent(el, componentExecName)
   } else {
-    callback(el)
+    if (callback !== undefined) {
+      callback(el)
+    }
     el = el.firstElementChild
     while (el) {
       walkComponentDom(el, callback, callbackOnNewComponent, myExecName)
