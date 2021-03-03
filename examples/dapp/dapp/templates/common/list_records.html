@@ -36,6 +36,6 @@
     {% endif %}
     Page {{page}} of {{total_pages}} ({{records_count}} {{model_info.verbose_name_plural}})
     {% if total_pages > page %}
-        <button jmb-on:click="console.log('test');$jmb.set('page', {{page}} + 1)">Next</button>
+        <button jmb-on:click="$jmb.set('page', {{page}} + 1)">Next</button>
     {% endif %}
 </nav>

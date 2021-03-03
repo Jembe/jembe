@@ -1068,7 +1068,7 @@ function registerListener(component, el, event, modifiers, expression, extraVars
       if (el.offsetWidth < 1 && el.offsetHeight < 1) return; // Now that we are sure the element is visible, AND the click
       // is from outside it, let's run the expression.
 
-      runListenerHandler(component, expression, e, extraVars);
+      runListenerHandler(component, expression, e, extraVars, el);
 
       if (modifiers.includes('once')) {
         document.removeEventListener(event, handler, options);
@@ -1099,7 +1099,7 @@ function registerListener(component, el, event, modifiers, expression, extraVars
       // event on, run the handler
 
       if (!modifiers.includes('self') || e.target === el) {
-        const returnValue = runListenerHandler(component, expression, e, extraVars);
+        const returnValue = runListenerHandler(component, expression, e, extraVars, el);
         returnValue.then(value => {
           if (value === false) {
             e.preventDefault();
@@ -1115,16 +1115,18 @@ function registerListener(component, el, event, modifiers, expression, extraVars
   // then execute jembeClient comands and refresh page
 
 
-  handler = ((component, func) => {
-    return e => {
-      component.$jmb.callsCommands = false;
-      func(e);
+  if (!modifiers.includes('defer')) {
+    handler = ((component, func) => {
+      return e => {
+        component.$jmb.callsCommands = false;
+        func(e);
 
-      if (component.$jmb.callsCommands === true) {
-        component.$jmb.executeCommands();
-      }
-    };
-  })(component, handler);
+        if (component.$jmb.callsCommands === true) {
+          component.$jmb.executeCommands();
+        }
+      };
+    })(component, handler);
+  }
 
   if (modifiers.includes('debounce')) {
     let nextModifier = modifiers[modifiers.indexOf('debounce') + 1] || 'invalid-wait';
@@ -1137,15 +1139,24 @@ function registerListener(component, el, event, modifiers, expression, extraVars
     el.__jmb_listeners = [];
   }
 
-  el.__jmb_listeners.push([event, handler, options]);
+  if (event === 'ready') {
+    component.nextTickStack.push(() => {
+      handler(new Event('ready', {
+        target: el
+      }));
+    });
+  } else {
+    el.__jmb_listeners.push([event, handler, options]);
 
-  listenerTarget.addEventListener(event, handler, options);
+    listenerTarget.addEventListener(event, handler, options);
+  }
 }
 
-function runListenerHandler(component, expression, e, extraVars) {
+function runListenerHandler(component, expression, e, extraVars, self) {
   return component.evaluateCommandExpression(e.target, expression, () => {
     return { ...extraVars(),
-      '$event': e
+      '$event': e,
+      '$self': self
     };
   });
 }
@@ -4993,7 +5004,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40259" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "33045" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

@@ -23,7 +23,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
 
             // Now that we are sure the element is visible, AND the click
             // is from outside it, let's run the expression.
-            runListenerHandler(component, expression, e, extraVars)
+            runListenerHandler(component, expression, e, extraVars, el)
 
             if (modifiers.includes('once')) {
                 document.removeEventListener(event, handler, options)
@@ -56,7 +56,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
             // the target element matches the element we are registering the
             // event on, run the handler
             if (! modifiers.includes('self') || e.target === el) {
-                const returnValue = runListenerHandler(component, expression, e, extraVars)
+                const returnValue = runListenerHandler(component, expression, e, extraVars, el)
 
                 returnValue.then(value => {
                     if (value === false) {
@@ -73,15 +73,17 @@ export function registerListener(component, el, event, modifiers, expression, ex
 
     // if expression adds commands to jembeClient
     // then execute jembeClient comands and refresh page
-    handler = ((component,func) => {
-        return e => {
-            component.$jmb.callsCommands = false
-            func(e)
-            if (component.$jmb.callsCommands === true) {
-                component.$jmb.executeCommands()
+    if (!modifiers.includes('defer')) {
+        handler = ((component,func) => {
+            return e => {
+                component.$jmb.callsCommands = false
+                func(e)
+                if (component.$jmb.callsCommands === true) {
+                    component.$jmb.executeCommands()
+                }
             }
-        }
-    })(component, handler)
+        })(component, handler)
+    }
 
     if (modifiers.includes('debounce')) {
         let nextModifier = modifiers[modifiers.indexOf('debounce')+1] || 'invalid-wait'
@@ -92,14 +94,20 @@ export function registerListener(component, el, event, modifiers, expression, ex
     if (el.__jmb_listeners === undefined) {
         el.__jmb_listeners = []
     }
-    el.__jmb_listeners.push([event, handler, options])
 
-    listenerTarget.addEventListener(event, handler, options)
+    if (event === 'ready') {
+        component.nextTickStack.push(() => {
+            handler(new Event('ready', {target:el}))
+        })
+    } else {
+        el.__jmb_listeners.push([event, handler, options])
+        listenerTarget.addEventListener(event, handler, options)
+    }
 }
 
-function runListenerHandler(component, expression, e, extraVars) {
+function runListenerHandler(component, expression, e, extraVars, self) {
     return component.evaluateCommandExpression(e.target, expression, () => {
-        return {...extraVars(), '$event': e}
+        return {...extraVars(), '$event': e, '$self': self}
     })
 }
 

@@ -1,6 +1,6 @@
 <tr>
     {% for field in form  %}
-    <td>{{field(**{"jmb-on.change.defer":"$jmb.set('form." + field.name +"', $el.value)", "id":false})}}</td>
+    <td>{{field(**{"jmb-on:change.defer":"$jmb.set('form." + field.name +"', $el.value)", "id":false})}}</td>
     {% endfor %}
     <td>
         <button jmb-on:click="save()">Save</button>

@@ -1,6 +1,14 @@
 import { expect, jest } from "@jest/globals";
 import { buildDocument } from "./utils.js";
 
+beforeEach(() => {
+  jest.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => cb());
+});
+
+afterEach(() => {
+  window.requestAnimationFrame.mockRestore();
+});
+
 test('call component action from javascript event', () => {
   buildDocument(`
     <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":[]}'>
@@ -227,6 +235,13 @@ test('call nested component actions', () => {
           "args": [],
           "kwargs": {}
         },
+        {
+          "type": "call",
+          "componentExecName": "/nav",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        },
       ]
     }
   ))
@@ -359,9 +374,9 @@ test("test on ready event", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <p jmb-on:ready="$el.remove()"></p>
-        <div jmb-on:ready="$el.innerText='test'"></div>
-        <span jmb-on:ready.defer="$el.innerText='test'"></span>
+        <p jmb-on:ready="$self.remove()"></p>
+        <div jmb-on:ready="$self.innerText='test'"></div>
+        <span jmb-on:ready.defer="$self.innerText='test'"></span>
       </body>
     </html>
   `)
