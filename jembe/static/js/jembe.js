@@ -1130,7 +1130,14 @@ function registerListener(component, el, event, modifiers, expression, extraVars
     let nextModifier = modifiers[modifiers.indexOf('debounce') + 1] || 'invalid-wait';
     let wait = (0, _utils.isNumeric)(nextModifier.split('ms')[0]) ? Number(nextModifier.split('ms')[0]) : 250;
     handler = (0, _utils.debounce)(handler, wait, this);
+  } // register listener so it can be removed when morphing dom
+
+
+  if (el.__jmb_listeners === undefined) {
+    el.__jmb_listeners = [];
   }
+
+  el.__jmb_listeners.push([event, handler, options]);
 
   listenerTarget.addEventListener(event, handler, options);
 }
@@ -2733,11 +2740,7 @@ class JMB {
   }
 
   executeCommands() {
-    //TODO
-    // - add display command if does not exist for execNames that 
-    //   have init commands but dont have call command
-    // - display error if actions over two different component are called
-    //   and this components are not on white list, also define white list    
+    this.jembeClient.consolidateCommands();
     this.jembeClient.executeCommands();
   }
 
@@ -2931,6 +2934,7 @@ class Component {
     } // Register all our listeners and set all our attribute bindings.
     // If we're cloning a component, the third parameter ensures no duplicate
     // event listeners are registered (the mutation observer will take care of them)
+    //this.initializeElements(this.$el, () => { }, originalComponent === undefined)
 
 
     this.initializeElements(this.$el, () => {}, true); // Use mutation observer to detect new elements being added within this component at run-time.
@@ -3310,7 +3314,8 @@ class ComponentAPI extends _component.default {
 
 
   mount(originalComponentRef) {
-    super.mount(this.componentRef.jembeClient, this.componentRef.execName, this.componentRef.state, this.componentRef.actions, originalComponentRef !== undefined && originalComponentRef.api !== null && originalComponentRef.execName !== this.execName ? originalComponentRef.api : undefined);
+    super.mount(this.componentRef.jembeClient, this.componentRef.execName, this.componentRef.state, this.componentRef.actions, originalComponentRef !== undefined && originalComponentRef.api !== null // TODO handle page component with diferent execName`s
+    && originalComponentRef.execName === this.execName ? originalComponentRef.api : undefined);
   }
 
   unmount() {
@@ -4461,8 +4466,15 @@ class ComponentRef {
 
         if (fromEl.hasAttribute('jmb-ignore')) {
           return false;
-        } // TODO rename jmb-placeholder to jmb:placeholder
+        } // remove all existing listeners
+        // api should add new one
 
+
+        if (fromEl.__jmb_listeners !== undefined) {
+          for (const [event, handler, options] of fromEl.__jmb_listeners) {
+            fromEl.removeEventListener(event, handler, options);
+          }
+        }
 
         return true;
       },
@@ -4881,6 +4893,20 @@ class JembeClient {
     });
   }
 
+  consolidateCommands() {
+    let initCommandsExecNames = this.commands.filter(c => c.type === 'init').map(c => c.componentExecName);
+    let callCommandsExecNames = this.commands.filter(c => c.type === 'call').map(c => c.componentExecName);
+
+    for (const execName of initCommandsExecNames) {
+      if (!callCommandsExecNames.includes(execName)) {
+        this.addCallCommand(execName, "display");
+      }
+    } //TODO
+    // - display error if actions over two different component are called
+    //   and this components are not on ignore part of flow list, also define flow list    
+
+  }
+
   updateLocation(replace = false) {
     let topComponent = null;
     let level = -1;
@@ -4967,7 +4993,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "43835" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40259" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

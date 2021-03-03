@@ -108,8 +108,13 @@ class ComponentRef {
             return false
           }
 
-          // TODO rename jmb-placeholder to jmb:placeholder
-
+          // remove all existing listeners
+          // api should add new one
+          if (fromEl.__jmb_listeners !== undefined) {
+            for (const [event, handler, options] of fromEl.__jmb_listeners) {
+              fromEl.removeEventListener(event, handler, options)
+            }
+          }
           return true
         },
         childrenOnly: this.isPageComponent
@@ -524,6 +529,26 @@ class JembeClient {
     ).catch(error => {
       console.error("Error in request", error)
     })
+  }
+  consolidateCommands() {
+    let initCommandsExecNames = this.commands.filter(
+      c => c.type === 'init'
+    ).map(
+      c => c.componentExecName
+    )
+    let callCommandsExecNames = this.commands.filter(
+      c => c.type === 'call'
+    ).map(
+      c => c.componentExecName
+    )
+    for (const execName of initCommandsExecNames) {
+      if (!callCommandsExecNames.includes(execName)) {
+        this.addCallCommand(execName, "display")
+      }
+    }
+    //TODO
+    // - display error if actions over two different component are called
+    //   and this components are not on ignore part of flow list, also define flow list    
   }
   updateLocation(replace = false) {
     let topComponent = null

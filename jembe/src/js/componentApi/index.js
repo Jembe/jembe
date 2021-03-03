@@ -22,7 +22,8 @@ class ComponentAPI extends Component {
       this.componentRef.actions,
       (originalComponentRef !== undefined 
         && originalComponentRef.api !== null
-        && originalComponentRef.execName !== this.execName)
+        // TODO handle page component with diferent execName`s
+        && originalComponentRef.execName === this.execName)
         ? originalComponentRef.api
         : undefined)
   }

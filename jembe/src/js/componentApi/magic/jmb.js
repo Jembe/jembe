@@ -106,11 +106,7 @@ export default class JMB {
     return this.component(relativeExecName, kwargs)
   }
   executeCommands() {
-    //TODO
-    // - add display command if does not exist for execNames that 
-    //   have init commands but dont have call command
-    // - display error if actions over two different component are called
-    //   and this components are not on white list, also define white list    
+    this.jembeClient.consolidateCommands()
     this.jembeClient.executeCommands()
   }
 }

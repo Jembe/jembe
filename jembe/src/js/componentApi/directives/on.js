@@ -88,6 +88,11 @@ export function registerListener(component, el, event, modifiers, expression, ex
         let wait = isNumeric(nextModifier.split('ms')[0]) ? Number(nextModifier.split('ms')[0]) : 250
         handler = debounce(handler, wait, this)
     }
+    // register listener so it can be removed when morphing dom
+    if (el.__jmb_listeners === undefined) {
+        el.__jmb_listeners = []
+    }
+    el.__jmb_listeners.push([event, handler, options])
 
     listenerTarget.addEventListener(event, handler, options)
 }

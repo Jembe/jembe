@@ -174,6 +174,7 @@ export default class Component {
         // Register all our listeners and set all our attribute bindings.
         // If we're cloning a component, the third parameter ensures no duplicate
         // event listeners are registered (the mutation observer will take care of them)
+        //this.initializeElements(this.$el, () => { }, originalComponent === undefined)
         this.initializeElements(this.$el, () => { }, true)
 
         // Use mutation observer to detect new elements being added within this component at run-time.
