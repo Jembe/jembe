@@ -453,7 +453,7 @@ test("test on refresh delay continue named timers", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb-on:ready.delay.50ms.defer:actionOne="document.test='one'"></div>
+        <div id="one" jmb-on:ready.delay-actionOne.50ms.defer="document.test='one'"></div>
       </body>
     </html>
   `)
@@ -467,7 +467,7 @@ test("test on refresh delay continue named timers", () => {
       "dom": `
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb-on:ready.delay.50ms.defer:actionOne="document.test='two'"></div>
+        <div id="one" jmb-on:ready.delay-actionOne.50ms.defer="document.test='two'"></div>
       </body>
     </html>
     `},

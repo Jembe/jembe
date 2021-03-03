@@ -1132,11 +1132,55 @@ function registerListener(component, el, event, modifiers, expression, extraVars
     let nextModifier = modifiers[modifiers.indexOf('debounce') + 1] || 'invalid-wait';
     let wait = (0, _utils.isNumeric)(nextModifier.split('ms')[0]) ? Number(nextModifier.split('ms')[0]) : 250;
     handler = (0, _utils.debounce)(handler, wait, this);
-  } // register listener so it can be removed when morphing dom
+  }
 
+  const delayModifier = modifiers.find(m => m.startsWith('delay'));
 
-  if (el.__jmb_listeners === undefined) {
-    el.__jmb_listeners = [];
+  if (delayModifier !== undefined) {
+    const delayId = delayModifier.split('-', 2)[1];
+    let delayTime = modifiers[modifiers.indexOf(delayModifier) + 1];
+    delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2)) * 10 : 1000;
+
+    if (delayId === undefined) {
+      handler = ((comp, func) => {
+        return e => {
+          var timerId = window.setTimeout(function () {
+            func(e);
+          }, delayTime);
+          comp.unnamedTimers.push(timerId);
+        };
+      })(component, handler);
+    } else {
+      let start = new Date().getTime();
+
+      if (component.originalComponentNamedTimers[delayId] !== undefined) {
+        start = component.originalComponentNamedTimers[delayId].start;
+        delayTime = delayTime - (new Date().getTime() - start);
+      }
+
+      if (delayTime > 0) {
+        handler = ((comp, func) => {
+          return e => {
+            var timerId = window.setTimeout(function () {
+              func(e);
+              delete comp.namedTimers[delayId];
+            }, delayTime);
+            comp.namedTimers[delayId] = {
+              id: timerId,
+              start: start
+            };
+          };
+        })(component, handler);
+      } else {
+        //run emidiatly like on:ready
+        component.nextTickStack.push(() => {
+          handler(new Event('ready', {
+            target: el
+          }));
+        });
+        return; // dont register listener nor 
+      }
+    }
   }
 
   if (event === 'ready') {
@@ -1146,6 +1190,11 @@ function registerListener(component, el, event, modifiers, expression, extraVars
       }));
     });
   } else {
+    // register listener so it can be removed when morphing dom
+    if (el.__jmb_listeners === undefined) {
+      el.__jmb_listeners = [];
+    }
+
     el.__jmb_listeners.push([event, handler, options]);
 
     listenerTarget.addEventListener(event, handler, options);
@@ -2820,6 +2869,9 @@ class Component {
     this.execName = undefined;
     this.state = undefined;
     this.actions = undefined;
+    this.unnamedTimers = [];
+    this.namedTimers = {};
+    this.originalComponentNamedTimers = {};
   }
   /**
    * @param {Component} originalComponent 
@@ -2834,6 +2886,10 @@ class Component {
       this.jembeClient = jembeClient;
       this.execName = execName;
       this.$jmb = new _jmb.default(this.jembeClient, this.execName);
+    }
+
+    if (originalComponent !== undefined) {
+      this.originalComponentNamedTimers = originalComponent.namedTimers;
     }
 
     this.state = JSON.parse(JSON.stringify(state));
@@ -2963,7 +3019,15 @@ class Component {
 
   }
 
-  unmount() {}
+  unmount() {
+    for (const timerId of this.unnamedTimers) {
+      window.clearTimeout(timerId);
+    }
+
+    for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
+      window.clearTimeout(timerInfo.id);
+    }
+  }
 
   getUnobservedData() {
     return (0, _observable.unwrap)(this.membrane, this.$data);

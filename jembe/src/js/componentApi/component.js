@@ -41,11 +41,14 @@ export default class Component {
         this.execName = undefined
         this.state = undefined
         this.actions = undefined
+        this.unnamedTimers = []
+        this.namedTimers = {}
+        this.originalComponentNamedTimers = {}
     }
     /**
      * @param {Component} originalComponent 
      */
-    mount(jembeClient, execName, state, actions, originalComponent=undefined) {
+    mount(jembeClient, execName, state, actions, originalComponent = undefined) {
         if (this.mounted
             && (
                 this.jembeClient !== jembeClient
@@ -58,6 +61,9 @@ export default class Component {
             this.jembeClient = jembeClient
             this.execName = execName
             this.$jmb = new JMB(this.jembeClient, this.execName)
+        }
+        if (originalComponent !== undefined) {
+            this.originalComponentNamedTimers = originalComponent.namedTimers
         }
 
         this.state = JSON.parse(JSON.stringify(state));
@@ -192,7 +198,12 @@ export default class Component {
         // }, 0)
     }
     unmount() {
-
+        for (const timerId of this.unnamedTimers) {
+            window.clearTimeout(timerId)
+        }
+        for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
+            window.clearTimeout(timerInfo.id)
+        }
     }
     getUnobservedData() {
         return unwrap(this.membrane, this.$data)
@@ -303,13 +314,13 @@ export default class Component {
             el.__jmb_original_classes = convertClassStringToArray(el.getAttribute('class'))
         }
         if (shouldRegisterListeners) {
-          // remove all existing listeners
-          if (el.__jmb_listeners !== undefined) {
-            for (const [event, handler, options] of el.__jmb_listeners) {
-              el.removeEventListener(event, handler, options)
+            // remove all existing listeners
+            if (el.__jmb_listeners !== undefined) {
+                for (const [event, handler, options] of el.__jmb_listeners) {
+                    el.removeEventListener(event, handler, options)
+                }
             }
-          }
-          shouldRegisterListeners && this.registerListeners(el, extraVars)
+            shouldRegisterListeners && this.registerListeners(el, extraVars)
         }
         // shouldRegisterListeners && this.registerListeners(el, extraVars)
         this.resolveBoundAttributes(el, true, extraVars)
