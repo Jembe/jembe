@@ -2836,7 +2836,7 @@ class Component {
       this.$jmb = new _jmb.default(this.jembeClient, this.execName);
     }
 
-    this.state = state;
+    this.state = JSON.parse(JSON.stringify(state));
     this.actions = actions;
 
     for (const stateName of Object.keys(this.state)) {
@@ -2945,7 +2945,7 @@ class Component {
     } // Register all our listeners and set all our attribute bindings.
     // If we're cloning a component, the third parameter ensures no duplicate
     // event listeners are registered (the mutation observer will take care of them)
-    //this.initializeElements(this.$el, () => { }, originalComponent === undefined)
+    // this.initializeElements(this.$el, () => { }, originalComponent === undefined)
 
 
     this.initializeElements(this.$el, () => {}, true); // Use mutation observer to detect new elements being added within this component at run-time.
@@ -3059,7 +3059,18 @@ class Component {
       el.__jmb_original_classes = (0, _utils.convertClassStringToArray)(el.getAttribute('class'));
     }
 
-    shouldRegisterListeners && this.registerListeners(el, extraVars);
+    if (shouldRegisterListeners) {
+      // remove all existing listeners
+      if (el.__jmb_listeners !== undefined) {
+        for (const [event, handler, options] of el.__jmb_listeners) {
+          el.removeEventListener(event, handler, options);
+        }
+      }
+
+      shouldRegisterListeners && this.registerListeners(el, extraVars);
+    } // shouldRegisterListeners && this.registerListeners(el, extraVars)
+
+
     this.resolveBoundAttributes(el, true, extraVars);
   }
 
@@ -4477,14 +4488,6 @@ class ComponentRef {
 
         if (fromEl.hasAttribute('jmb-ignore')) {
           return false;
-        } // remove all existing listeners
-        // api should add new one
-
-
-        if (fromEl.__jmb_listeners !== undefined) {
-          for (const [event, handler, options] of fromEl.__jmb_listeners) {
-            fromEl.removeEventListener(event, handler, options);
-          }
         }
 
         return true;
@@ -5004,7 +5007,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "33045" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "39407" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

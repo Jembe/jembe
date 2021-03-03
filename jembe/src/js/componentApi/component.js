@@ -60,7 +60,7 @@ export default class Component {
             this.$jmb = new JMB(this.jembeClient, this.execName)
         }
 
-        this.state = state
+        this.state = JSON.parse(JSON.stringify(state));
         this.actions = actions
 
         for (const stateName of Object.keys(this.state)) {
@@ -174,7 +174,7 @@ export default class Component {
         // Register all our listeners and set all our attribute bindings.
         // If we're cloning a component, the third parameter ensures no duplicate
         // event listeners are registered (the mutation observer will take care of them)
-        //this.initializeElements(this.$el, () => { }, originalComponent === undefined)
+        // this.initializeElements(this.$el, () => { }, originalComponent === undefined)
         this.initializeElements(this.$el, () => { }, true)
 
         // Use mutation observer to detect new elements being added within this component at run-time.
@@ -302,7 +302,16 @@ export default class Component {
         if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
             el.__jmb_original_classes = convertClassStringToArray(el.getAttribute('class'))
         }
-        shouldRegisterListeners && this.registerListeners(el, extraVars)
+        if (shouldRegisterListeners) {
+          // remove all existing listeners
+          if (el.__jmb_listeners !== undefined) {
+            for (const [event, handler, options] of el.__jmb_listeners) {
+              el.removeEventListener(event, handler, options)
+            }
+          }
+          shouldRegisterListeners && this.registerListeners(el, extraVars)
+        }
+        // shouldRegisterListeners && this.registerListeners(el, extraVars)
         this.resolveBoundAttributes(el, true, extraVars)
     }
 

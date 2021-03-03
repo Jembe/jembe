@@ -20,7 +20,7 @@ from typing import (
     Any,
     Dict,
 )
-from uuid import uuid1
+from uuid import uuid4
 from math import ceil
 from dataclasses import dataclass, field
 from jembe import Component, action, component, config, listener, BadRequest
@@ -108,7 +108,7 @@ class Notifications(Component):
 
     @listener(event="pushNotification")
     def on_push_notification(self, event):
-        self.state.notifications[str(uuid1())] = event.params.get(
+        self.state.notifications[str(uuid4())] = event.params.get(
             "notification", Notification("Undefined message")
         )
 

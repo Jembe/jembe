@@ -1,8 +1,8 @@
 <h2>Multi Uplaod demo</h2>
 <label for="upload_to_public">Upload to public</label>
-<input type="checkbox" name="upload_to_public" jmb-on:change="$jmb.set('upload_to_public', $el.checked);" {{'checked' if upload_to_public else '' }}>
+<input type="checkbox" name="upload_to_public" jmb-on:change="$jmb.set('upload_to_public', $self.checked);" {{'checked' if upload_to_public else '' }}>
 
-<input type="file" name="photos" jmb-on:change="$jmb.set('photos', $el.files);" multiple>
+<input type="file" name="photos" jmb-on:change="$jmb.set('photos', $self.files);" multiple>
 
 {% for photo in photos %}
 <div>

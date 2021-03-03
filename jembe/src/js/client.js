@@ -108,13 +108,6 @@ class ComponentRef {
             return false
           }
 
-          // remove all existing listeners
-          // api should add new one
-          if (fromEl.__jmb_listeners !== undefined) {
-            for (const [event, handler, options] of fromEl.__jmb_listeners) {
-              fromEl.removeEventListener(event, handler, options)
-            }
-          }
           return true
         },
         childrenOnly: this.isPageComponent

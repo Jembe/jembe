@@ -2,9 +2,9 @@
 {% for field in form  %}
     {{field.label}}
     {% if field.type == "FileField" %}
-    {{field(**{"jmb-on:change":"$jmb.set('form." + field.name +"', $el.files[0])", "id":false})}}
+    {{field(**{"jmb-on:change":"$jmb.set('form." + field.name +"', $self.files[0])", "id":false})}}
     {% else %}
-    {{field(**{"jmb-on:change":"$jmb.set('form." + field.name +"', $el.checked)", "id":false})}}
+    {{field(**{"jmb-on:change":"$jmb.set('form." + field.name +"', $self.checked)", "id":false})}}
     {% endif %}
 {% endfor %}
 
