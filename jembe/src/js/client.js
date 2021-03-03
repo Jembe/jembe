@@ -370,7 +370,7 @@ class JembeClient {
     return params
   }
 
-  addCallCommand(execName, actionName, args, kwargs) {
+  addCallCommand(execName, actionName, args=[], kwargs={}) {
     this.commands.push(
       {
         "type": "call",

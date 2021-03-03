@@ -62,7 +62,7 @@ test('indentify components from x-jembe response v1', () => {
       "state": { "value": 1 },
       "url": "/cpage/counter",
       "changesUrl": true,
-      "dom": `<div>Count: 1</div><a jmb:on.click="increase()">increase</a>`,
+      "dom": `<div>Count: 1</div><a jmb-on:click="increase()">increase</a>`,
     }
   ]
   const jembeClient = new JembeClient()
@@ -75,7 +75,7 @@ test('indentify components from x-jembe response v1', () => {
   expect(counterCompRef.changesUrl).toBe(true)
   expect(counterCompRef.url).toBe('/cpage/counter')
   expect(counterCompRef.dom.outerHTML).toBe(
-    `<div jmb-name="/cpage/counter"><div>Count: 1</div><a jmb:on.click="increase()">increase</a></div>`
+    `<div jmb-name="/cpage/counter"><div>Count: 1</div><a jmb-on:click="increase()">increase</a></div>`
   )
 })
 test('indentify components from x-jembe response v2', () => {

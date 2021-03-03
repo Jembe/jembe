@@ -2850,8 +2850,8 @@ class Component {
       $local: originalComponent === undefined ? (0, _utils.saferEval)(this.$el, localExpression, dataExtras) : originalComponent.getUnobservedData()['$local']
     }; // add actions
 
-    Object.keys(this.actions).forEach(([actionName]) => {
-      Object.defineProperty(this.unobservedData, `$${actionName}`, {
+    this.actions.forEach(actionName => {
+      Object.defineProperty(this.unobservedData, `${actionName}`, {
         get: function () {
           return (...params) => {
             this.$jmb.call(actionName, ...params);
@@ -4727,7 +4727,7 @@ class JembeClient {
     return params;
   }
 
-  addCallCommand(execName, actionName, args, kwargs) {
+  addCallCommand(execName, actionName, args = [], kwargs = {}) {
     this.commands.push({
       "type": "call",
       "componentExecName": execName,

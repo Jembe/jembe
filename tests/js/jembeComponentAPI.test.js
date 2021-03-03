@@ -164,7 +164,7 @@ test('call nested component actions', () => {
       <body>
         <div jmb-name="/page/tasks" 
             jmb-data='{"changesUrl":true,"state":{},"url":"/page/tasks","actions":[]}'>
-            <button jmb:on.click="
+            <button jmb-on:click="
                 $jmb.component('view',{a:1, b:2}).call('display'); 
                 $jmb.component('/nav/view1', {id:1}).call('display');
                 $jmb.component('../test', {c:3}).call('increase');">
@@ -237,7 +237,7 @@ test("back button", () => {
       <body>
         <div jmb-name="/tasks/edit" 
             jmb-data='{"changesUrl":true,"state":{"record_id":1},"url":"/tasks/edit/1","actions":[]}'>
-            <button jmb:on.click="$jmb.component('..',{mode:'list'}).display()">
+            <button jmb-on:click="$jmb.component('..',{mode:'list'}).display()">
                 Back
             </button>
         </div>
@@ -277,7 +277,7 @@ test("directly calling components actions", () => {
   buildDocument(`
     <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{},"url":"/tasks","actions":["my_action"]}'>
       <body>
-          <button jmb:on.click="my_action({a:'AA'})">
+          <button jmb-on:click="my_action({a:'AA'})">
               Back
           </button>
       </body>
@@ -310,7 +310,7 @@ test("test setting nested component init params", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{"obj":{"a":"A", "b":{1:"1"}},"ar":[]},"url":"/test","actions":[]}'>
       <body>
-          <button jmb:on.click="
+          <button jmb-on:click="
             $jmb.set('obj.a','AAA')">
               Run sets
           </button>
@@ -359,9 +359,9 @@ test("test on ready event", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <p jmb:on.ready="$el.remove()"></p>
-        <div jmb:on.ready="$el.innerText='test'"></div>
-        <span jmb:on.ready.defer="$el.innerText='test'"></span>
+        <p jmb-on:ready="$el.remove()"></p>
+        <div jmb-on:ready="$el.innerText='test'"></div>
+        <span jmb-on:ready.defer="$el.innerText='test'"></span>
       </body>
     </html>
   `)
@@ -376,10 +376,10 @@ test("test on delay event modifier", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb:on.ready.delay="$el.innerText='one'"></div>
-        <div id="two" jmb:on.ready.delay.200ms="$el.innerText='one'"></div>
-        <button id="three" jmb:on.click.delay.defer="$el.innerText='three'"></button>
-        <button id="four" jmb:on.click.delay.200ms.defer="$el.innerText='four'"></button>
+        <div id="one" jmb-on:ready.delay="$el.innerText='one'"></div>
+        <div id="two" jmb-on:ready.delay.200ms="$el.innerText='one'"></div>
+        <button id="three" jmb-on:click.delay.defer="$el.innerText='three'"></button>
+        <button id="four" jmb-on:click.delay.200ms.defer="$el.innerText='four'"></button>
       </body>
     </html>
   `)
@@ -403,7 +403,7 @@ test("test on refresh delay clears all timers", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb:on.ready.delay.5ms.defer="document.test='one'"></div>
+        <div id="one" jmb-on:ready.delay.5ms.defer="document.test='one'"></div>
       </body>
     </html>
   `)
@@ -417,7 +417,7 @@ test("test on refresh delay clears all timers", () => {
       "dom": `
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb:on.ready.delay.3ms.defer="document.test='two'"></div>
+        <div id="one" jmb-on:ready.delay.3ms.defer="document.test='two'"></div>
       </body>
     </html>
     `},
@@ -438,7 +438,7 @@ test("test on refresh delay continue named timers", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='one'"></div>
+        <div id="one" jmb-on:ready.delay.50ms.defer:actionOne="document.test='one'"></div>
       </body>
     </html>
   `)
@@ -452,7 +452,7 @@ test("test on refresh delay continue named timers", () => {
       "dom": `
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb:on.ready.delay.50ms.defer:actionOne="document.test='two'"></div>
+        <div id="one" jmb-on:ready.delay.50ms.defer:actionOne="document.test='two'"></div>
       </body>
     </html>
     `},
@@ -471,7 +471,7 @@ test("test call action without named params", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":["choose"]}'>
       <body>
-          <button jmb:on.click="choose('test')">Test</button>
+          <button jmb-on:click="choose('test')">Test</button>
       </body>
     </html>
   `)
@@ -505,8 +505,8 @@ test("$jmb.set not deferred shout call display", () => {
   buildDocument(`
     <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
       <body>
-          <button id="test1" jmb:on.click="$jmb.set('a', 1)">Test 1</button>
-          <button id="test2" jmb:on.click.defer="$jmb.set('a', 2)">Test 2</button>
+          <button id="test1" jmb-on:click="$jmb.set('a', 1)">Test 1</button>
+          <button id="test2" jmb-on:click.defer="$jmb.set('a', 2)">Test 2</button>
       </body>
     </html>
   `)

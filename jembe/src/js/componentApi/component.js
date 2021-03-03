@@ -90,10 +90,10 @@ export default class Component {
                 : originalComponent.getUnobservedData()['$local']
         }
         // add actions
-        Object.keys(this.actions).forEach(([actionName]) => {
+        this.actions.forEach(actionName => {
             Object.defineProperty(
                 this.unobservedData,
-                `$${actionName}`,
+                `${actionName}`,
                 { get: function () { return (...params) => { this.$jmb.call(actionName, ...params) } } }
             )
         })
@@ -302,7 +302,6 @@ export default class Component {
         if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
             el.__jmb_original_classes = convertClassStringToArray(el.getAttribute('class'))
         }
-
         shouldRegisterListeners && this.registerListeners(el, extraVars)
         this.resolveBoundAttributes(el, true, extraVars)
     }
