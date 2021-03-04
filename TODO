@@ -1,5 +1,11 @@
 Public Dev Lunch:
-    ☐ Promote waitlist and publish code under agplv3
+    ☐ Move examples into separete project on github (LGPLv3??)
+    ☐ Move jembe git on github and write good description into readme.rst (LGPLv3)
+    ☐ Create new project that will support user/group management, login/logout, user profile/settings and password management
+    Start new jembe-ui project jembeui, publish it on githubm under AGPLv3, that will contain:
+      ☐ CLI commands for creating new jembe project from templates
+      ☐ template for "default" project (session, postgres, sqlalchemy)
+      ☐ reusable components (pages, menues, notifications, messages, tables, forms etc.)
   Dev:
     ☐ Temp storage contains uploadet and regular temp files, user can access his temp files via url, (in order to alow saving uploaded files in temp storage  and working with them before moving them to permanent storage )
     ☐ disable all inputs and buttons while processing x-jembe request??? so that we donot get conflicts with data and lose data on update
