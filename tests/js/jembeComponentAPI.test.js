@@ -369,6 +369,54 @@ test("test setting nested component init params", () => {
     }
   ))
 })
+
+test("test setting nested component init params - direct", () => {
+  buildDocument(`
+    <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{"obj":{"a":"A", "b":{1:"1"}},"ar":[]},"url":"/test","actions":[]}'>
+      <body>
+          <button jmb-on:click="obj.a='AAA'">
+              Run sets
+          </button>
+      </body>
+    </html>
+  `)
+
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('button').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
+    {
+      components: [
+        {
+          execName: "/test",
+          state: {
+            obj: { "a": "A", "b": { 1: "1" } },
+            ar: []
+          }
+        }
+      ],
+      commands: [
+        {
+          type: "init",
+          componentExecName: "/test",
+          initParams: {
+            obj: { "a": "AAA", "b": { 1: "1" } },
+            ar: []
+          }
+        },
+        {
+          type: "call",
+          componentExecName: "/test",
+          actionName: "display",
+          args: [],
+          kwargs: {}
+        }
+      ]
+    }
+  ))
+})
 test("test on ready event", () => {
   window.fetch = jest.fn(() => {return Promise.resolve({ ok: true, json: async () => [] })})
   buildDocument(`
@@ -520,8 +568,8 @@ test("$jmb.set not deferred shout call display", () => {
   buildDocument(`
     <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
       <body>
-          <button id="test1" jmb-on:click="$jmb.set('a', 1)">Test 1</button>
-          <button id="test2" jmb-on:click.defer="$jmb.set('a', 2)">Test 2</button>
+          <button id="test1" jmb-on:click="a=1">Test 1</button>
+          <button id="test2" jmb-on:click.defer="a=2">Test 2</button>
       </body>
     </html>
   `)

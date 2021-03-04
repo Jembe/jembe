@@ -2106,9 +2106,9 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function wrap(data, mutationCallback) {
   /* IE11-ONLY:START */
-  return wrapForIe11(data, mutationCallback);
-  /* IE11-ONLY:END */
+  // return wrapForIe11(data, mutationCallback)
 
+  /* IE11-ONLY:END */
   let membrane = new _observableMembrane.default({
     valueMutated(target, key) {
       mutationCallback(target, key);
@@ -2129,55 +2129,48 @@ function unwrap(membrane, observable) {
     copy[key] = unwrappedData[key];
   });
   return copy;
-}
-
-function wrapForIe11(data, mutationCallback) {
-  const proxyHandler = {
-    set(target, key, value) {
-      // Set the value converting it to a "Deep Proxy" when required
-      // Note that if a project is not a valid object, it won't be converted to a proxy
-      const setWasSuccessful = Reflect.set(target, key, deepProxy(value, proxyHandler));
-      mutationCallback(target, key);
-      return setWasSuccessful;
-    },
-
-    get(target, key) {
-      // Provide a way to determine if this object is an Alpine proxy or not.
-      if (key === "$isAlpineProxy") return true; // Just return the flippin' value. Gawsh.
-
-      return target[key];
-    }
-
-  };
-  return {
-    data: deepProxy(data, proxyHandler),
-    membrane: {
-      unwrapProxy(proxy) {
-        return proxy;
-      }
-
-    }
-  };
-}
-
-function deepProxy(target, proxyHandler) {
-  // If target is null, return it.
-  if (target === null) return target; // If target is not an object, return it.
-
-  if (typeof target !== 'object') return target; // If target is a DOM node (like in the case of this.$el), return it.
-
-  if (target instanceof Node) return target; // If target is already an Alpine proxy, return it.
-
-  if (target['$isAlpineProxy']) return target; // Otherwise proxy the properties recursively.
-  // This enables reactivity on setting nested data.
-  // Note that if a project is not a valid object, it won't be converted to a proxy
-
-  for (let property in target) {
-    target[property] = deepProxy(target[property], proxyHandler);
-  }
-
-  return new Proxy(target, proxyHandler);
-}
+} // function wrapForIe11(data, mutationCallback) {
+//     const proxyHandler = {
+//         set(target, key, value) {
+//             // Set the value converting it to a "Deep Proxy" when required
+//             // Note that if a project is not a valid object, it won't be converted to a proxy
+//             const setWasSuccessful = Reflect.set(target, key, deepProxy(value, proxyHandler))
+//             mutationCallback(target, key)
+//             return setWasSuccessful
+//         },
+//         get(target, key) {
+//             // Provide a way to determine if this object is an Alpine proxy or not.
+//             if (key === "$isAlpineProxy") return true
+//             // Just return the flippin' value. Gawsh.
+//             return target[key]
+//         }
+//     }
+//     return {
+//         data: deepProxy(data, proxyHandler),
+//         membrane: {
+//             unwrapProxy(proxy) {
+//                 return proxy
+//             }
+//         },
+//     }
+// }
+// function deepProxy(target, proxyHandler) {
+//     // If target is null, return it.
+//     if (target === null) return target;
+//     // If target is not an object, return it.
+//     if (typeof target !== 'object') return target;
+//     // If target is a DOM node (like in the case of this.$el), return it.
+//     if (target instanceof Node) return target
+//     // If target is already an Alpine proxy, return it.
+//     if (target['$isAlpineProxy']) return target;
+//     // Otherwise proxy the properties recursively.
+//     // This enables reactivity on setting nested data.
+//     // Note that if a project is not a valid object, it won't be converted to a proxy
+//     for (let property in target) {
+//         target[property] = deepProxy(target[property], proxyHandler)
+//     }
+//     return new Proxy(target, proxyHandler)
+// }
 },{"observable-membrane":"../../../node_modules/observable-membrane/dist/modules/observable-membrane.js"}],"../../../node_modules/process/browser.js":[function(require,module,exports) {
 
 // shim for using process in browser
@@ -2902,9 +2895,11 @@ class Component {
     }
 
     const localAttr = this.$el.getAttribute('jmb-local');
-    const localExpression = localAttr === '' ? '{}' : localAttr;
-    const initExpression = this.$el.getAttribute('jmb-init');
-    const updateExpression = this.$el.getAttribute('jmb-update');
+    const localExpression = localAttr === '' || localAttr === null ? '{}' : localAttr;
+    const initAttr = this.$el.getAttribute('jmb-init');
+    const initExpression = initAttr === '' || initAttr === null ? '{}' : initAttr;
+    const updateAttr = this.$el.getAttribute('jmb-update');
+    const updateExpression = updateAttr === '' || updateAttr === null ? '{}' : updateAttr;
     let dataExtras = {
       $el: this.$el,
       $jmb: this.$jmb
@@ -2934,12 +2929,12 @@ class Component {
     /* IE11-ONLY:START */
     // For IE11, add our magic properties to the original data for access.
     // The Proxy polyfill does not allow properties to be added after creation.
-
-    this.unobservedData.$el = null;
-    this.unobservedData.$refs = null;
-    this.unobservedData.$nextTick = null;
-    this.unobservedData.$watch = null;
-    this.unobservedData.$jmb = null; // The IE build uses a proxy polyfill which doesn't allow properties
+    // this.unobservedData.$el = null
+    // this.unobservedData.$refs = null
+    // this.unobservedData.$nextTick = null
+    // this.unobservedData.$watch = null
+    // this.unobservedData.$jmb = null
+    // The IE build uses a proxy polyfill which doesn't allow properties
     // to be defined after the proxy object is created so,
     // for IE only, we need to define our helpers earlier.
     // Object.entries(Alpine.magicProperties).forEach(([name, callback]) => {
@@ -3033,12 +3028,41 @@ class Component {
     return (0, _observable.unwrap)(this.membrane, this.$data);
   }
 
+  findTargetPathInData(tree, target, key = "", level = 0) {
+    if (Object.is(tree, target)) {
+      return key;
+    }
+
+    const treeIsArray = Array.isArray(tree);
+
+    for (const [name, value] of Object.entries(tree)) {
+      if (!(level === 0 && name.startsWith('$') || treeIsArray && name === 'length') && typeof value === "object") {
+        const subpath = this.findTargetPathInData(value, target, name, level + 1);
+
+        if (subpath !== undefined) {
+          return key !== "" ? `${key}.${subpath}` : subpath;
+        }
+      }
+    }
+  }
+
   wrapDataInObservable(data) {
     var self = this;
     let updateDom = (0, _utils.debounce)(function () {
       self.updateElements(self.$el);
     }, 0);
     return (0, _observable.wrap)(data, (target, key) => {
+      // check if is state variable by compoaring target
+      let path = this.findTargetPathInData(this.unobservedData, target);
+
+      if (path !== undefined) {
+        this.$jmb.set(path === "" ? key : `${path}.${key}`, target[key]);
+      }
+
+      if (Object.is(target, this.unobservedData) && Object.keys(this.state).includes(key)) {
+        this.$jmb.set(key, target[key]);
+      }
+
       if (self.watchers[key]) {
         // If there's a watcher for this specific key, run it.
         self.watchers[key].forEach(callback => callback(target[key]));
@@ -3333,17 +3357,17 @@ class Component {
     var self = this;
     var refObj = {};
     /* IE11-ONLY:START */
-    // Add any properties up-front that might be necessary for the Proxy polyfill.
+    // // Add any properties up-front that might be necessary for the Proxy polyfill.
+    // refObj.$isRefsProxy = false;
+    // refObj.$isAlpineProxy = false;
+    // // If we are in IE, since the polyfill needs all properties to be defined before building the proxy,
+    // // we just loop on the element, look for any jmb-ref and create a tmp property on a fake object.
+    // this.walkAndSkipNestedComponents(self.$el, el => {
+    //     if (el.hasAttribute('jmb-ref')) {
+    //         refObj[el.getAttribute('jmb-ref')] = true
+    //     }
+    // })
 
-    refObj.$isRefsProxy = false;
-    refObj.$isAlpineProxy = false; // If we are in IE, since the polyfill needs all properties to be defined before building the proxy,
-    // we just loop on the element, look for any jmb-ref and create a tmp property on a fake object.
-
-    this.walkAndSkipNestedComponents(self.$el, el => {
-      if (el.hasAttribute('jmb-ref')) {
-        refObj[el.getAttribute('jmb-ref')] = true;
-      }
-    });
     /* IE11-ONLY:END */
     // One of the goals of this is to not hold elements in memory, but rather re-evaluate
     // the DOM when the system needs something from it. This way, the framework is flexible and
@@ -5071,7 +5095,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "39407" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "40057" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

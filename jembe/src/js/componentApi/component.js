@@ -76,9 +76,11 @@ export default class Component {
         }
 
         const localAttr = this.$el.getAttribute('jmb-local')
-        const localExpression = localAttr === '' ? '{}' : localAttr
-        const initExpression = this.$el.getAttribute('jmb-init')
-        const updateExpression = this.$el.getAttribute('jmb-update')
+        const localExpression = (localAttr === '' || localAttr === null) ? '{}' : localAttr
+        const initAttr = this.$el.getAttribute('jmb-init')
+        const initExpression = (initAttr === '' || initAttr === null) ? '{}' : initAttr
+        const updateAttr = this.$el.getAttribute('jmb-update')
+        const updateExpression = (updateAttr === '' || updateAttr === null) ? '{}' : updateAttr
         let dataExtras = {
             $el: this.$el,
             $jmb: this.$jmb
@@ -112,11 +114,11 @@ export default class Component {
         /* IE11-ONLY:START */
         // For IE11, add our magic properties to the original data for access.
         // The Proxy polyfill does not allow properties to be added after creation.
-        this.unobservedData.$el = null
-        this.unobservedData.$refs = null
-        this.unobservedData.$nextTick = null
-        this.unobservedData.$watch = null
-        this.unobservedData.$jmb = null
+        // this.unobservedData.$el = null
+        // this.unobservedData.$refs = null
+        // this.unobservedData.$nextTick = null
+        // this.unobservedData.$watch = null
+        // this.unobservedData.$jmb = null
         // The IE build uses a proxy polyfill which doesn't allow properties
         // to be defined after the proxy object is created so,
         // for IE only, we need to define our helpers earlier.
@@ -209,6 +211,20 @@ export default class Component {
         return unwrap(this.membrane, this.$data)
     }
 
+    findTargetPathInData(tree, target, key = "", level = 0) {
+        if (Object.is(tree, target)) {
+            return key
+        }
+        const treeIsArray = Array.isArray(tree)
+        for (const [name, value] of Object.entries(tree)) {
+            if (!((level === 0 && name.startsWith('$')) || (treeIsArray && name === 'length')) && typeof value === "object") {
+                const subpath = this.findTargetPathInData(value, target, name, level + 1)
+                if (subpath !== undefined) {
+                    return key !== ""? `${key}.${subpath}` : subpath
+                }
+            }
+        }
+    }
     wrapDataInObservable(data) {
         var self = this
 
@@ -217,6 +233,14 @@ export default class Component {
         }, 0)
 
         return wrap(data, (target, key) => {
+            // check if is state variable by compoaring target
+            let path = this.findTargetPathInData(this.unobservedData, target)
+            if (path !== undefined) {
+                this.$jmb.set(path === ""? key: `${path}.${key}`, target[key])
+            }
+            if (Object.is(target, this.unobservedData) && Object.keys(this.state).includes(key)) {
+                this.$jmb.set(key, target[key])
+            }
             if (self.watchers[key]) {
                 // If there's a watcher for this specific key, run it.
                 self.watchers[key].forEach(callback => callback(target[key]))
@@ -531,17 +555,17 @@ export default class Component {
         var refObj = {}
 
         /* IE11-ONLY:START */
-        // Add any properties up-front that might be necessary for the Proxy polyfill.
-        refObj.$isRefsProxy = false;
-        refObj.$isAlpineProxy = false;
+        // // Add any properties up-front that might be necessary for the Proxy polyfill.
+        // refObj.$isRefsProxy = false;
+        // refObj.$isAlpineProxy = false;
 
-        // If we are in IE, since the polyfill needs all properties to be defined before building the proxy,
-        // we just loop on the element, look for any jmb-ref and create a tmp property on a fake object.
-        this.walkAndSkipNestedComponents(self.$el, el => {
-            if (el.hasAttribute('jmb-ref')) {
-                refObj[el.getAttribute('jmb-ref')] = true
-            }
-        })
+        // // If we are in IE, since the polyfill needs all properties to be defined before building the proxy,
+        // // we just loop on the element, look for any jmb-ref and create a tmp property on a fake object.
+        // this.walkAndSkipNestedComponents(self.$el, el => {
+        //     if (el.hasAttribute('jmb-ref')) {
+        //         refObj[el.getAttribute('jmb-ref')] = true
+        //     }
+        // })
         /* IE11-ONLY:END */
 
         // One of the goals of this is to not hold elements in memory, but rather re-evaluate
