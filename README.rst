@@ -11,6 +11,7 @@ complex client UI interaction duable with just python and jinja2 templates.
 License
 -------
 
+
 Jembe Web Framework 
 Copyright (C) 2021 BlokKod <info@blokkod.me>
 
