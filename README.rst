@@ -1,11 +1,14 @@
-Jembe
-=====
+Jembe Web Framework
+===================
 
-Framework for building web applications, designed to allow develpment
-without need to handle low level HTTP events. 
+Python Web Framework for developing modern web applications, build on top of Flask and designed with following goals in mind:
 
-around with html over wire phylosophy, making
-complex client UI interaction duable with just python and jinja2 templates.
+- Create modern web apps by combining configurable UI components;
+- Creating new UI component should require writing only regular Python classes and Jinja2 templates;
+- There should be no need for developer to directly handle or interact with HTTP protocol;
+- Developer can create complex UI interactions with no or minimal use of javascript code;
+
+Official web site https://jembe.io
 
 
 License
