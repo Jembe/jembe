@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "jembe"
 version = "0.3.0"
-description = "Jembe core package - v3 new concept"
+description = "Jembe Web Framework"
 authors = ["Predrag Peranovic <predrag.peranovic@blokkod.me>"]
-license = "AGPL-3.0-only"
+license = "LGPL-3.0-only"
 packages = [
     { include = "jembe" },
 ]

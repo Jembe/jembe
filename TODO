@@ -1,6 +1,7 @@
 Public Dev Lunch:
-    ☐ Move examples into separete project on github (LGPLv3??)
-    ☐ Move jembe git on github and write good description into readme.rst (LGPLv3)
+    ✔ Move examples into separete project on github (MIT) @done(21-03-06 01:08)
+    ✔ Move jembe git on github (LGPLv3??) @done(21-03-06 01:10)
+    ☐ write good description into readme.rst for all projetct
     ☐ Create new project that will support user/group management, login/logout, user profile/settings and password management
     Start new jembe-ui project jembeui, publish it on githubm under AGPLv3, that will contain:
       ☐ CLI commands for creating new jembe project from templates
