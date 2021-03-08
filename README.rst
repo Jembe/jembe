@@ -3,11 +3,14 @@ Jembe Web Framework
 
 Python Web Framework for developing modern web applications, build on top of Flask and designed with following goals in mind:
 
-- Creating web apps by combining configurable UI components;
-- Creating UI component should require writing only Python classes and Jinja2 templates;
-- There should be no need for developer to directly handle or interact with HTTP protocol;
-- Developer can create complex UI interactions in UI components with no or minimal use of javascript code;
-
+- Whole web app is build using custom, reusable, reactive, responsive Web UI components;
+- Allowing developers to stay focused on implementing "business" logic and writing UI logic only for very specific app use cases;
+- New UI Component is created by extending Python class with simple API and writing associated Jinja2 HTML templates; 
+- Complex UI interactions can be created without or with minimal use of javascript code (one liners embeded directly in HTML template);
+- There should be no reason to think off, consider or implement logic for:
+        - Handling http request-response cycle
+        - Handling routing
+        - Handling any "low level" web/http api
 
 Official web site https://jembe.io
 
