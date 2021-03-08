@@ -6,11 +6,11 @@ Python Web Framework for modern web applications, build on top of Flask, designe
 - App is build using custom, reusable, reactive, responsive UI components;
 - Developers can stay focused on "business" logic and write UI logic only for very specific use cases;
 - UI Component is created by extending Python class, with simple API, and writing associated Jinja2 template; 
-- Complex UI interactions can be created without or with minimal use of javascript code, *usualy one liners embeded directly in HTML template*;
+- Complex UI interactions can be created without or with minimal use of javascript code;
 - There should be no reason to think off, consider or implement logic for:
-    = Handling http request-response cycle
-    = Routing
-    = Handling any "low level" web/http api
+    - Handling http request-response cycle
+    - Routing
+    - Handling any "low level" web/http api
 
 Official web site https://jembe.io
 
