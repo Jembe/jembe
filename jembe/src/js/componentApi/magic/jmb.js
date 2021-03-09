@@ -109,4 +109,7 @@ export default class JMB {
     this.jembeClient.consolidateCommands()
     this.jembeClient.executeCommands()
   }
+  componentsOnPage() {
+    return Object.keys(this.jembeClient.components)
+  }
 }

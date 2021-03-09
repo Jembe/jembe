@@ -218,6 +218,7 @@ class JembeClient {
       this.components[componentRef.execName] = componentRef
       componentRef.mount()
     }
+    this.dispatchUpdatePageEvent(false)
   }
   /**
    * Create dict of {execName:component} for all components find in
@@ -310,6 +311,7 @@ class JembeClient {
     }
 
     this.components = newComponents
+    this.dispatchUpdatePageEvent()
   }
 
   addInitialiseCommand(execName, initParams) {
@@ -367,7 +369,7 @@ class JembeClient {
     return params
   }
 
-  addCallCommand(execName, actionName, args=[], kwargs={}) {
+  addCallCommand(execName, actionName, args = [], kwargs = {}) {
     this.commands.push(
       {
         "type": "call",
@@ -584,6 +586,19 @@ class JembeClient {
   component(domNode) {
     const componentExecName = domNode.closest('[jmb-name]').getAttribute('jmb-name')
     return new JMB(this, componentExecName)
+  }
+
+  dispatchUpdatePageEvent(isXUpdate=true) {
+    window.dispatchEvent(
+      new CustomEvent(
+        'jembeUpdatePage',
+        {
+          detail: {
+            isXUpdate: isXUpdate
+          }
+        }
+      )
+    )
   }
 }
 
