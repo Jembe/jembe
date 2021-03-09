@@ -324,6 +324,10 @@ class JembeClient {
         // exisitingInitCommands[0].initParams[paramName] = initParams[paramName]
       }
     } else {
+      if (Object.keys(initParams).length === 0 && this.components[execName] !== undefined) {
+        // dont add init commoand for existing components if no params are changed
+        return
+      }
       let params = (this.components[execName] !== undefined) ? deepCopy(this.components[execName].state) : {}
       for (const [paramName, paramValue] of Object.entries(initParams)) {
         params = this._updateParam(params, paramName, paramValue)

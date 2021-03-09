@@ -476,10 +476,12 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 t if t != "" else self.default_template_name for t in template
             )
 
-        self.components: Dict[str, "ComponentRef"] = components if components else dict()
+        self.components: Dict[
+            str, "ComponentRef"
+        ] = components if components else dict()
         self._inject_into_components = inject_into_components
 
-        # if redisplay is set use it, otherwise leave 
+        # if redisplay is set use it, otherwise leave
         # redisplay set by @redisplay decorator or default value
         if redisplay:
             self.redisplay = redisplay
@@ -541,8 +543,6 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         if self.parent:
             return "{}/{}".format(self.parent.full_name, self.name)
         return "/{}".format(self.name)
-    
-
 
     @property
     def url_path(self) -> str:
@@ -646,6 +646,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 "{}/{}".format(self.full_name, component_name)
             ]
         return configs
+
     @property
     def super(self):
         return super(self.__class__, self)

@@ -16,7 +16,7 @@ from urllib.parse import quote_plus
 from functools import cached_property
 from copy import deepcopy
 from abc import ABCMeta
-from inspect import Parameter, isclass, isfunction, signature, getmembers, Signature
+from inspect import Parameter, isclass, signature, getmembers, Signature
 from .exceptions import JembeError, NotFound
 from flask import render_template, render_template_string, current_app
 from markupsafe import Markup
@@ -92,25 +92,49 @@ class ComponentState(dict):
         }
 
 
-class _SubComponentRenderer:
-    def __init__(self, component: "Component", name: str, args: tuple, kwargs: dict):
-        self.component = component
+class _ComponentRenderer:
+    def __init__(
+        self, caller_exec_name: str, name: str, args: tuple, kwargs: dict
+    ):
+        """
+        - name can be name of subcomponent or if it starts with '/' name of root component
+        """
+        if name == "":
+            raise JembeError(
+                "Component name can't be empty string"
+            )
+        self.caller_exec_name = caller_exec_name
         self.name = name
         self._key = ""
         self.action = ComponentConfig.DEFAULT_DISPLAY_ACTION
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
-        self._subcomponent: Optional["Component"] = None
-        if "." in self.name or "/" in self.name:
+        self._component_instance: Optional["Component"] = None
+        if "." in self.name or (
+            "/" in self.name
+            and not self.name.startswith("/")
+            and len(self.name.split("/")) == 2
+        ):
             raise JembeError(
-                "Component renderer only suppotrs rendering or accessing direct childs"
+                "Component renderer only supports rendering and accessing direct childs or root page component"
             )
 
+        self.root_renderer = self
+        self.active_renderer = self
+        self.base_jrl = "$jmb"
+
+    def component(self, name: str, *args, **kwargs) -> "_ComponentRenderer":
+        cr = _ComponentRenderer(self.exec_name, name, args, kwargs)
+        cr.root_renderer = self.root_renderer
+        cr.root_renderer.active_renderer = cr
+        cr.base_jrl = self.jrl
+        return cr
+
     @property
-    def subcomponent(self) -> Optional["Component"]:
-        if self._subcomponent:
-            return self._subcomponent
+    def component_instance(self) -> Optional["Component"]:
+        if self._component_instance:
+            return self._component_instance
         return self.processor.components.get(self.exec_name, None)
         # TODO check if initparas are the same for self.processor.components
         # if they are not same it is not same subcomponent
@@ -127,7 +151,7 @@ class _SubComponentRenderer:
             initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
             (
                 self._is_accessible_cache,
-                self._subcomponent,
+                self._component_instance,
             ) = self.processor.execute_initialise_command_successfully(
                 initialise_command
             )
@@ -135,13 +159,13 @@ class _SubComponentRenderer:
 
     @cached_property
     def url(self) -> str:
-        if not self.subcomponent and not self.is_accessible():
+        if not self.component_instance and not self.is_accessible():
             raise NotFound()
-        return self.subcomponent.url  # type: ignore
+        return self.component_instance.url  # type: ignore
 
     @cached_property
     def jrl(self) -> str:
-        if not self.subcomponent and not self.is_accessible():
+        if not self.component_instance and not self.is_accessible():
             raise NotFound()
 
         def _prep_v(v):
@@ -151,8 +175,7 @@ class _SubComponentRenderer:
                 return v
             return "'{}'".format(v)
 
-        return Markup(
-            "$jmb.component('{name}'{kwargs}{key}){action}".format(
+        jrl = "component('{name}'{kwargs}{key}){action}".format(
                 name=self.name,
                 key=",key='{}'".format(self._key) if self._key else "",
                 action=".call('{name}',{{{kwargs}}},[{args}])".format(
@@ -175,13 +198,19 @@ class _SubComponentRenderer:
                 if self.kwargs
                 else "",
             )
+        base_jrl = self.base_jrl[:-10] if self.base_jrl.endswith('.display()') else self.base_jrl
+        return Markup(
+            "{}.{}".format(base_jrl, jrl)
         )
 
     @cached_property
     def exec_name(self) -> str:
-        return Component._build_exec_name(
-            self.name, self._key, self.component.exec_name
-        )
+        if self.name.startswith("/"):
+            return Component._build_exec_name(self.name.split("/")[1], self._key)
+        else:
+            return Component._build_exec_name(
+                self.name, self._key, self.caller_exec_name
+            )
 
     @cached_property
     def processor(self) -> Processor:
@@ -198,7 +227,7 @@ class _SubComponentRenderer:
         self.processor.add_command(
             InitialiseCommand(self.exec_name, self.kwargs), end=True
         )
-        self._subcomponent = None  # stop using component from is_accessible check
+        self._component_instance = None  # stop using component from is_accessible check
 
         # call action command is put in que to be executed latter
         # if this command raises exception parent should chach it and call display
@@ -218,11 +247,11 @@ class _SubComponentRenderer:
             '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
         )
 
-    def key(self, key: str) -> "_SubComponentRenderer":
+    def key(self, key: str) -> "_ComponentRenderer":
         self._key = key
         return self
 
-    def call(self, action: str, *args, **kwargs) -> "_SubComponentRenderer":
+    def call(self, action: str, *args, **kwargs) -> "_ComponentRenderer":
         self.action = action
         self.action_args = args
         self.action_kwargs = kwargs
@@ -677,15 +706,15 @@ class Component(metaclass=ComponentMeta):
 
     def _render_subcomponent_template(
         self, name: Optional[str] = None, *args, **kwargs
-    ) -> "_SubComponentRenderer":
+    ) -> "_ComponentRenderer":
         if name is None:
             try:
-                return self.__prev_sub_component_renderer
+                return self.__prev_sub_component_renderer.active_renderer
             except AttributeError:
                 raise JembeError("Previous component renderer is not set")
         else:
-            self.__prev_sub_component_renderer: "_SubComponentRenderer" = _SubComponentRenderer(
-                self, name, args, kwargs
+            self.__prev_sub_component_renderer: "_ComponentRenderer" = _ComponentRenderer(
+                self.exec_name, name, args, kwargs
             )
             return self.__prev_sub_component_renderer
 

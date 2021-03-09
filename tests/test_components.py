@@ -2018,3 +2018,62 @@ def test_component_load_dump_params(app, jmb):
 
         files_dump = FC.dump_init_param("files", files)
         assert json.dumps(files_dump) == json.dumps(files_json)
+
+def test_component_renderer_absolute_path(jmb, client):
+    class A(Component):
+        def __init__(self, rid: int):
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("{{exec_name}}:{{rid}}")
+
+    class B(Component):
+        def __init__(self):
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+            """<ul>"""
+            """{% if component('/page').component('a1', rid=1).is_accessible() %}"""
+            """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A1</a></li>"""
+            """{% endif %}"""
+            """{% if component('/page').component('a2', rid=2).is_accessible() %}"""
+            """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A2</a></li>"""
+            """{% endif %}"""
+            """</ul>""")
+
+    @jmb.page("page", Component.Config(components=dict(a1=A, a2=A, b=B)))
+    class Page(Component):
+        def __init__(self, display_mode: str = "a1"):
+            super().__init__()
+
+        @listener(event="_display", source="./*")
+        def on_display_a(self, event:"Event"):
+            if event.source_name in ("a1", "a2"):
+                self.state.display_mode = event.source_name
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>"
+                "{{component('b')}}"
+                "{% if component(display_mode).is_accessible() %}"
+                "{{component()}}"
+                "{% else %}"
+                "{{component(display_mode, rid=0)}}"
+                "{% endif %}"
+                "</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    print(r.data)
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":"a1"},"url":"/page"}\'><body>"""
+        """<ul jmb-name="/page/b" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/b"}\'>"""
+        """<li><a href="/page/a1/1" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a1\',{rid:1}).display()">A1</a></li>"""
+        """<li><a href="/page/a2/2" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a2\',{rid:2}).display()">A2</a></li>"""
+        """</ul>"""
+        """<p jmb-name="/page/a1" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"rid":0},"url":"/page/a1/0"}\'>/page/a1:0</p>"""
+        """</body></html>"""
+    ).encode("utf-8")

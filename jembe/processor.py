@@ -9,7 +9,8 @@ from typing import (
     Sequence,
     Deque,
     Any,
-    NamedTuple, final,
+    NamedTuple,
+    final,
 )
 from abc import ABC, abstractmethod
 import re
@@ -1054,12 +1055,16 @@ class Processor:
             # server call display command
             needs_render_exec_names = set(
                 chain.from_iterable(
-                    accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
+                    accumulate(
+                        map(lambda x: "/" + x, exec_name.strip("/").split("/")), add
+                    )
                     for exec_name, cr in self.renderers.items()
                     if cr.fresh == True
                 )
             )
-            missing_render_exec_names = needs_render_exec_names - set(self.renderers.keys())
+            missing_render_exec_names = needs_render_exec_names - set(
+                self.renderers.keys()
+            )
             for exec_name in sorted(
                 missing_render_exec_names,
                 key=lambda exec_name: self.components[exec_name]._config.hiearchy_level,
@@ -1084,30 +1089,36 @@ class Processor:
     def _execute_command(self, command: "Command") -> Optional["Response"]:
         # command is over component that raised exception on initialise and
         # it is not new initialise command over that commponent, so we skip its execution
-        if command.component_exec_name not in self._raised_exception_on_initialise or (
-            isinstance(command, InitialiseCommand)
-            and command.init_params
-            != self._raised_exception_on_initialise[command.component_exec_name]
-        ):
-            try:
-                response = command.execute()
-                if response is not None:
-                    return response
-                self._staging_commands.move_commands_to(self._commands)
-            except JembeError as jmberror:
-                # JembeError are exceptions raised by jembe
-                # and thay indicate bad usage of framework and
-                # thay should not be raised in production
-                raise jmberror
-            except Exception as exc:
-                self._handle_exception_in_command(command, exc)
-            else:
-                # If execution of command is successfull then
-                # add after commands into command que
-                for after_cmd in reversed(command.get_after_emit_commands()):
-                    self.add_command(after_cmd)
-                self._staging_commands.move_commands_to(self._commands)
-        return None
+        if command.component_exec_name in self._raised_exception_on_initialise:
+            if (
+                isinstance(command, InitialiseCommand)
+                and command.init_params
+                == self._raised_exception_on_initialise[command.component_exec_name]
+            ):
+                return None
+            if not isinstance(command, InitialiseCommand) and command.component_exec_name not in self.components:
+                return None
+
+        try:
+            response = command.execute()
+            self._staging_commands.move_commands_to(self._commands)
+            if response is not None:
+                return response
+        except JembeError as jmberror:
+            # JembeError are exceptions raised by jembe
+            # and thay indicate bad usage of framework and
+            # thay should not be raised in production
+            raise jmberror
+        except Exception as exc:
+            self._handle_exception_in_command(command, exc)
+            return None
+        else:
+            # If execution of command is successfull then
+            # add after commands into command que
+            for after_cmd in reversed(command.get_after_emit_commands()):
+                self.add_command(after_cmd)
+            self._staging_commands.move_commands_to(self._commands)
+            return None
 
     def execute_initialise_command_successfully(
         self, command: "InitialiseCommand"
@@ -1152,7 +1163,7 @@ class Processor:
             # restore _staging_commands
             self._staging_commands = backup_current_staging_commands
             if current_app.debug or current_app.testing:
-                current_app.logger.exception(
+                current_app.logger.warning(
                     "Exception when initialising component out of proccessing que {}: {}".format(
                         cmd, exc
                     )

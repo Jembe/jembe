@@ -618,3 +618,76 @@ test("$jmb.set not deferred shout call display", () => {
     }
   ))
 })
+test("$jmb.component chain", () => {
+  buildDocument(`
+    <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":[]}'>
+      <body>
+          <button id="testA" jmb-on:click="$jmb.component('/main').component('a',{id:1}).display()">Display A</button>
+          <button id="testB" jmb-on:click="$jmb.component('/tasks').component('b').display()">Display B</button>
+      </body>
+    </html>
+  `)
+
+  window.jembeClient.executeCommands = jest.fn(() => {
+    return window.jembeClient.getXRequestJson()
+  })
+  document.querySelector('#testA').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(1)
+  expect(window.jembeClient.executeCommands.mock.results[0].value).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/tasks", "state": { "a": 0 } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/main",
+          "initParams": {},
+        },
+        {
+          "type": "init",
+          "componentExecName": "/main/a",
+          "initParams": { id:1 },
+        },
+        {
+          "type": "call",
+          "componentExecName": "/main/a",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        },
+        {
+          "type": "call",
+          "componentExecName": "/main",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        }
+      ]
+    }
+  ))
+  window.jembeClient.commands = []
+  document.querySelector('#testB').click()
+  expect(window.jembeClient.executeCommands.mock.calls.length).toBe(2)
+  expect(window.jembeClient.getXRequestJson()).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/tasks", "state": { "a": 0 } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/tasks/b",
+          "initParams": {},
+        },
+        {
+          "type": "call",
+          "componentExecName": "/tasks/b",
+          "actionName": "display",
+          "args": [],
+          "kwargs": {}
+        },
+      ]
+    }
+  ))
+})
