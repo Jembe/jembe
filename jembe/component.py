@@ -92,17 +92,15 @@ class ComponentState(dict):
         }
 
 
-class _ComponentRenderer:
+class ComponentRenderer:
     def __init__(
-        self, caller_exec_name: str, name: str, args: tuple, kwargs: dict
+        self, caller_exec_name: Optional[str], name: str, args: tuple, kwargs: dict
     ):
         """
         - name can be name of subcomponent or if it starts with '/' name of root component
         """
         if name == "":
-            raise JembeError(
-                "Component name can't be empty string"
-            )
+            raise JembeError("Component name can't be empty string")
         self.caller_exec_name = caller_exec_name
         self.name = name
         self._key = ""
@@ -119,13 +117,17 @@ class _ComponentRenderer:
             raise JembeError(
                 "Component renderer only supports rendering and accessing direct childs or root page component"
             )
+        if self.caller_exec_name is None and not self.name.startswith("/"):
+            raise JembeError(
+                "ComponentRenderer can't be called with relative path without caller_exec_name specified"
+            )
 
         self.root_renderer = self
         self.active_renderer = self
         self.base_jrl = "$jmb"
 
-    def component(self, name: str, *args, **kwargs) -> "_ComponentRenderer":
-        cr = _ComponentRenderer(self.exec_name, name, args, kwargs)
+    def component(self, name: str, *args, **kwargs) -> "ComponentRenderer":
+        cr = ComponentRenderer(self.exec_name, name, args, kwargs)
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
         cr.base_jrl = self.jrl
@@ -176,40 +178,46 @@ class _ComponentRenderer:
             return "'{}'".format(v)
 
         jrl = "component('{name}'{kwargs}{key}){action}".format(
-                name=self.name,
-                key=",key='{}'".format(self._key) if self._key else "",
-                action=".call('{name}',{{{kwargs}}},[{args}])".format(
-                    name=self.action,
-                    args=",".join((_prep_v(v) for v in self.action_args)),
-                    kwargs=",".join(
-                        (
-                            "{}:{}".format(k, _prep_v(v))
-                            for k, v in self.action_kwargs.items()
-                        )
-                    ),
-                )
-                if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
-                else ".display()",
-                kwargs=",{{{}}}".format(
-                    ",".join(
-                        ("{}:{}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
+            name=self.name,
+            key=",key='{}'".format(self._key) if self._key else "",
+            action=".call('{name}',{{{kwargs}}},[{args}])".format(
+                name=self.action,
+                args=",".join((_prep_v(v) for v in self.action_args)),
+                kwargs=",".join(
+                    (
+                        "{}:{}".format(k, _prep_v(v))
+                        for k, v in self.action_kwargs.items()
                     )
-                )
-                if self.kwargs
-                else "",
+                ),
             )
-        base_jrl = self.base_jrl[:-10] if self.base_jrl.endswith('.display()') else self.base_jrl
-        return Markup(
-            "{}.{}".format(base_jrl, jrl)
+            if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
+            else ".display()",
+            kwargs=",{{{}}}".format(
+                ",".join(
+                    ("{}:{}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
+                )
+            )
+            if self.kwargs
+            else "",
         )
+        base_jrl = (
+            self.base_jrl[:-10]
+            if self.base_jrl.endswith(".display()")
+            else self.base_jrl
+        )
+        return Markup("{}.{}".format(base_jrl, jrl))
 
     @cached_property
     def exec_name(self) -> str:
         if self.name.startswith("/"):
             return Component._build_exec_name(self.name.split("/")[1], self._key)
-        else:
+        elif self.caller_exec_name is not None:
             return Component._build_exec_name(
                 self.name, self._key, self.caller_exec_name
+            )
+        else:
+            raise JembeError(
+                "ComponentRenderer can't be called with relative path without caller_exec_name specified"
             )
 
     @cached_property
@@ -247,11 +255,11 @@ class _ComponentRenderer:
             '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
         )
 
-    def key(self, key: str) -> "_ComponentRenderer":
+    def key(self, key: str) -> "ComponentRenderer":
         self._key = key
         return self
 
-    def call(self, action: str, *args, **kwargs) -> "_ComponentRenderer":
+    def call(self, action: str, *args, **kwargs) -> "ComponentRenderer":
         self.action = action
         self.action_args = args
         self.action_kwargs = kwargs
@@ -260,6 +268,9 @@ class _ComponentRenderer:
     def __html__(self):
         return self.__call__()
 
+def component(name:str, *args, **kwargs) -> "ComponentRenderer":
+    """Creates component renderer that can be used to obtain any component url, jrl or check if it is accessible"""
+    return ComponentRenderer(None, name, args, kwargs)
 
 def componentInitDecorator(init_method):
     def decoratedInit(self, *args, **kwargs):
@@ -706,14 +717,14 @@ class Component(metaclass=ComponentMeta):
 
     def _render_subcomponent_template(
         self, name: Optional[str] = None, *args, **kwargs
-    ) -> "_ComponentRenderer":
+    ) -> "ComponentRenderer":
         if name is None:
             try:
                 return self.__prev_sub_component_renderer.active_renderer
             except AttributeError:
                 raise JembeError("Previous component renderer is not set")
         else:
-            self.__prev_sub_component_renderer: "_ComponentRenderer" = _ComponentRenderer(
+            self.__prev_sub_component_renderer: "ComponentRenderer" = ComponentRenderer(
                 self.exec_name, name, args, kwargs
             )
             return self.__prev_sub_component_renderer
@@ -727,4 +738,3 @@ class Component(metaclass=ComponentMeta):
     def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
         processor = get_processor()
         return processor.jembe.get_storage(storage_name)
-
