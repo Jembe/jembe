@@ -470,7 +470,9 @@ class JembeClient {
       body: uploadFormData
     }).then(response => {
       if (!response.ok) {
-        throw Error(response.statusText)
+        // throw Error(response.statusText)
+        this.dispatchUpdatePageErrorEvent(response)
+        throw Error("errorInJembeResponse")
       }
       return response.json()
     }).then(json => {
@@ -509,7 +511,9 @@ class JembeClient {
           body: requestBody
         }).then(response => {
           if (!response.ok) {
-            throw Error(response.statusText)
+            // throw Error(response.statusText)
+            this.dispatchUpdatePageErrorEvent(response)
+            throw Error("errorInJembeResponse")
           }
           return response.json()
         }).then(
@@ -521,12 +525,11 @@ class JembeClient {
               this.updateLocation()
             }
           }).catch(error => {
-            throw error
-            // console.error("Error in request", error)
+            this.dispatchUpdatePageErrorEvent(null, error)
           })
       }
     ).catch(error => {
-      console.error("Error in request", error)
+      this.dispatchUpdatePageErrorEvent(null, error)
     })
   }
   consolidateCommands() {
@@ -588,13 +591,34 @@ class JembeClient {
     return new JMB(this, componentExecName)
   }
 
-  dispatchUpdatePageEvent(isXUpdate=true) {
+  dispatchUpdatePageEvent(isXUpdate = true) {
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePage',
         {
           detail: {
             isXUpdate: isXUpdate
+          }
+        }
+      )
+    )
+  }
+  dispatchUpdatePageErrorEvent(response = null, error = null) {
+    if (response === null && error.message !== "errorInJembeResponse") {
+      console.info('Error x-jembe request', error)
+    } else if (response !== null) {
+      console.info('Error x-jembe response', response)
+    } else if (response === null && error.message === "errorInJembeResponse") {
+      return
+    }
+    window.dispatchEvent(
+      new CustomEvent(
+        'jembeUpdatePageError',
+        {
+          detail: {
+            networkError: error !== null,
+            response: response,
+            error: error
           }
         }
       )
