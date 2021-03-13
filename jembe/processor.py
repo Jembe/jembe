@@ -34,7 +34,7 @@ from .common import (
     parent_exec_name,
 )
 from .exceptions import JembeError
-from .component_config import ComponentConfig, CConfigRedisplayFlag as RedisplayFlag
+from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
 
 
 if TYPE_CHECKING:  # pragma: no cover

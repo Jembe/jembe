@@ -177,9 +177,9 @@ def redisplay(
             elif state == False:
                 flags.remove(flag)
 
-        update_flags(when_executed, CConfigRedisplayFlag.WHEN_DISPLAY_EXECUTED)
-        update_flags(when_state_changed, CConfigRedisplayFlag.WHEN_STATE_CHANGED)
-        update_flags(when_on_page, CConfigRedisplayFlag.WHEN_ON_PAGE)
+        update_flags(when_executed, RedisplayFlag.WHEN_DISPLAY_EXECUTED)
+        update_flags(when_state_changed, RedisplayFlag.WHEN_STATE_CHANGED)
+        update_flags(when_on_page, RedisplayFlag.WHEN_ON_PAGE)
         setattr(method, "_jembe_redisplay", tuple(flags))
         return method
 
@@ -262,7 +262,7 @@ class ComponentListener:
         )
 
 
-class CConfigRedisplayFlag(Enum):
+class RedisplayFlag(Enum):
     WHEN_STATE_CHANGED = "wsc"
     WHEN_DISPLAY_EXECUTED = "wde"
     WHEN_ON_PAGE = "wop"
@@ -351,7 +351,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     # initilised by _jembe_prepare_component_init run inside _jembe_init
     component_actions: Dict[str, "ComponentAction"]  # [method_name]
     component_listeners: Dict[str, "ComponentListener"]  # [method_name]
-    redisplay: Tuple["CConfigRedisplayFlag", ...]
+    redisplay: Tuple["RedisplayFlag", ...]
     _hiearchy_level: int
     _url_params: Tuple["UrlParamDef", ...]
     _key_url_param: "UrlParamDef"
@@ -441,11 +441,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     _raw_init_params: dict
 
-    WHEN_STATE_CHANGED = CConfigRedisplayFlag.WHEN_STATE_CHANGED
-    WHEN_DISPLAY_EXECUTED = CConfigRedisplayFlag.WHEN_DISPLAY_EXECUTED
-    WHEN_ON_PAGE = CConfigRedisplayFlag.WHEN_ON_PAGE
+    WHEN_STATE_CHANGED = RedisplayFlag.WHEN_STATE_CHANGED
+    WHEN_DISPLAY_EXECUTED = RedisplayFlag.WHEN_DISPLAY_EXECUTED
+    WHEN_ON_PAGE = RedisplayFlag.WHEN_ON_PAGE
 
-    REDISPLAY_DEFAULT_FLAGS = (CConfigRedisplayFlag.WHEN_STATE_CHANGED,)
+    REDISPLAY_DEFAULT_FLAGS = (RedisplayFlag.WHEN_STATE_CHANGED,)
 
     def __init__(
         self,
@@ -454,7 +454,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         inject_into_components: Optional[
             Callable[["Component", "ComponentConfig"], dict]
         ] = None,  # TODO
-        redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+        redisplay: Tuple["RedisplayFlag", ...] = (),
         changes_url: bool = True,
         url_query_params: Optional[Dict[str, str]] = None,
     ):

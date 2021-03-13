@@ -3,7 +3,7 @@ from jembe import Component, config, redisplay, Jembe
 
 if TYPE_CHECKING:
     from flask import Response
-    from jembe.component_config import CConfigRedisplayFlag, ComponentConfig
+    from jembe.component_config import RedisplayFlag, ComponentConfig
     from jembe.common import ComponentRef
 
 
@@ -50,7 +50,7 @@ def test_config_init_params(jmb: Jembe, client):
                 inject_into_components: Optional[
                     Callable[["Component", "ComponentConfig"], dict]
                 ] = None,
-                redisplay: Tuple["CConfigRedisplayFlag", ...] = (),
+                redisplay: Tuple["RedisplayFlag", ...] = (),
                 changes_url: bool = True,
                 url_query_params: Optional[Dict[str, str]] = None,
             ):
