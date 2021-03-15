@@ -201,6 +201,7 @@ class JembeClient {
 
     this.xRequestsInProgress = 0
     this.xRequestActiveElement = null
+    this.xRequestDisabledElements = []
 
     window.onpopstate = this.onHistoryPopState
   }
@@ -672,50 +673,29 @@ class JembeClient {
         (node.tagName.toLowerCase() === 'input' &&
           (node.type === 'checkbox' || node.type === 'radio'))
       ) {
-        node.setAttribute("jmb-x-disabled", !node.disabled)
-        node.disabled = true
+        if (!node.disabled) {
+          node.disabled = true
+          this.xRequestDisabledElements.push(() => {node.disabled = false})
+        }
       } else if (
         // <input type="text">
         node.tagName.toLowerCase() === 'input' ||
         // <textarea>
         node.tagName.toLowerCase() === 'textarea'
       ) {
-        node.setAttribute("jmb-x-disabled", !node.readOnly)
-        node.readOnly = true
+        if (!node.readOnly) {
+          node.readOnly = true
+          this.xRequestDisabledElements.push(() => {node.readOnly = false})
+        }
       }
     })
   }
   enableInputsAfterResponse() {
-    // walk over whole document and enable disabled inputs (not updated by morph) 
-    walk(this.document.documentElement, node => {
-      if (node.hasAttribute('jmb-ignore')) return false
-      if (node.hasAttribute('jmb-x-disabled')) {
-        if (
-          // <button>
-          (node.tagName.toLowerCase() === 'button') ||
-          // <select>
-          node.tagName.toLowerCase() === 'select' ||
-          // <input type="checkbox|radio">
-          (node.tagName.toLowerCase() === 'input' &&
-            (node.type === 'checkbox' || node.type === 'radio'))
-        ) {
-          if (node.getAttribute('jmb-x-disabled') == true) {
-            node.disabled = false
-          }
-          node.removeAttribute("jmb-x-disabled")
-        } else if (
-          // <input type="text">
-          node.tagName.toLowerCase() === 'input' ||
-          // <textarea>
-          node.tagName.toLowerCase() === 'textarea'
-        ) {
-          if (node.getAttribute('jmb-x-disabled') == true) {
-            node.readOnly = false
-          }
-          node.removeAttribute("jmb-x-disabled")
-        }
-      }
-    })
+    //enable disabled inputs (not updated by morph) 
+    for (let f of this.xRequestDisabledElements) {
+      f()
+    }
+    this.xRequestDisabledElements = []
     // refocus active element
     if (this.xRequestActiveElement !== null && this.document.contains(this.xRequestActiveElement)) {
       this.xRequestActiveElement.focus()
