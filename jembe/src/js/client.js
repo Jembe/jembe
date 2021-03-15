@@ -1,6 +1,7 @@
 import ComponentAPI from "./componentApi/index.js"
 import { deepCopy, walkComponentDom } from "./utils.js"
 import morphdom from "./morphdom/index.js"
+import { walk } from "./componentApi/utils.js"
 import JMB from "./componentApi/magic/jmb.js"
 
 /**
@@ -197,6 +198,8 @@ class JembeClient {
     this.filesForUpload = {}
     this.domParser = new DOMParser()
     this.xRequestUrl = null
+
+    this.xRequestsInProgress = 0
 
     window.onpopstate = this.onHistoryPopState
   }
@@ -495,6 +498,7 @@ class JembeClient {
   }
   executeCommands(updateLocation = true) {
     const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
+    this.dispatchStartUpdatePageEvent()
     this.executeUpload().then(
       fileUploadResponseId => {
         const requestBody = this.getXRequestJson()
@@ -592,6 +596,12 @@ class JembeClient {
   }
 
   dispatchUpdatePageEvent(isXUpdate = true) {
+    if (isXUpdate) {
+      this.xRequestsInProgress -= 1
+    }
+    if (this.xRequestsInProgress === 0) {
+      this.enableInputsAfterResponse()
+    }
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePage',
@@ -603,10 +613,30 @@ class JembeClient {
       )
     )
   }
+  dispatchStartUpdatePageEvent(isXUpdate = true) {
+    if (isXUpdate) {
+      this.xRequestsInProgress += 1
+    }
+    if (this.xRequestsInProgress === 1) {
+      this.disableInputsBeforeRequest()
+    }
+    window.dispatchEvent(
+      new CustomEvent(
+        'jembeStartUpdatePage',
+        {
+          detail: {
+            isXUpdate: isXUpdate
+          }
+        }
+      )
+    )
+  }
   dispatchUpdatePageErrorEvent(response = null, error = null) {
     if (response === null && error.message !== "errorInJembeResponse") {
+      this.xRequestsInProgress -= 1
       console.info('Error x-jembe request', error)
     } else if (response !== null) {
+      this.xRequestsInProgress -= 1
       console.info('Error x-jembe response', response)
     } else if (response === null && error.message === "errorInJembeResponse") {
       return
@@ -623,6 +653,69 @@ class JembeClient {
         }
       )
     )
+  }
+  disableInputsBeforeRequest() {
+    // walk over whole document and disable inputs
+    walk(this.document.documentElement, node => {
+      if (node.hasAttribute('jmb-ignore')) return false
+      if (
+        // <button>
+        (node.tagName.toLowerCase() === 'button') ||
+        // <select>
+        node.tagName.toLowerCase() === 'select' ||
+        // <input type="checkbox|radio">
+        (node.tagName.toLowerCase() === 'input' &&
+          (node.type === 'checkbox' || node.type === 'radio'))
+      ) {
+        node.setAttribute("jmb-x-disabled", !node.disabled)
+        node.setAttribute("jmb-x-focused", node === this.document.activeElement)
+        node.disabled = true
+      } else if (
+        // <input type="text">
+        node.tagName.toLowerCase() === 'input' ||
+        // <textarea>
+        node.tagName.toLowerCase() === 'textarea'
+      ) {
+        node.setAttribute("jmb-x-disabled", !node.readOnly)
+        node.readOnly = true
+      }
+    })
+  }
+  enableInputsAfterResponse() {
+    // walk over whole document and enable disabled inputs (not updated by morph) 
+    walk(this.document.documentElement, node => {
+      if (node.hasAttribute('jmb-ignore')) return false
+      if (node.hasAttribute('jmb-x-disabled')) {
+        if (
+          // <button>
+          (node.tagName.toLowerCase() === 'button') ||
+          // <select>
+          node.tagName.toLowerCase() === 'select' ||
+          // <input type="checkbox|radio">
+          (node.tagName.toLowerCase() === 'input' &&
+            (node.type === 'checkbox' || node.type === 'radio'))
+        ) {
+          if (node.getAttribute('jmb-x-disabled') == true) {
+            node.disabled = false
+          }
+          node.removeAttribute("jmb-x-disabled")
+          if (node.getAttribute("jmb-x-focused") === true) {
+            node.focus()
+          }
+          node.removeAttribute("jmb-x-focused")
+        } else if (
+          // <input type="text">
+          node.tagName.toLowerCase() === 'input' ||
+          // <textarea>
+          node.tagName.toLowerCase() === 'textarea'
+        ) {
+          if (node.getAttribute('jmb-x-disabled') == true) {
+            node.readOnly = false
+          }
+          node.removeAttribute("jmb-x-disabled")
+        }
+      }
+    })
   }
 }
 
