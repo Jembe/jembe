@@ -200,6 +200,7 @@ class JembeClient {
     this.xRequestUrl = null
 
     this.xRequestsInProgress = 0
+    this.xRequestActiveElement = null
 
     window.onpopstate = this.onHistoryPopState
   }
@@ -655,6 +656,10 @@ class JembeClient {
     )
   }
   disableInputsBeforeRequest() {
+    // save currently focused element
+    if (this.document.activeElement !== null) {
+      this.xRequestActiveElement = this.document.activeElement
+    }
     // walk over whole document and disable inputs
     walk(this.document.documentElement, node => {
       if (node.hasAttribute('jmb-ignore')) return false
@@ -668,7 +673,6 @@ class JembeClient {
           (node.type === 'checkbox' || node.type === 'radio'))
       ) {
         node.setAttribute("jmb-x-disabled", !node.disabled)
-        node.setAttribute("jmb-x-focused", node === this.document.activeElement)
         node.disabled = true
       } else if (
         // <input type="text">
@@ -699,10 +703,6 @@ class JembeClient {
             node.disabled = false
           }
           node.removeAttribute("jmb-x-disabled")
-          if (node.getAttribute("jmb-x-focused") === true) {
-            node.focus()
-          }
-          node.removeAttribute("jmb-x-focused")
         } else if (
           // <input type="text">
           node.tagName.toLowerCase() === 'input' ||
@@ -716,6 +716,11 @@ class JembeClient {
         }
       }
     })
+    // refocus active element
+    if (this.xRequestActiveElement !== null && this.document.contains(this.xRequestActiveElement)) {
+      this.xRequestActiveElement.focus()
+    }
+    this.xRequestActiveElement = null
   }
 }
 
