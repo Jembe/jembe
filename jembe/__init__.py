@@ -6,7 +6,7 @@ from .app import (
     get_public_storage,
     get_temp_storage,
 )
-from .component import Component, ComponentRenderer
+from .component import Component, ComponentReference
 from .common import JembeInitParamSupport
 from .component_config import action, listener, redisplay, config, UrlPath
 from .processor import Event
@@ -33,7 +33,7 @@ __all__ = (
     "get_public_storage",
     "get_temp_storage",
     "Component",
-    "ComponentRenderer",
+    "ComponentReference",
     "JembeInitParamSupport",
     "action",
     "listener",

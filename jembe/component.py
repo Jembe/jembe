@@ -92,7 +92,7 @@ class ComponentState(dict):
         }
 
 
-class ComponentRenderer:
+class ComponentReference:
     def __init__(
         self, caller_exec_name: Optional[str], name: str, args: tuple, kwargs: dict
     ):
@@ -119,15 +119,15 @@ class ComponentRenderer:
             )
         if self.caller_exec_name is None and not self.name.startswith("/"):
             raise JembeError(
-                "ComponentRenderer can't be called with relative path without caller_exec_name specified"
+                "ComponentReference can't be called with relative path without caller_exec_name specified"
             )
 
         self.root_renderer = self
         self.active_renderer = self
         self.base_jrl = "$jmb"
 
-    def component(self, name: str, *args, **kwargs) -> "ComponentRenderer":
-        cr = ComponentRenderer(self.exec_name, name, args, kwargs)
+    def component(self, name: str, *args, **kwargs) -> "ComponentReference":
+        cr = ComponentReference(self.exec_name, name, args, kwargs)
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
         cr.base_jrl = self.jrl
@@ -217,7 +217,7 @@ class ComponentRenderer:
             )
         else:
             raise JembeError(
-                "ComponentRenderer can't be called with relative path without caller_exec_name specified"
+                "ComponentReference can't be called with relative path without caller_exec_name specified"
             )
 
     @cached_property
@@ -255,11 +255,11 @@ class ComponentRenderer:
             '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
         )
 
-    def key(self, key: str) -> "ComponentRenderer":
+    def key(self, key: str) -> "ComponentReference":
         self._key = key
         return self
 
-    def call(self, action: str, *args, **kwargs) -> "ComponentRenderer":
+    def call(self, action: str, *args, **kwargs) -> "ComponentReference":
         self.action = action
         self.action_args = args
         self.action_kwargs = kwargs
@@ -268,9 +268,9 @@ class ComponentRenderer:
     def __html__(self):
         return self.__call__()
 
-def component(name:str, *args, **kwargs) -> "ComponentRenderer":
+def component(name:str, *args, **kwargs) -> "ComponentReference":
     """Creates component renderer that can be used to obtain any component url, jrl or check if it is accessible"""
-    return ComponentRenderer(None, name, args, kwargs)
+    return ComponentReference(None, name, args, kwargs)
 
 def componentInitDecorator(init_method):
     def decoratedInit(self, *args, **kwargs):
@@ -717,14 +717,14 @@ class Component(metaclass=ComponentMeta):
 
     def _render_subcomponent_template(
         self, name: Optional[str] = None, *args, **kwargs
-    ) -> "ComponentRenderer":
+    ) -> "ComponentReference":
         if name is None:
             try:
                 return self.__prev_sub_component_renderer.active_renderer
             except AttributeError:
                 raise JembeError("Previous component renderer is not set")
         else:
-            self.__prev_sub_component_renderer: "ComponentRenderer" = ComponentRenderer(
+            self.__prev_sub_component_renderer: "ComponentReference" = ComponentReference(
                 self.exec_name, name, args, kwargs
             )
             return self.__prev_sub_component_renderer
