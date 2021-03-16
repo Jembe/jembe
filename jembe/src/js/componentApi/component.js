@@ -183,7 +183,7 @@ export default class Component {
         // If we're cloning a component, the third parameter ensures no duplicate
         // event listeners are registered (the mutation observer will take care of them)
         // this.initializeElements(this.$el, () => { }, originalComponent === undefined)
-        this.initializeElements(this.$el, () => { }, true)
+        this.initializeElements(this.$el, () => { })
 
         // Use mutation observer to detect new elements being added within this component at run-time.
         // Alpine's just so darn flexible amirite?
@@ -220,7 +220,7 @@ export default class Component {
             if (!((level === 0 && name.startsWith('$')) || (treeIsArray && name === 'length')) && typeof value === "object") {
                 const subpath = this.findTargetPathInData(value, target, name, level + 1)
                 if (subpath !== undefined) {
-                    return key !== ""? `${key}.${subpath}` : subpath
+                    return key !== "" ? `${key}.${subpath}` : subpath
                 }
             }
         }
@@ -236,7 +236,7 @@ export default class Component {
             // check if is state variable by compoaring target
             let path = this.findTargetPathInData(this.unobservedData, target)
             if (path !== undefined) {
-                this.$jmb.set(path === ""? key: `${path}.${key}`, target[key])
+                this.$jmb.set(path === "" ? key : `${path}.${key}`, target[key])
             }
             if (Object.is(target, this.unobservedData) && Object.keys(this.state).includes(key)) {
                 this.$jmb.set(key, target[key])
@@ -313,7 +313,7 @@ export default class Component {
         })
     }
 
-    initializeElements(rootEl, extraVars = () => { }, shouldRegisterListeners = true) {
+    initializeElements(rootEl, extraVars = () => { }) {
         this.walkAndSkipNestedComponents(rootEl, el => {
             // Don't touch spawns from for loop
             if (el.__jmb_for_key !== undefined) return false
@@ -321,7 +321,7 @@ export default class Component {
             // Don't touch spawns from if directives
             if (el.__jmb_inserted_me !== undefined) return false
 
-            this.initializeElement(el, extraVars, shouldRegisterListeners)
+            this.initializeElement(el, extraVars)
         }, el => {
             el.__jmb = new Component(el)
         })
@@ -331,21 +331,20 @@ export default class Component {
         this.executeAndClearNextTickStack(rootEl)
     }
 
-    initializeElement(el, extraVars, shouldRegisterListeners = true) {
+    initializeElement(el, extraVars) {
         // To support class attribute merging, we have to know what the element's
         // original class attribute looked like for reference.
         if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
             el.__jmb_original_classes = convertClassStringToArray(el.getAttribute('class'))
         }
-        if (shouldRegisterListeners) {
-            // remove all existing listeners
-            if (el.__jmb_listeners !== undefined) {
-                for (const [event, handler, options] of el.__jmb_listeners) {
-                    el.removeEventListener(event, handler, options)
-                }
+        // remove all existing listeners
+        if (el.__jmb_listeners !== undefined) {
+            for (const [event, handler, options] of el.__jmb_listeners) {
+                el.removeEventListener(event, handler, options)
             }
-            shouldRegisterListeners && this.registerListeners(el, extraVars)
+            el.__jmb_listeners = undefined
         }
+        this.registerListeners(el, extraVars)
         // shouldRegisterListeners && this.registerListeners(el, extraVars)
         this.resolveBoundAttributes(el, true, extraVars)
     }
@@ -533,14 +532,14 @@ export default class Component {
                         if (node.nodeType !== 1 || node.__jmb_inserted_me) return
 
                         // @jembeModification
-                        // can only create component for jembe compoennt it ignores jmb-local on
+                        // can only create component for jembe component it ignores jmb-local on
                         // other components
                         // if (node.matches('[jmb-local]') && !node.__jmb) {
                         //     node.__jmb = new Component(node)
                         //     return
                         // }
 
-                        this.initializeElements(node)
+                        this.initializeElement(node)
                     })
                 }
             }

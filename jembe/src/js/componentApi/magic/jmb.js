@@ -1,5 +1,4 @@
 import { isAbsolute, join } from "path";
-
 export default class JMB {
   constructor(jembeClient, execName) {
     this.jembeClient = jembeClient
@@ -57,6 +56,9 @@ export default class JMB {
       to
     )
   }
+  /**
+   * Initialise component taking existing state params of componet if it is on page 
+   */
   component(relativeExecName, kwargs = {}) {
     this.callsCommands = true
 
@@ -102,7 +104,12 @@ export default class JMB {
     }
     return new JMB(this.jembeClient, execName)
   }
+  /**
+   * Initialise component with fresh state params 
+   * ignoring existing component params if componet is on page 
+   */
   init(relativeExecName, kwargs = {}) {
+
     return this.component(relativeExecName, kwargs)
   }
   executeCommands() {

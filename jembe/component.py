@@ -93,6 +93,19 @@ class ComponentState(dict):
 
 
 class ComponentReference:
+    """
+    Notes:
+    usage for link:
+    lamda self: self.component('name')[.jrl...]
+    lambda self: self.component('/main').component('name')[.jrl|url|is_accessible]
+    usage for displaying compoennt in template:
+    {{component('name')}}
+    {{component('name').component('name')}} -- shuld raise exception
+    usage in template to display link
+    {{component('name').is_accessible}}..{{component().jrl}}...
+    Add comand 'init' with same usage as component but without
+    using state params of exisiting component if its on page ??
+    """
     def __init__(
         self, caller_exec_name: Optional[str], name: str, args: tuple, kwargs: dict
     ):
