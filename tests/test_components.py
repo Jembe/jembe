@@ -686,6 +686,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                         type="init",
                         componentExecName="/cpage/counter.second",
                         initParams=dict(value=1),
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -750,6 +751,7 @@ def test_dynamic_add_remove_counters(jmb, client):
                         type="init",
                         componentExecName="/cpage/counter.second",
                         initParams=dict(value=2),
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1016,7 +1018,7 @@ def test_catch_errors_while_rendering(jmb, client):
             return self.render_template_string(
                 "<html><body>"
                 "{% for record_id in records %}"
-                "<div>{% if component('e', record_id=record_id).key(record_id).is_accessible() %}edit {{record_id}}{% else %}view {{record_id}}{%endif%}</div>"
+                "<div>{% if component('e', record_id=record_id).key(record_id).is_accessible %}edit {{record_id}}{% else %}view {{record_id}}{%endif%}</div>"
                 "{% endfor %}"
                 "</body></html>"
             )
@@ -1215,6 +1217,7 @@ def test_inject_init_params_to_component(jmb, client):
                         type="init",
                         componentExecName="/page",
                         initParams=dict(user_id=5),
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1286,7 +1289,12 @@ def test_update_window_location(jmb, client):
             dict(
                 components=[],
                 commands=[
-                    dict(type="init", componentExecName="/page", initParams=dict(),),
+                    dict(
+                        type="init",
+                        componentExecName="/page",
+                        initParams=dict(),
+                        mergeExistingParams=True,
+                    ),
                     dict(
                         type="call",
                         componentExecName="/page",
@@ -1390,6 +1398,7 @@ def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
                         type="init",
                         componentExecName="/list",
                         initParams=dict(page=1, page_size=10),
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1455,7 +1464,12 @@ def test_client_emit_event_handling(jmb, client):
                     dict(execName="/page/test", state=dict()),
                 ],
                 commands=[
-                    dict(type="init", componentExecName="/page", initParams=dict(),),
+                    dict(
+                        type="init",
+                        componentExecName="/page",
+                        initParams=dict(),
+                        mergeExistingParams=True,
+                    ),
                     dict(
                         type="emit",
                         componentExecName="/page/test",
@@ -1841,10 +1855,10 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
             return self.render_template_string(
                 "<html><body>"
                 "{%if display_mode is none %}"
-                "{%if component('a', rid=1).is_accessible() %}"
+                "{%if component('a', rid=1).is_accessible %}"
                 """<button jmb-on:click="{{component().jrl}}">C1</button>"""
                 "{% endif %}"
-                "{%if component('a', rid=2).is_accessible() %}"
+                "{%if component('a', rid=2).is_accessible %}"
                 """<button jmb-on:click="{{component().jrl}}">C2</button>"""
                 "{% endif %}"
                 "{% else %}"
@@ -1873,6 +1887,7 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
                         type="init",
                         componentExecName="/page/a",
                         initParams=dict(rid=1),
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -2019,6 +2034,7 @@ def test_component_load_dump_params(app, jmb):
         files_dump = FC.dump_init_param("files", files)
         assert json.dumps(files_dump) == json.dumps(files_json)
 
+
 def test_component_renderer_absolute_path(jmb, client):
     class A(Component):
         def __init__(self, rid: int):
@@ -2033,14 +2049,15 @@ def test_component_renderer_absolute_path(jmb, client):
 
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string(
-            """<ul>"""
-            """{% if component('/page').component('a1', rid=1).is_accessible() %}"""
-            """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A1</a></li>"""
-            """{% endif %}"""
-            """{% if component('/page').component('a2', rid=2).is_accessible() %}"""
-            """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A2</a></li>"""
-            """{% endif %}"""
-            """</ul>""")
+                """<ul>"""
+                """{% if component('/page').component('a1', rid=1).is_accessible %}"""
+                """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A1</a></li>"""
+                """{% endif %}"""
+                """{% if component('/page').component('a2', rid=2).is_accessible %}"""
+                """<li><a href="{{component().url}}" jmb-on.click.stop.prevent="{{component().jrl}}">A2</a></li>"""
+                """{% endif %}"""
+                """</ul>"""
+            )
 
     @jmb.page("page", Component.Config(components=dict(a1=A, a2=A, b=B)))
     class Page(Component):
@@ -2048,7 +2065,7 @@ def test_component_renderer_absolute_path(jmb, client):
             super().__init__()
 
         @listener(event="_display", source="./*")
-        def on_display_a(self, event:"Event"):
+        def on_display_a(self, event: "Event"):
             if event.source_name in ("a1", "a2"):
                 self.state.display_mode = event.source_name
 
@@ -2056,7 +2073,7 @@ def test_component_renderer_absolute_path(jmb, client):
             return self.render_template_string(
                 "<html><body>"
                 "{{component('b')}}"
-                "{% if component(display_mode).is_accessible() %}"
+                "{% if component(display_mode).is_accessible %}"
                 "{{component()}}"
                 "{% else %}"
                 "{{component(display_mode, rid=0)}}"

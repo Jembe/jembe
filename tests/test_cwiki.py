@@ -280,6 +280,7 @@ def test_wiki(jmb, client):
                         type="init",
                         componentExecName="/wiki/edit",
                         initParams=dict(page_path="root"),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -315,6 +316,7 @@ def test_wiki(jmb, client):
                         type="init",
                         componentExecName="/wiki/edit",
                         initParams=dict(page_path="root"),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -374,6 +376,7 @@ def test_wiki(jmb, client):
                         initParams=dict(
                             form=dict(error=None, title=""), page_path="root"
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -427,6 +430,7 @@ def test_wiki(jmb, client):
                             form=dict(error="Title is required", title="New Root"),
                             page_path="root",
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -472,6 +476,7 @@ def test_wiki(jmb, client):
                         type="init",
                         componentExecName="/wiki/add",
                         initParams=dict(page_path="root"),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -536,6 +541,7 @@ def test_wiki(jmb, client):
                             page_path="root",
                             form=dict(error=None, name="jembe", title="Jembe Page"),
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -592,6 +598,7 @@ def test_wiki(jmb, client):
                             page_path="root",
                             form=dict(error=None, name="", title="Jembe Invalid Page"),
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -669,6 +676,7 @@ def test_wiki(jmb, client):
                             page_path="root/jembe",
                             form=dict(error=None, name="suite", title="Suite Page"),
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -725,6 +733,7 @@ def test_wiki(jmb, client):
                             page_path="root/jembe/suite",
                             form=dict(error=None, title="Jembe Suite Page"),
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",

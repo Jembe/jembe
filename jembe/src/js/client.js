@@ -319,33 +319,44 @@ class JembeClient {
     this.dispatchUpdatePageEvent()
   }
 
-  addInitialiseCommand(execName, initParams) {
+  addInitialiseCommand(execName, initParams, mergeExistingParams = true) {
     const exisitingInitCommands = this.commands.filter(
       x => x.type === "init" && x.componentExecName === execName
     )
-    if (exisitingInitCommands.length > 0) {
+    if (mergeExistingParams === true && exisitingInitCommands.length > 0) {
+      const existingCmd = exisitingInitCommands[0]
       for (const [paramName, paramValue] of Object.entries(initParams)) {
-        exisitingInitCommands[0].initParams = this._updateParam(
-          exisitingInitCommands[0].initParams, paramName, paramValue
+        existingCmd.initParams = this._updateParam(
+          existingCmd.initParams, paramName, paramValue
         )
-        // exisitingInitCommands[0].initParams[paramName] = initParams[paramName]
       }
+
     } else {
-      if (Object.keys(initParams).length === 0 && this.components[execName] !== undefined) {
-        // dont add init commoand for existing components if no params are changed
+      if (mergeExistingParams === true
+        && Object.keys(initParams).length === 0 &&
+        this.components[execName] !== undefined) {
+        // dont add init command for existing components if no params are changed
         return
       }
-      let params = (this.components[execName] !== undefined) ? deepCopy(this.components[execName].state) : {}
+      let params = (mergeExistingParams === true && this.components[execName] !== undefined) ? deepCopy(this.components[execName].state) : {}
       for (const [paramName, paramValue] of Object.entries(initParams)) {
         params = this._updateParam(params, paramName, paramValue)
       }
-      this.commands.push(
-        {
-          "type": "init",
-          "componentExecName": execName,
-          "initParams": params
-        }
-      )
+      if (mergeExistingParams === false && exisitingInitCommands > 0) {
+        const existingCmd = exisitingInitCommands[0]
+        existingCmd.initParams = params
+        existingCmd.mergeExistingParams = mergeExistingParams
+      } else {
+        this.commands.push(
+          {
+            "type": "init",
+            "componentExecName": execName,
+            "initParams": params,
+            "mergeExistingParams": mergeExistingParams
+          }
+        )
+
+      }
     }
   }
   /**
@@ -675,7 +686,7 @@ class JembeClient {
       ) {
         if (!node.disabled) {
           node.disabled = true
-          this.xRequestDisabledElements.push(() => {node.disabled = false})
+          this.xRequestDisabledElements.push(() => { node.disabled = false })
         }
       } else if (
         // <input type="text">
@@ -685,7 +696,7 @@ class JembeClient {
       ) {
         if (!node.readOnly) {
           node.readOnly = true
-          this.xRequestDisabledElements.push(() => {node.readOnly = false})
+          this.xRequestDisabledElements.push(() => { node.readOnly = false })
         }
       }
     })

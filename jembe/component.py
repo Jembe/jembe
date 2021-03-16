@@ -13,7 +13,7 @@ from typing import (
 )
 from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
-from functools import cached_property
+from functools import cached_property, partial
 from copy import deepcopy
 from abc import ABCMeta
 from inspect import Parameter, isclass, signature, getmembers, Signature
@@ -106,8 +106,13 @@ class ComponentReference:
     Add comand 'init' with same usage as component but without
     using state params of exisiting component if its on page ??
     """
+
     def __init__(
-        self, caller_exec_name: Optional[str], name: str, args: tuple, kwargs: dict
+        self,
+        caller_exec_name: Optional[str],
+        name: str,
+        kwargs: dict,
+        merge_existing_params: bool = True,
     ):
         """
         - name can be name of subcomponent or if it starts with '/' name of root component
@@ -121,7 +126,12 @@ class ComponentReference:
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
         self.kwargs = kwargs
+        self.merge_existing_params = merge_existing_params
+
+        self._component_initialise_done = False
         self._component_instance: Optional["Component"] = None
+        self._is_accessible: Optional[bool] = None
+
         if "." in self.name or (
             "/" in self.name
             and not self.name.startswith("/")
@@ -139,48 +149,50 @@ class ComponentReference:
         self.active_renderer = self
         self.base_jrl = "$jmb"
 
-    def component(self, name: str, *args, **kwargs) -> "ComponentReference":
-        cr = ComponentReference(self.exec_name, name, args, kwargs)
+    def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+        cr = ComponentReference(
+            self.exec_name, jmb_exec_name, kwargs, self.merge_existing_params
+        )
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
         cr.base_jrl = self.jrl
         return cr
 
+    def _init_component(self):
+        if self._component_initialise_done:
+            return
+        self._component_initialise_done = True
+
+        initialise_command = InitialiseCommand(
+            self.exec_name, self.kwargs, self.merge_existing_params
+        )
+        (
+            self._is_accessible,
+            self._component_instance,
+        ) = self.processor.execute_initialise_command_successfully(initialise_command)
+
     @property
     def component_instance(self) -> Optional["Component"]:
-        if self._component_instance:
-            return self._component_instance
-        return self.processor.components.get(self.exec_name, None)
-        # TODO check if initparas are the same for self.processor.components
-        # if they are not same it is not same subcomponent
+        self._init_component()
+        return self._component_instance
 
-    _is_accessible_cache: bool
-
+    @property
     def is_accessible(self) -> bool:
         # TODO add param ignore_incoplete_params = True so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
-        try:
-            return self._is_accessible_cache
-        except AttributeError:
-            initialise_command = InitialiseCommand(self.exec_name, self.kwargs)
-            (
-                self._is_accessible_cache,
-                self._component_instance,
-            ) = self.processor.execute_initialise_command_successfully(
-                initialise_command
-            )
-            return self._is_accessible_cache
+        self._init_component()
+        return self._is_accessible == True
 
     @cached_property
     def url(self) -> str:
-        if not self.component_instance and not self.is_accessible():
+        if not self.is_accessible:
             raise NotFound()
         return self.component_instance.url  # type: ignore
 
     @cached_property
     def jrl(self) -> str:
-        if not self.component_instance and not self.is_accessible():
+        if not self.is_accessible:
             raise NotFound()
 
         def _prep_v(v):
@@ -190,7 +202,10 @@ class ComponentReference:
                 return v
             return "'{}'".format(v)
 
-        jrl = "component('{name}'{kwargs}{key}){action}".format(
+        jrl = "component{reset}('{name}'{kwargs}{key}){action}".format(
+            reset="_reset"
+            if not self.merge_existing_params and self.root_renderer == self
+            else "",
             name=self.name,
             key=",key='{}'".format(self._key) if self._key else "",
             action=".call('{name}',{{{kwargs}}},[{args}])".format(
@@ -245,17 +260,19 @@ class ComponentReference:
         will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
         so that we can decide how to render template
         """
+        print('add initialise', self.exec_name, self.kwargs, self.merge_existing_params)
         self.processor.add_command(
-            InitialiseCommand(self.exec_name, self.kwargs), end=True
+            InitialiseCommand(self.exec_name, self.kwargs, self.merge_existing_params),
+            end=True,
         )
-        self._component_instance = None  # stop using component from is_accessible check
+        # self._component_instance = None  # stop using component from is_accessible check
 
         # call action command is put in que to be executed latter
         # if this command raises exception parent should chach it and call display
         # with appropriate template
         if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
             self.processor.add_command(
-                CallDisplayCommand(self.exec_name), end=True,
+                CallDisplayCommand(self.exec_name, not self.merge_existing_params), end=True,
             )
         else:
             self.processor.add_command(
@@ -281,9 +298,11 @@ class ComponentReference:
     def __html__(self):
         return self.__call__()
 
-def component(name:str, *args, **kwargs) -> "ComponentReference":
+
+def component(jmb_exec_name: str, **kwargs) -> "ComponentReference":
     """Creates component renderer that can be used to obtain any component url, jrl or check if it is accessible"""
-    return ComponentReference(None, name, args, kwargs)
+    return ComponentReference(None, jmb_exec_name, kwargs, False)
+
 
 def componentInitDecorator(init_method):
     def decoratedInit(self, *args, **kwargs):
@@ -338,6 +357,13 @@ class ComponentMeta(ABCMeta):
                 for p in init_signature.parameters.values()
                 if p.name != "self" and not p.name.startswith("_")
             )
+            attrs["_jembe_state_param_default_values"] = {
+                p.name: p.default
+                for p in init_signature.parameters.values()
+                if p.default != Parameter.empty
+                and p.name != "self"
+                and not p.name.startswith("_")
+            }
             attrs["__init__"] = componentInitDecorator(attrs["__init__"])
         new_class = super().__new__(cls, name, bases, dict(attrs), **kwargs)
         return new_class
@@ -349,6 +375,7 @@ class Component(metaclass=ComponentMeta):
         cls,
         _config: ComponentConfig,
         _jembe_injected_params_names: List[str],
+        _jembe_merged_existing_params: bool,
         **init_params
     ):
         """
@@ -358,6 +385,7 @@ class Component(metaclass=ComponentMeta):
         component = object.__new__(cls)
         component._config = _config
         component._jembe_injected_params_names = _jembe_injected_params_names
+        component._jembe_merged_existing_params = _jembe_merged_existing_params
         component.__init__(**init_params)
         return component
 
@@ -365,8 +393,10 @@ class Component(metaclass=ComponentMeta):
     _jembe_init_signature: "Signature"
     _jembe_init_param_names: Tuple[str, ...]
     _jembe_state_param_names: Tuple[str, ...]
+    _jembe_state_param_default_values: Dict[str, Any]
     _jembe_injected_params_names: List[str]
     _jembe_config_init_params: Dict[str, Any]
+    _jembe_merged_existing_params: bool
     _config: "Config"
 
     class Config(ComponentConfig):
@@ -723,13 +753,15 @@ class Component(metaclass=ComponentMeta):
                 )
             },
             # command to render subcomponents
-            "component": self._render_subcomponent_template,
+            "component": partial(self._component_template_tag, self._jembe_merged_existing_params),
+            "component_merge": partial(self._component_template_tag, True),
+            "component_reset": partial(self._component_template_tag, False),
             # add helpers
             "_config": self._config,
         }
 
-    def _render_subcomponent_template(
-        self, name: Optional[str] = None, *args, **kwargs
+    def _component_template_tag(
+        self, merge_existing_params: bool, name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
         if name is None:
             try:
@@ -738,7 +770,7 @@ class Component(metaclass=ComponentMeta):
                 raise JembeError("Previous component renderer is not set")
         else:
             self.__prev_sub_component_renderer: "ComponentReference" = ComponentReference(
-                self.exec_name, name, args, kwargs
+                self.exec_name, name, kwargs, merge_existing_params
             )
             return self.__prev_sub_component_renderer
 

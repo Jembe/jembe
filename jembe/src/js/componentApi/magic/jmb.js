@@ -56,10 +56,7 @@ export default class JMB {
       to
     )
   }
-  /**
-   * Initialise component taking existing state params of componet if it is on page 
-   */
-  component(relativeExecName, kwargs = {}) {
+  component(relativeExecName, kwargs = {}, mergeExistingParams = true) {
     this.callsCommands = true
 
     let execName = relativeExecName
@@ -98,19 +95,15 @@ export default class JMB {
           startWith.join("/"),
           componentNames.slice(0, index + 1).join("/")
         ].join("/"),
-        index == componentNames.length - 1 ? kwargs : {}
+        index == componentNames.length - 1 ? kwargs : {},
+        mergeExistingParams
       )
       index++
     }
     return new JMB(this.jembeClient, execName)
   }
-  /**
-   * Initialise component with fresh state params 
-   * ignoring existing component params if componet is on page 
-   */
-  init(relativeExecName, kwargs = {}) {
-
-    return this.component(relativeExecName, kwargs)
+  component_reset(relativeExecName, kwargs = {}) {
+    return this.component(relativeExecName, kwargs, false)
   }
   executeCommands() {
     this.jembeClient.consolidateCommands()

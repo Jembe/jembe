@@ -123,6 +123,7 @@ test('call nested component actions from javascript event', () => {
           "type": "init",
           "componentExecName": "/page/tasks/view",
           "initParams": { a: 1, b: 2 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -135,11 +136,13 @@ test('call nested component actions from javascript event', () => {
           "type": "init",
           "componentExecName": "/nav",
           "initParams": {},
+          "mergeExistingParams": true
         },
         {
           "type": "init",
           "componentExecName": "/nav/view1",
           "initParams": { id: 1 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -152,6 +155,7 @@ test('call nested component actions from javascript event', () => {
           "type": "init",
           "componentExecName": "/page/test",
           "initParams": { c: 3 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -198,6 +202,7 @@ test('call nested component actions', () => {
           "type": "init",
           "componentExecName": "/page/tasks/view",
           "initParams": { a: 1, b: 2 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -210,11 +215,13 @@ test('call nested component actions', () => {
           "type": "init",
           "componentExecName": "/nav",
           "initParams": {},
+          "mergeExistingParams": true
         },
         {
           "type": "init",
           "componentExecName": "/nav/view1",
           "initParams": { id: 1 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -227,6 +234,7 @@ test('call nested component actions', () => {
           "type": "init",
           "componentExecName": "/page/test",
           "initParams": { c: 3 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -276,6 +284,7 @@ test("back button", () => {
           "type": "init",
           "componentExecName": "/tasks",
           "initParams": { "mode": "list" },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -356,7 +365,8 @@ test("test setting nested component init params", () => {
           initParams: {
             obj: { "a": "AAA", "b": { 1: "1" } },
             ar: []
-          }
+          },
+          mergeExistingParams: true
         },
         {
           type: "call",
@@ -404,7 +414,8 @@ test("test setting nested component init params - direct", () => {
           initParams: {
             obj: { "a": "AAA", "b": { 1: "1" } },
             ar: []
-          }
+          },
+          mergeExistingParams: true
         },
         {
           type: "call",
@@ -453,10 +464,10 @@ test("test on delay event modifier", () => {
   document.querySelector('#four').click()
   expect(window.jembeClient.executeCommands.mock.calls.length).toBe(0)
   expect(setTimeout).toHaveBeenCalledTimes(4)
-  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 1000)
-  expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 2000)
-  expect(setTimeout).toHaveBeenNthCalledWith(3, expect.any(Function), 1000)
-  expect(setTimeout).toHaveBeenNthCalledWith(4, expect.any(Function), 2000)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 250)
+  expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 200)
+  expect(setTimeout).toHaveBeenNthCalledWith(3, expect.any(Function), 250)
+  expect(setTimeout).toHaveBeenNthCalledWith(4, expect.any(Function), 200)
   jest.runAllTimers()
 
 })
@@ -466,7 +477,7 @@ test("test on refresh delay clears all timers", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb-on:ready.delay.5ms.defer="document.test='one'"></div>
+        <div id="one" jmb-on:ready.delay.50ms.defer="document.test='one'"></div>
       </body>
     </html>
   `)
@@ -480,7 +491,7 @@ test("test on refresh delay clears all timers", () => {
       "dom": `
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":[]}'>
       <body>
-        <div id="one" jmb-on:ready.delay.3ms.defer="document.test='two'"></div>
+        <div id="one" jmb-on:ready.delay.30ms.defer="document.test='two'"></div>
       </body>
     </html>
     `},
@@ -520,13 +531,13 @@ test("test on refresh delay continue named timers", () => {
     </html>
     `},
   ]
-  jest.advanceTimersByTime(100)
+  jest.advanceTimersByTime(1)
   expect(document.test).toBe(undefined)
   window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
   expect(setTimeout).toHaveBeenCalledTimes(2)
-  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 500)
-  expect(setTimeout.mock.calls[1][1]).toBeLessThan(500) 
-  jest.advanceTimersByTime(500)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 50)
+  expect(setTimeout.mock.calls[1][1]).toBeLessThan(50) 
+  jest.advanceTimersByTime(50)
   expect(document.test).toBe('two')
 })
 
@@ -589,6 +600,7 @@ test("$jmb.set not deferred shout call display", () => {
           "type": "init",
           "componentExecName": "/tasks",
           "initParams": { "a": 1 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -613,6 +625,7 @@ test("$jmb.set not deferred shout call display", () => {
           "type": "init",
           "componentExecName": "/tasks",
           "initParams": { "a": 2 },
+          "mergeExistingParams": true
         },
       ]
     }
@@ -643,11 +656,13 @@ test("$jmb.component chain", () => {
           "type": "init",
           "componentExecName": "/main",
           "initParams": {},
+          "mergeExistingParams": true
         },
         {
           "type": "init",
           "componentExecName": "/main/a",
           "initParams": { id:1 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -679,6 +694,7 @@ test("$jmb.component chain", () => {
           "type": "init",
           "componentExecName": "/tasks/b",
           "initParams": {},
+          "mergeExistingParams": true
         },
         {
           "type": "call",

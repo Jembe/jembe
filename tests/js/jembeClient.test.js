@@ -276,7 +276,8 @@ test('build initialise and display command', () => {
         {
           "type": "init",
           "componentExecName": "/page/tasks",
-          "initParams": { "page": 1, "page_size": 10 }
+          "initParams": { "page": 1, "page_size": 10 },
+          "mergeExistingParams": true
         },
         {
           "type": "call",
@@ -320,7 +321,8 @@ test('initialise same component two times', () => {
         {
           "type": "init",
           "componentExecName": "/page/tasks",
-          "initParams": { "page": 1, "page_size": 5, "filter": null }
+          "initParams": { "page": 1, "page_size": 5, "filter": null },
+          "mergeExistingParams": true
         }
       ]
     }

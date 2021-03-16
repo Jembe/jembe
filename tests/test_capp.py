@@ -231,23 +231,23 @@ class TaskList(Component):
     def display(self) -> Union[str, "Response"]:
         list_template = (
             """<div>"""
-            """{% if component("add").is_accessible() %}"""
+            """{% if component("add").is_accessible %}"""
             """<button type="button" jmb-on:click="{{component().jrl}}">Add</button>{% endif %}"""
             "<table>"
             "<tr><th>Task</th><th>Actions</th></tr>"
             "{% for t in tasks.values() %}<tr>"
             "<td>"
-            """{% if component("view", task_id=t.id).is_accessible() %}"""
+            """{% if component("view", task_id=t.id).is_accessible %}"""
             """<a href="{{component().url}}" jmb-on:click="{{component().jrl}}">{{t.title}}</a>"""
-            """{% elif component("edit", task_id=t.id).is_accessible() %}"""
+            """{% elif component("edit", task_id=t.id).is_accessible %}"""
             """<a href="{{component().url}}" jmb-on:click="{{component().jrl}}">{{t.title}}</a>"""
             # """<a href="{{component.url}}" jmb-on:click="$jmb.component('../view', {task_id:t.id}).display">{{t.title}}</a>"""
             """{% else %}{{t.title}}{% endif %}"""
             "</td>"
             "<td>"
-            """{% if component("edit", task_id=t.id).is_accessible() %}"""
+            """{% if component("edit", task_id=t.id).is_accessible %}"""
             """<a href="{{component().url}}" jmb-on:click="{{component().jrl}}">edit</a>{% endif %}"""
-            """{% if component("delete", task_id=t.id).is_accessible() %}"""
+            """{% if component("delete", task_id=t.id).is_accessible %}"""
             """<a href="{{component().url}}" jmb-on:click="{{component().jrl}}">delete</a>{% endif %}"""
             "</td>"
             "</tr>{% endfor %}"
@@ -327,7 +327,7 @@ class ViewTask(Component):
         return self.render_template_string(
             """<h1><a href="#" jmb-on:click="$jmb.component('..').display()">Back</a> {{task.title}}</h1>"""
             "<div>{{task.description}}</div>"
-            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
+            "{% if component('subtasks', parent_task_id=task_id).is_accessible %}"
             "<h2>Sub tasks</h2>"
             "<div>{{component()}}</div>"
             "{% endif %}"
@@ -438,7 +438,7 @@ class EditTask(Component):
             """jmb-on.change.deferred="$jmb.set('form.description', this.value)"></label>"""
             """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
             """<button type="button" jmb-on:click="$jmb.emit('cancel')">Cancel</button>"""
-            "{% if component('subtasks', parent_task_id=task_id).is_accessible() %}"
+            "{% if component('subtasks', parent_task_id=task_id).is_accessible %}"
             "<h2>Subtasks</h2>"
             "<div>{{component()}}</div>"
             "{% endif %}"
@@ -561,7 +561,7 @@ class AddTask(Component):
             """jmb-on.change.deferred="$jmb.set('form.description', this.value)"></label>"""
             """<button type="button" jmb-on:click="$jmb.call('save')">Save</button>"""
             """<button type="button" jmb-on:click="$jmb.emit('cancel')">Cancel</button>"""
-            "{% if component('subtasks').is_accessible() %}"
+            "{% if component('subtasks').is_accessible %}"
             "<h2>Subtasks</h2>"
             "<div>{{component()}}</div>"
             "{% endif %}"
@@ -797,6 +797,7 @@ def test_add_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/add",
                         initParams=dict(),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -892,6 +893,7 @@ def test_add_task_x(jmb, client):
                             wip_id=1,
                             task_id=-1,
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -979,6 +981,7 @@ def test_add_second_task_x(client, jmb):
                             wip_id=None,
                             task_id=None,
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -1123,6 +1126,7 @@ def test_edit_first_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/edit",
                         initParams=dict(task_id=1,),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -1227,6 +1231,7 @@ def test_edit_first_task_x(jmb, client):
                             task_id=1,
                             wip_id=1,
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -1316,6 +1321,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/edit/subtasks/add",
                         initParams=dict(),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",
@@ -1402,6 +1408,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
                             ),
                             task_id=-1,
                         ),
+                        mergeExistingParams=True
                     ),
                     dict(
                         type="call",

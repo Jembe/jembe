@@ -1,6 +1,6 @@
 import { kebabCase, camelCase, debounce, isNumeric } from '../utils'
 
-export function registerListener(component, el, event, modifiers, expression, extraVars = {}) {
+export function registerListener(component, el, event, modifiers, expression, extraVars = () => {}) {
     const options = {
         passive: modifiers.includes('passive'),
     };
@@ -94,7 +94,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
     if (delayModifier !== undefined) {
         const delayId = delayModifier.split('-', 2)[1]
         let delayTime = modifiers[modifiers.indexOf(delayModifier)+1]
-        delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2)) * 10 : 1000
+        delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2))  : 250
         if (delayId === undefined) {
             handler = ((comp, func) => {
                 return (e) => {

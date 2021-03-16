@@ -240,6 +240,12 @@ class CallDisplayCommand(CallActionCommand):
     def _redisplay_needed(self):
         if self.component_exec_name in self.processor.renderers and not (
             self.force
+            or (
+                # redisplay component created without merging params even if 
+                # it is rendered with same state (in order to provoke chain redisplayint)
+                not self._component._jembe_merged_existing_params
+                and not self.processor.renderers[self.component_exec_name].fresh
+            )
             or RedisplayFlag.WHEN_ON_PAGE in self._component._config.redisplay
             or RedisplayFlag.WHEN_DISPLAY_EXECUTED in self._component._config.redisplay
             or (
@@ -628,6 +634,7 @@ class InitialiseCommand(Command):
         self,
         component_exec_name: str,
         init_params: dict,
+        merge_existing_params: bool = True,
         exist_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
@@ -635,6 +642,7 @@ class InitialiseCommand(Command):
             k: (v if not isinstance(v, Undefined) else None)
             for k, v in init_params.items()
         }
+        self.merge_existing_params = merge_existing_params
         self.exist_on_client = exist_on_client
 
         self.initialised_component: Optional["Component"] = None
@@ -663,12 +671,22 @@ class InitialiseCommand(Command):
 
     def _must_do_init(self, is_accessible_run: bool):
         if self.component_exec_name in self.processor.components:
-            new_params = {**self.init_params, **self._inject_into_params}
+            # new_params = {**self.init_params, **self._inject_into_params}
+            new_params = (
+                {}
+                if self.merge_existing_params
+                else {**self._cconfig.component_class._jembe_state_param_default_values}
+            )
+            new_params.update(
+                {**self.init_params, **self._inject_into_params,}
+            )
             # if state params are same continue
             # else raise jembeerror until find better solution
+            # TODO new_params = {**[default params values from __init__ definiton], **self.init_param, **self._inject_into_params}
+            # then check if new_params == component.state in both way not just if new_params has_new_params
             component = self.processor.components[self.component_exec_name]
             has_new_params = False
-
+            print("must_do_init", self.component_exec_name, component.state, new_params)
             for k, v in new_params.items():
                 if k in component.state and v != component.state[k]:
                     has_new_params = True
@@ -704,16 +722,22 @@ class InitialiseCommand(Command):
                     for k, v in existing_component.state.items()
                     if k in existing_component.state._injected_params_names
                 }
-                if existing_component
+                if self.merge_existing_params and existing_component
                 else dict()
             )
-            init_params = {
-                **existing_params,
-                **self.init_params,
-                **self._inject_into_params,
-            }
+            init_params = (
+                {}
+                if self.merge_existing_params
+                else {**self._cconfig.component_class._jembe_state_param_default_values}
+            )
+            init_params.update(
+                {**existing_params, **self.init_params, **self._inject_into_params,}
+            )
             component = self._cconfig.component_class._jembe_init_(
-                self._cconfig, list(self._inject_into_params.keys()), **init_params
+                self._cconfig,
+                list(self._inject_into_params.keys()),
+                self.merge_existing_params,
+                **init_params
             )
 
             component.exec_name = self.component_exec_name
@@ -911,12 +935,13 @@ class Processor:
                 self._load_init_params(
                     command_data["componentExecName"], command_data["initParams"]
                 ),
+                merge_existing_params=command_data["mergeExistingParams"],
             )
         elif (
             command_data["type"] == "call"
             and command_data["actionName"] == ComponentConfig.DEFAULT_DISPLAY_ACTION
         ):
-            return CallDisplayCommand(command_data["componentExecName"],)
+            return CallDisplayCommand(command_data["componentExecName"])
         elif (
             command_data["type"] == "call"
             and command_data["actionName"] != ComponentConfig.DEFAULT_DISPLAY_ACTION
@@ -1033,6 +1058,7 @@ class Processor:
                             type="init",
                             componentExecName=exec_name,
                             initParams=init_params,
+                            mergeExistingParams=True,
                         )
                     ),
                     end=True,
@@ -1096,7 +1122,10 @@ class Processor:
                 == self._raised_exception_on_initialise[command.component_exec_name]
             ):
                 return None
-            if not isinstance(command, InitialiseCommand) and command.component_exec_name not in self.components:
+            if (
+                not isinstance(command, InitialiseCommand)
+                and command.component_exec_name not in self.components
+            ):
                 return None
 
         try:
