@@ -10,7 +10,6 @@ from typing import (
     Deque,
     Any,
     NamedTuple,
-    final,
 )
 from abc import ABC, abstractmethod
 import re
@@ -671,7 +670,6 @@ class InitialiseCommand(Command):
 
     def _must_do_init(self, is_accessible_run: bool):
         if self.component_exec_name in self.processor.components:
-            # new_params = {**self.init_params, **self._inject_into_params}
             new_params = (
                 {}
                 if self.merge_existing_params
@@ -682,11 +680,8 @@ class InitialiseCommand(Command):
             )
             # if state params are same continue
             # else raise jembeerror until find better solution
-            # TODO new_params = {**[default params values from __init__ definiton], **self.init_param, **self._inject_into_params}
-            # then check if new_params == component.state in both way not just if new_params has_new_params
             component = self.processor.components[self.component_exec_name]
             has_new_params = False
-            print("must_do_init", self.component_exec_name, component.state, new_params)
             for k, v in new_params.items():
                 if k in component.state and v != component.state[k]:
                     has_new_params = True

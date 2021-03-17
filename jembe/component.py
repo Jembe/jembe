@@ -260,7 +260,6 @@ class ComponentReference:
         will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
         so that we can decide how to render template
         """
-        print('add initialise', self.exec_name, self.kwargs, self.merge_existing_params)
         self.processor.add_command(
             InitialiseCommand(self.exec_name, self.kwargs, self.merge_existing_params),
             end=True,
