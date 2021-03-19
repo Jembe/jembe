@@ -13,7 +13,7 @@ from typing import (
 )
 from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
-from functools import cached_property, partial
+from functools import cached_property
 from copy import deepcopy
 from abc import ABCMeta
 from inspect import Parameter, isclass, signature, getmembers, Signature
@@ -149,14 +149,25 @@ class ComponentReference:
         self.active_renderer = self
         self.base_jrl = "$jmb"
 
-    def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+    def _component(
+        self, merge_existing_params, jmb_exec_name: str, **kwargs
+    ) -> "ComponentReference":
         cr = ComponentReference(
-            self.exec_name, jmb_exec_name, kwargs, self.merge_existing_params
+            self.exec_name, jmb_exec_name, kwargs, merge_existing_params
         )
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
         cr.base_jrl = self.jrl
         return cr
+
+    def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+        return self._component(self.merge_existing_params, jmb_exec_name, **kwargs)
+
+    def component_reset(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+        return self._component(False, jmb_exec_name, **kwargs)
+
+    def component_merge(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+        return self._component(True, jmb_exec_name, **kwargs)
 
     def _init_component(self):
         if self._component_initialise_done:
@@ -271,7 +282,8 @@ class ComponentReference:
         # with appropriate template
         if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
             self.processor.add_command(
-                CallDisplayCommand(self.exec_name, not self.merge_existing_params), end=True,
+                CallDisplayCommand(self.exec_name, not self.merge_existing_params),
+                end=True,
             )
         else:
             self.processor.add_command(
@@ -298,9 +310,11 @@ class ComponentReference:
         return self.__call__()
 
 
-def component(jmb_exec_name: str, **kwargs) -> "ComponentReference":
+def component(
+    jmb_exec_name: str, jmb_reset: bool = True, **kwargs
+) -> "ComponentReference":
     """Creates component renderer that can be used to obtain any component url, jrl or check if it is accessible"""
-    return ComponentReference(None, jmb_exec_name, kwargs, False)
+    return ComponentReference(None, jmb_exec_name, kwargs, not jmb_reset)
 
 
 def componentInitDecorator(init_method):
@@ -752,9 +766,9 @@ class Component(metaclass=ComponentMeta):
                 )
             },
             # command to render subcomponents
-            "component": partial(self._component_template_tag, self._jembe_merged_existing_params),
-            "component_merge": partial(self._component_template_tag, True),
-            "component_reset": partial(self._component_template_tag, False),
+            "component": self.component,
+            "component_merge": self.component_merge,
+            "component_reset": self.component_reset,
             # add helpers
             "_config": self._config,
         }
@@ -772,6 +786,21 @@ class Component(metaclass=ComponentMeta):
                 self.exec_name, name, kwargs, merge_existing_params
             )
             return self.__prev_sub_component_renderer
+
+    def component(self, name: Optional[str] = None, **kwargs) -> "ComponentReference":
+        return self._component_template_tag(
+            self._jembe_merged_existing_params, name, **kwargs
+        )
+
+    def component_merge(
+        self, name: Optional[str] = None, **kwargs
+    ) -> "ComponentReference":
+        return self._component_template_tag(True, name, **kwargs)
+
+    def component_reset(
+        self, name: Optional[str] = None, **kwargs
+    ) -> "ComponentReference":
+        return self._component_template_tag(False, name, **kwargs)
 
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()
