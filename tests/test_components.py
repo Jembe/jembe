@@ -570,31 +570,31 @@ def test_dynamic_add_remove_counters(jmb, client):
                 "</body></html>"
             )
 
-    # display page with no counters
-    r = client.get("/cpage")
-    assert r.status_code == 200
-    assert r.data == (
-        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
-        "\n"
-        """<html jmb-name="/cpage" jmb-data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
-        """<input jmb:ref="key" name="key" value="">"""
-        """<button jmb-on:click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
-        "</body></html>"
-    ).encode("utf-8")
+    # # display page with no counters
+    # r = client.get("/cpage")
+    # assert r.status_code == 200
+    # assert r.data == (
+    #     """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+    #     "\n"
+    #     """<html jmb-name="/cpage" jmb-data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":[]},"url":"/cpage"}\'><head></head><body>"""
+    #     """<input jmb:ref="key" name="key" value="">"""
+    #     """<button jmb-on:click="$jmb.call(\'add_counter\', $jmb.ref('key').value)">Add counter</button>"""
+    #     "</body></html>"
+    # ).encode("utf-8")
 
-    # call to first counter with url should add that counter
-    r = client.get("/cpage/counter.first")
-    assert r.status_code == 200
-    assert r.data == (
-        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
-        "\n"
-        """<html jmb-name="/cpage" jmb-data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
-        """<input jmb:ref="key" name="key" value="">"""
-        """<button jmb-on:click="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
-        """<div><div jmb-name="/cpage/counter.first" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button jmb-on:click="$jmb.set('value', 1)">Increase</button></div>"""
-        """<button jmb-on:click="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
-        "</body></html>"
-    ).encode("utf-8")
+    # # call to first counter with url should add that counter
+    # r = client.get("/cpage/counter.first")
+    # assert r.status_code == 200
+    # assert r.data == (
+    #     """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+    #     "\n"
+    #     """<html jmb-name="/cpage" jmb-data=\'{"actions":["add_counter","remove_counter"],"changesUrl":true,"state":{"counters":["first"]},"url":"/cpage"}\'><head></head><body>"""
+    #     """<input jmb:ref="key" name="key" value="">"""
+    #     """<button jmb-on:click="$jmb.call(\'add_counter\', $jmb.ref(\'key\').value)">Add counter</button>"""
+    #     """<div><div jmb-name="/cpage/counter.first" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"value":0},"url":"/cpage/counter.first"}\'>Counter (first): 0<button jmb-on:click="$jmb.set('value', 1)">Increase</button></div>"""
+    #     """<button jmb-on:click="$jmb.call('remove_counter', 'first')">Remove</button></div>"""
+    #     "</body></html>"
+    # ).encode("utf-8")
 
     # call add_counter three times in row
     r = client.post(

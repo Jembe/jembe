@@ -14,7 +14,7 @@ from typing import (
 from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
 from functools import cached_property
-from copy import deepcopy
+from copy import deepcopy, copy
 from abc import ABCMeta
 from inspect import Parameter, isclass, signature, getmembers, Signature
 from .exceptions import JembeError, NotFound
@@ -84,9 +84,11 @@ class ComponentState(dict):
         c._injected_params_names = deepcopy(self._injected_params_names)
         return c
 
-    def tojsondict(self, component_class: Type["Component"], full=False):
+    def tojsondict(
+        self, component_class: Union[Type["Component"], "Component"], full=False
+    ):
         return {
-            k: component_class.dump_init_param(k, v)
+            k: copy(component_class.dump_init_param(k, v))
             for k, v in self.items()
             if full == True or k not in self._injected_params_names
         }
@@ -529,6 +531,7 @@ class Component(metaclass=ComponentMeta):
                         isclass(get_origin(atype))
                         and issubclass(get_origin(atype), JembeInitParamSupport)
                     )
+                    or isinstance(value, JembeInitParamSupport)
                 ):
                     return (
                         None

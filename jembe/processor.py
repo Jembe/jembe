@@ -240,7 +240,7 @@ class CallDisplayCommand(CallActionCommand):
         if self.component_exec_name in self.processor.renderers and not (
             self.force
             or (
-                # redisplay component created without merging params even if 
+                # redisplay component created without merging params even if
                 # it is rendered with same state (in order to provoke chain redisplayint)
                 not self._component._jembe_merged_existing_params
                 and not self.processor.renderers[self.component_exec_name].fresh
@@ -249,9 +249,7 @@ class CallDisplayCommand(CallActionCommand):
             or RedisplayFlag.WHEN_DISPLAY_EXECUTED in self._component._config.redisplay
             or (
                 RedisplayFlag.WHEN_STATE_CHANGED in self._component._config.redisplay
-                and self.processor.renderers[self.component_exec_name].state.tojsondict(
-                    self._component, True
-                )
+                and self.processor.renderers[self.component_exec_name].state_jsondict
                 != self._component.state.tojsondict(self._component, True)
             )
         ):
@@ -273,7 +271,8 @@ class CallDisplayCommand(CallActionCommand):
             # Add component html to processor rendererd
             self.processor.renderers[self.component_exec_name] = ComponentRender(
                 True,
-                self._component.state.deepcopy(),
+                self._component.state.tojsondict(self._component, True),
+                self._component.state._injected_params_names,
                 self._component.url,
                 self._component._config.changes_url,
                 action_result,
@@ -743,7 +742,8 @@ class InitialiseCommand(Command):
                 if self.exist_on_client:
                     self.processor.renderers[component.exec_name] = ComponentRender(
                         False,
-                        component.state.deepcopy(),
+                        component.state.tojsondict(component, True),
+                        component.state._injected_params_names,
                         component.url,
                         component._config.changes_url,
                         None,
@@ -776,7 +776,8 @@ class ComponentRender(NamedTuple):
     """represents rendered coponent html with additional parametars"""
 
     fresh: bool
-    state: "ComponentState"
+    state_jsondict: Dict[str, Any]
+    injected_params: List[str]
     url: Optional[str]
     changes_url: bool
     html: Optional[str]
@@ -1267,17 +1268,17 @@ class Processor:
             ajax_responses = []
             for (
                 exec_name,
-                (fresh, state, url, changes_url, html),
+                (fresh, state_jsondict, injected_params_names, url, changes_url, html),
             ) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
                         dict(
                             execName=exec_name,
-                            state=state.tojsondict(
-                                self.jembe.get_component_config(
-                                    exec_name
-                                ).component_class
-                            ),
+                            state={
+                                k: v
+                                for k, v in state_jsondict.items()
+                                if k not in injected_params_names
+                            },
                             dom=html,
                             url=url,
                             changesUrl=changes_url,
@@ -1295,16 +1296,28 @@ class Processor:
             # for page with components build united response
             c_etrees = {
                 exec_name: self._lxml_add_dom_attrs(
-                    html, exec_name, state, url, changes_url
+                    html,
+                    exec_name,
+                    {
+                        k: v
+                        for k, v in state_jsondict.items()
+                        if k not in injected_params_names
+                    },
+                    url,
+                    changes_url,
                 )
                 for exec_name, (
                     fresh,
-                    state,
+                    state_jsondict,
+                    injected_params_names,
                     url,
                     changes_url,
                     html,
                 ) in self.renderers.items()
-                if fresh and state is not None and url is not None and html is not None
+                if fresh
+                and state_jsondict is not None
+                and url is not None
+                and html is not None
             }
             unused_exec_names = sorted(
                 c_etrees.keys(),
@@ -1350,7 +1363,7 @@ class Processor:
         self,
         html: str,
         exec_name: str,
-        state: "ComponentState",
+        state_jsondict: Dict[str, Any],
         url: str,
         changes_url: bool,
     ):  # -> "lxml.html.HtmlElement":
@@ -1374,9 +1387,7 @@ class Processor:
                             if action_name != ComponentConfig.DEFAULT_DISPLAY_ACTION
                         ],
                         changesUrl=changes_url,
-                        state=state.tojsondict(
-                            self.jembe.get_component_config(exec_name).component_class
-                        ),
+                        state=state_jsondict,
                         url=url,
                     ),
                     separators=(",", ":"),
