@@ -41,10 +41,10 @@ class ComponentState(dict):
     Two instance of the same compoennt, component with same full_name, in the same
     state should behawe identically.
 
-    State of the component is defined by state params, __init__ params whose name 
+    State of the component is defined by state params, __init__ params whose name
     doesn't start with _ (underscore).
 
-    Appon initialising component_state params can't be added or deleted from 
+    Appon initialising component_state params can't be added or deleted from
     that state but values of the existing params can change
     """
 
@@ -216,9 +216,7 @@ class ComponentReference:
             return "'{}'".format(v)
 
         jrl = "component{reset}('{name}'{kwargs}{key}){action}".format(
-            reset="_reset"
-            if not self.merge_existing_params and self.root_renderer == self
-            else "",
+            reset="_reset" if not self.merge_existing_params else "",
             name=self.name,
             key=",key='{}'".format(self._key) if self._key else "",
             action=".call('{name}',{{{kwargs}}},[{args}])".format(
@@ -290,7 +288,10 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name, self.action, self.action_args, self.action_kwargs,
+                    self.exec_name,
+                    self.action,
+                    self.action_args,
+                    self.action_kwargs,
                 ),
                 end=True,
             )
@@ -394,8 +395,8 @@ class Component(metaclass=ComponentMeta):
         **init_params
     ):
         """
-            Instance creation by explicitly calling __new__ and __init__
-            because _config should be avaiable in __init__
+        Instance creation by explicitly calling __new__ and __init__
+        because _config should be avaiable in __init__
         """
         component = object.__new__(cls)
         component._config = _config
@@ -571,7 +572,7 @@ class Component(metaclass=ComponentMeta):
         Default implemntation suports:
             - dict, list, tuple, str, int, float, init- & float-deriveted Enums, True, False, None, via
               default json load.
-            - if any other type hint (or no hint) is set for state param and we are running in 
+            - if any other type hint (or no hint) is set for state param and we are running in
               debug mode exception will be raised (No exception will be raised in production
               because hint checking can be expensive)
         """
@@ -660,9 +661,9 @@ class Component(metaclass=ComponentMeta):
         or passed as header param to every request.
 
         Component will inject this paramas into its __init__ method, it will ignore
-        existing values of params set by default, manually or via parent component. 
-        If for some reason injected params are explicitly set they will be ignored in 
-        production but in development warrning will be displayed. 
+        existing values of params set by default, manually or via parent component.
+        If for some reason injected params are explicitly set they will be ignored in
+        production but in development warrning will be displayed.
 
         inject can set any type of init param except for url param (params without default value).
         if some param is injected it value will not be send to client nor acepted from x-jembe
@@ -681,14 +682,14 @@ class Component(metaclass=ComponentMeta):
         of display on parent component.
 
         Typical examples of inject_into params are:
-        - parent_record_id, 
+        - parent_record_id,
 
         Child component will inject this paramas into its __init__ method, it will ignore
-        existing values of params set by default or manualy (in template or via ajax request), 
-        but will be overrriden if same param is injected by the child component. 
+        existing values of params set by default or manualy (in template or via ajax request),
+        but will be overrriden if same param is injected by the child component.
 
-        If for some reason injected_into params are explicitly set manually they will be ignored in 
-        production but in development warrning will be displayed. 
+        If for some reason injected_into params are explicitly set manually they will be ignored in
+        production but in development warrning will be displayed.
         Also if child component does not accept injected_into param this param will be ignored
         and during development info will be displayed.
 
@@ -709,7 +710,7 @@ class Component(metaclass=ComponentMeta):
     ) -> str:
         """Renderes jinja2 template into html, adds default context variables
 
-        TODO 
+        TODO
         - context param defines additional template context variables
         - if template_name is none render default template
 
@@ -785,8 +786,8 @@ class Component(metaclass=ComponentMeta):
             except AttributeError:
                 raise JembeError("Previous component renderer is not set")
         else:
-            self.__prev_sub_component_renderer: "ComponentReference" = ComponentReference(
-                self.exec_name, name, kwargs, merge_existing_params
+            self.__prev_sub_component_renderer: "ComponentReference" = (
+                ComponentReference(self.exec_name, name, kwargs, merge_existing_params)
             )
             return self.__prev_sub_component_renderer
 
