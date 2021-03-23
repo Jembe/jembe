@@ -8,7 +8,7 @@ from .app import (
 )
 from .component import Component, ComponentReference
 from .common import JembeInitParamSupport
-from .component_config import action, listener, redisplay, config, UrlPath
+from .component_config import action, listener, redisplay, config, UrlPath, ComponentConfig
 from .processor import Event
 from .exceptions import (
     BadRequest,
@@ -40,6 +40,7 @@ __all__ = (
     "redisplay",
     "config",
     "UrlPath",
+    "ComponentConfig",
     "Event",
     "BadRequest",
     "Unauthorized",

@@ -901,12 +901,13 @@ class Processor:
         )
 
     def _load_init_params(self, exec_name: str, init_params: dict) -> dict:
-        component_class = self.jembe.get_component_config(exec_name).component_class
+        component_config = self.jembe.get_component_config(exec_name)
+        component_class = component_config.component_class
 
         load_params = dict()
         for param_name, param_value in init_params.items():
             load_params[param_name] = component_class.load_init_param(
-                param_name, param_value
+                component_config, param_name, param_value
             )
         return load_params
 

@@ -564,7 +564,7 @@ class Component(metaclass=ComponentMeta):
         return value
 
     @classmethod
-    def load_init_param(cls, name: str, value: Any) -> Any:
+    def load_init_param(cls, config:"ComponentConfig", name: str, value: Any) -> Any:
         """
         load and Decode init/state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
@@ -620,11 +620,12 @@ class Component(metaclass=ComponentMeta):
                         and issubclass(get_origin(atype), JembeInitParamSupport)
                     )
                 ):
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else atype.load_init_param(value)
-                    )
+                    if is_optional and value is None:
+                        return None
+                    elif isinstance(value, atype):
+                        return value.load_init_param(value)
+                    else:
+                        return atype.load_init_param(value)
             except Exception as e:
                 raise ValueError(e)
 

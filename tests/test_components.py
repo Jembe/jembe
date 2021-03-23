@@ -21,6 +21,7 @@ from jembe import (
     Forbidden,
     Unauthorized,
     Event,
+    Jembe
 )
 
 if TYPE_CHECKING:
@@ -1585,32 +1586,32 @@ def test_component_default_dump_and_load_init_param(app_ctx):
             super().__init__()
 
     with app_ctx:
-        assert C.load_init_param("i", 1) == 1
-        assert C.load_init_param("oi", None) == None
-        assert C.load_init_param("oi", 1) == 1
-        assert C.load_init_param("s", "test") == "test"
-        assert C.load_init_param("os", None) == None
-        assert C.load_init_param("os", "test") == "test"
-        assert C.load_init_param("f", 1.0) == 1.0
-        assert C.load_init_param("of", None) == None
-        assert C.load_init_param("of", 1) == 1
-        assert C.load_init_param("od1", None) == None
-        assert C.load_init_param("od1", dict(a="A", b=2)) == dict(a="A", b=2)
-        assert C.load_init_param("od1", {1: "1", 2: 20}) == {1: "1", 2: 20}
-        assert C.load_init_param("od2", None) == None
-        assert C.load_init_param("od2", dict(a="A", b=2)) == dict(a="A", b=2)
-        assert C.load_init_param("ts", ("1", "2")) == ("1", "2")
-        assert C.load_init_param("ots", None) == None
-        assert C.load_init_param("ots", ("1", "b")) == ("1", "b")
-        assert C.load_init_param("sq", ()) == ()
-        assert C.load_init_param("sq", (1, 2)) == (1, 2)
-        assert C.load_init_param("sq", [1, "2"]) == (1, "2")
-        assert C.load_init_param("urlpath", "test") == "test"
-        assert C.load_init_param("urlpath", "test") == UrlPath("test")
-        assert C.load_init_param("ourlpath", None) == None
-        assert C.load_init_param("ourlpath", "test") == UrlPath("test")
-        assert C.load_init_param("st", set([1, 2])) == set([1, 2])
-        assert C.load_init_param("st1", set(["a", 1])) == set(["a", 1])
+        assert C.load_init_param(None, "i", 1) == 1
+        assert C.load_init_param(None, "oi", None) == None
+        assert C.load_init_param(None, "oi", 1) == 1
+        assert C.load_init_param(None, "s", "test") == "test"
+        assert C.load_init_param(None, "os", None) == None
+        assert C.load_init_param(None, "os", "test") == "test"
+        assert C.load_init_param(None, "f", 1.0) == 1.0
+        assert C.load_init_param(None, "of", None) == None
+        assert C.load_init_param(None, "of", 1) == 1
+        assert C.load_init_param(None, "od1", None) == None
+        assert C.load_init_param(None, "od1", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.load_init_param(None, "od1", {1: "1", 2: 20}) == {1: "1", 2: 20}
+        assert C.load_init_param(None, "od2", None) == None
+        assert C.load_init_param(None, "od2", dict(a="A", b=2)) == dict(a="A", b=2)
+        assert C.load_init_param(None, "ts", ("1", "2")) == ("1", "2")
+        assert C.load_init_param(None, "ots", None) == None
+        assert C.load_init_param(None, "ots", ("1", "b")) == ("1", "b")
+        assert C.load_init_param(None, "sq", ()) == ()
+        assert C.load_init_param(None, "sq", (1, 2)) == (1, 2)
+        assert C.load_init_param(None, "sq", [1, "2"]) == (1, "2")
+        assert C.load_init_param(None, "urlpath", "test") == "test"
+        assert C.load_init_param(None, "urlpath", "test") == UrlPath("test")
+        assert C.load_init_param(None, "ourlpath", None) == None
+        assert C.load_init_param(None, "ourlpath", "test") == UrlPath("test")
+        assert C.load_init_param(None, "st", set([1, 2])) == set([1, 2])
+        assert C.load_init_param(None, "st1", set(["a", 1])) == set(["a", 1])
 
 
 def test_add_actions_data_in_response(jmb, client):
@@ -1993,7 +1994,7 @@ def test_page_with_two_components(jmb, client):
     ).encode("utf-8")
 
 
-def test_component_load_dump_params(app, jmb):
+def test_component_load_dump_params(app, jmb:"Jembe"):
     from jembe import File
 
     class FC(Component):
@@ -2019,7 +2020,7 @@ def test_component_load_dump_params(app, jmb):
                 "storage": "tmp",
             },
         ]
-        files = FC.load_init_param("files", files_json)
+        files = FC.load_init_param(jmb.components_configs["/page/fc"], "files", files_json)
 
         assert isinstance(files, list)
         assert len(files) == 3

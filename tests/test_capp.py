@@ -359,10 +359,12 @@ class EditTask(Component):
         super().__init__()
 
     @classmethod
-    def load_init_param(cls, param_name: str, param_value: Any) -> Any:
+    def load_init_param(
+        cls, config: "ComponentConfig", param_name: str, param_value: Any
+    ) -> Any:
         if param_name == "form":
             return TaskForm.load_init_param(param_value)
-        return super().load_init_param(param_name, param_value)
+        return super().load_init_param(config, param_name, param_value)
 
     def mount(self):
         if self.__mounted:
@@ -472,10 +474,12 @@ class AddTask(Component):
         super().__init__()
 
     @classmethod
-    def load_init_param(cls, param_name: str, param_value: Any) -> Any:
+    def load_init_param(
+        cls, config: "ComponentConfig", param_name: str, param_value: Any
+    ) -> Any:
         if param_name == "form":
             return TaskForm.load_init_param(param_value)
-        return super().load_init_param(param_name, param_value)
+        return super().load_init_param(config, param_name, param_value)
 
     def mount(self) -> None:
         if self._mounted:
@@ -797,7 +801,7 @@ def test_add_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/add",
                         initParams=dict(),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -893,7 +897,7 @@ def test_add_task_x(jmb, client):
                             wip_id=1,
                             task_id=-1,
                         ),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -981,7 +985,7 @@ def test_add_second_task_x(client, jmb):
                             wip_id=None,
                             task_id=None,
                         ),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1126,7 +1130,7 @@ def test_edit_first_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/edit",
                         initParams=dict(task_id=1,),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1231,7 +1235,7 @@ def test_edit_first_task_x(jmb, client):
                             task_id=1,
                             wip_id=1,
                         ),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1321,7 +1325,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
                         type="init",
                         componentExecName="/tasks/tasks/edit/subtasks/add",
                         initParams=dict(),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
@@ -1408,7 +1412,7 @@ def test_add_subtask_to_second_task_x(jmb, client):
                             ),
                             task_id=-1,
                         ),
-                        mergeExistingParams=True
+                        mergeExistingParams=True,
                     ),
                     dict(
                         type="call",
