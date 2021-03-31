@@ -15,6 +15,8 @@ from enum import Enum
 from itertools import accumulate
 from operator import add
 from inspect import getmembers, isfunction, signature, Parameter
+
+from jembe.common import import_by_name
 from .exceptions import JembeError
 from flask import url_for
 
@@ -93,10 +95,10 @@ def action(
     deferred aciton is executed last after allother actions from parent action template
     are executed no matter of its postion inside parent action template.
 
-    Usefull if we need to create breadcrumb or other summary report 
+    Usefull if we need to create breadcrumb or other summary report
     based from already executed actions
 
-    deferred_after and deferred_before are used to execute this action after or before 
+    deferred_after and deferred_before are used to execute this action after or before
     other specific deferred action, when multiple actions has deferred execution
     """
     # This decorator don't anytthing except allow
@@ -134,7 +136,7 @@ def listener(
         - ./component.key                   -> process event from direct child named "component with key equals "key"
         - ./**/component[.[*|<key>]]        -> process event from child at any level
         - ..                                -> process event from parent
-        - ../component[.[*|<key>]]          -> process event from sibling 
+        - ../component[.[*|<key>]]          -> process event from sibling
         - /**/.                             -> process event from parent at any level
         - /**/component[.[*|<key>]]/**/.    -> process event from parent at any level named
         - //                                -> process event from root page
@@ -164,7 +166,7 @@ def redisplay(
 ):
     """
     Decorates display method in order to set redisplay ComponentConfig param.
-    
+
     Made for easy use when configuring components
     """
 
@@ -287,7 +289,7 @@ def componentConfigInitDecorator(init_method):
             init_named_params = [
                 name
                 for name, param in init_parameters.items()
-                if param.kind == Parameter.POSITIONAL_OR_KEYWORD
+                if param.kind == Parameter.POSITIONAL_OR_KEYWORD and name != "self"
             ]
             init_has_kwarg_param = (
                 len(
@@ -312,7 +314,7 @@ def componentConfigInitDecorator(init_method):
                         **{
                             key: value
                             for key, value in init_params.items()
-                            if key in init_named_params
+                            if key in init_named_params[len(args) :]
                         },
                     )
             except Exception as e:
@@ -368,8 +370,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         **init_params,
     ):
         """
-            Instance creation by explicitly calling __new__ and __init__
-            becouse _parent should be avaible in __init__
+        Instance creation by explicitly calling __new__ and __init__
+        becouse _parent should be avaible in __init__
         """
         cconfig = object.__new__(cls)
         cconfig._name = _name
@@ -383,9 +385,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         """
         Called by _jembe_init_, when actually inicitialising component
         to calculate and set all attributes required by jembe framework.
-        Reads component class description and sets appropriate config params 
+        Reads component class description and sets appropriate config params
         like url_path state and init params, etc.
-        
+
         This method is not run when you initiate Config inside @config or @page
         decorator in order to set default values.
         """
@@ -476,9 +478,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 t if t != "" else self.default_template_name for t in template
             )
 
-        self.components: Dict[
-            str, "ComponentRef"
-        ] = components if components else dict()
+        self.components: Dict[str, "ComponentRef"] = (
+            components if components else dict()
+        )
         self._inject_into_components = inject_into_components
 
         # if redisplay is set use it, otherwise leave
@@ -596,7 +598,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         return "{}.html".format(self.full_name.strip("/"))
 
     def update_components_config(
-        self, name: Optional[str], params: Dict,
+        self,
+        name: Optional[str],
+        params: Dict,
     ):
         """
         For use inside __init__ to change sub components config init params
@@ -646,6 +650,16 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 "{}/{}".format(self.full_name, component_name)
             ]
         return configs
+
+    @property
+    def components_classes(self) -> Dict[str, Type["Component"]]:
+        def _get_cref_class(cref: "ComponentRef") -> Type["Component"]:
+            cc = cref[0] if isinstance(cref, tuple) else cref
+            if isinstance(cc, str):
+                return import_by_name(cc)
+            return cc
+
+        return {name: _get_cref_class(cref) for name, cref in self.components.items()}
 
     @property
     def super(self):
