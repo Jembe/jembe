@@ -233,7 +233,11 @@ class ComponentReference:
             else ".display()",
             kwargs=",{{{}}}".format(
                 ",".join(
-                    ("{}:{}".format(k, _prep_v(v)) for k, v in self.kwargs.items())
+                    (
+                        "{}:{}".format(k, _prep_v(v))
+                        for k, v in self.kwargs.items()
+                        if not k.startswith("_")
+                    )
                 )
             )
             if self.kwargs
@@ -564,7 +568,7 @@ class Component(metaclass=ComponentMeta):
         return value
 
     @classmethod
-    def load_init_param(cls, config:"ComponentConfig", name: str, value: Any) -> Any:
+    def load_init_param(cls, config: "ComponentConfig", name: str, value: Any) -> Any:
         """
         load and Decode init/state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
