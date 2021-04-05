@@ -686,7 +686,7 @@ class JembeClient {
       ) {
         if (!node.disabled) {
           node.disabled = true
-          this.xRequestDisabledElements.push(() => { node.disabled = false })
+          this.xRequestDisabledElements.push(() => { if(!node.disabled) {node.disabled = false} })
         }
       } else if (
         // <input type="text">
@@ -696,7 +696,7 @@ class JembeClient {
       ) {
         if (!node.readOnly) {
           node.readOnly = true
-          this.xRequestDisabledElements.push(() => { node.readOnly = false })
+          this.xRequestDisabledElements.push(() => { if(!node.readOnly) {node.readOnly = false} })
         }
       }
     })
