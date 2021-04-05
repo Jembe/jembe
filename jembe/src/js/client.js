@@ -684,9 +684,15 @@ class JembeClient {
         (node.tagName.toLowerCase() === 'input' &&
           (node.type === 'checkbox' || node.type === 'radio'))
       ) {
+        node.setAttribute('jmb-node-initially-disabled', node.disabled)
         if (!node.disabled) {
           node.disabled = true
-          this.xRequestDisabledElements.push(() => { if(!node.disabled) {node.disabled = false} })
+          this.xRequestDisabledElements.push(() => { 
+            if (node.hasAttribute("jmb-node-initially-disabled")) {
+              node.disabled = node.getAttribute("jmb-node-initially-disabled") === "true"
+              node.removeAttribute("jmb-node-initially-disabled")
+            }
+          })
         }
       } else if (
         // <input type="text">
@@ -694,9 +700,15 @@ class JembeClient {
         // <textarea>
         node.tagName.toLowerCase() === 'textarea'
       ) {
+        node.setAttribute('jmb-node-initially-readonly', node.readOnly)
         if (!node.readOnly) {
           node.readOnly = true
-          this.xRequestDisabledElements.push(() => { if(!node.readOnly) {node.readOnly = false} })
+          this.xRequestDisabledElements.push(() => { 
+            if (node.hasAttribute("jmb-node-initially-readonly")) {
+              node.readOnly = node.getAttribute("jmb-node-initially-readonly") === "true"
+              node.removeAttribute("jmb-node-initially-readonly")
+            }
+          })
         }
       }
     })
