@@ -142,7 +142,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
         if (el.__jmb_listeners === undefined) {
             el.__jmb_listeners = []
         }
-        el.__jmb_listeners.push([event, handler, options])
+        el.__jmb_listeners.push([listenerTarget, event, handler, options])
         listenerTarget.addEventListener(event, handler, options)
     }
 }

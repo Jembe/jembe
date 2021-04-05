@@ -339,8 +339,8 @@ export default class Component {
         }
         // remove all existing listeners
         if (el.__jmb_listeners !== undefined) {
-            for (const [event, handler, options] of el.__jmb_listeners) {
-                el.removeEventListener(event, handler, options)
+            for (const [ltarget, event, handler, options] of el.__jmb_listeners) {
+                ltarget.removeEventListener(event, handler, options)
             }
             el.__jmb_listeners = undefined
         }
