@@ -316,7 +316,6 @@ class JembeClient {
     }
 
     this.components = newComponents
-    this.dispatchUpdatePageEvent()
   }
 
   addInitialiseCommand(execName, initParams, mergeExistingParams = true) {
@@ -541,6 +540,7 @@ class JembeClient {
             if (updateLocation) {
               this.updateLocation()
             }
+            this.dispatchUpdatePageEvent()
           }).catch(error => {
             this.dispatchUpdatePageErrorEvent(null, error)
           })
