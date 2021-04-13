@@ -2095,3 +2095,31 @@ def test_component_renderer_absolute_path(jmb, client):
         """<p jmb-name="/page/a1" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"rid":0},"url":"/page/a1/0"}\'>/page/a1:0</p>"""
         """</body></html>"""
     ).encode("utf-8")
+
+def test_component_can_use_relative_reference(jmb, client):
+    class A(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("A")
+    class B(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("B2A: {{component('..').component('a').url}}, {{component('../a').url}}")
+
+    @jmb.page("page", Component.Config(components=dict(a=A, b=B)))
+    class Page(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>"
+                "{{component('a')}}"
+                "{{component('b')}}"
+                "</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+        """<p jmb-name="/page/a" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a"}\'>A</p>"""
+        """<p jmb-name="/page/b" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/b"}\'>B2A: /page/a, /page/a</p>"""
+        """</body></html>"""
+    ).encode("utf-8")

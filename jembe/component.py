@@ -134,17 +134,18 @@ class ComponentReference:
         self._component_instance: Optional["Component"] = None
         self._is_accessible: Optional[bool] = None
 
-        if "." in self.name or (
-            "/" in self.name
-            and not self.name.startswith("/")
-            and len(self.name.split("/")) == 2
-        ):
-            raise JembeError(
-                "Component renderer only supports rendering and accessing direct childs or root page component"
-            )
         if self.caller_exec_name is None and not self.name.startswith("/"):
             raise JembeError(
                 "ComponentReference can't be called with relative path without caller_exec_name specified"
+            )
+
+        if (".." in self.name and self.name != "..") or (
+            "/" in self.name
+            and not self.name.startswith("/")
+            # and len(self.name.split("/")) == 2
+        ):
+            raise JembeError(
+                "Component renderer only supports rendering and accessing direct childs, root page or parent component"
             )
 
         self.root_renderer = self
@@ -254,6 +255,13 @@ class ComponentReference:
     def exec_name(self) -> str:
         if self.name.startswith("/"):
             return Component._build_exec_name(self.name.split("/")[1], self._key)
+        elif self.caller_exec_name is not None and self.name == "..":
+            caller_exec_name_split = self.caller_exec_name.split("/")
+            return Component._build_exec_name(
+                caller_exec_name_split[-2],
+                self._key,"/".join(caller_exec_name_split[:-3])
+
+            )
         elif self.caller_exec_name is not None:
             return Component._build_exec_name(
                 self.name, self._key, self.caller_exec_name
@@ -292,10 +300,7 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name,
-                    self.action,
-                    self.action_args,
-                    self.action_kwargs,
+                    self.exec_name, self.action, self.action_args, self.action_kwargs,
                 ),
                 end=True,
             )

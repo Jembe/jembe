@@ -2,7 +2,7 @@
 name = "jembe"
 version = "0.3.0"
 description = "Jembe Web Framework"
-license = "LGPL-3.0-only"
+license = "AGPL-3.0-only"
 authors = ["Predrag Peranovic <predrag.peranovic@blokkod.me>"]
 readme = "README.rst"
 homepage = "https://jembe.io"
