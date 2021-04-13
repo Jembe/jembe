@@ -107,7 +107,43 @@ class ComponentReference:
     {{component('name').is_accessible}}..{{component().jrl}}...
     Add comand 'init' with same usage as component but without
     using state params of exisiting component if its on page ??
+
+
+    factory class method allow use of {{component('../name')}} or {{component('/a/b/c')}}
     """
+
+    @classmethod
+    def factory(
+        cls,
+        caller_exec_name: Optional[str],
+        name: str,
+        kwargs: dict,
+        merge_existing_params: bool = True,
+    ) -> "ComponentReference":
+
+        name_split = name.split("/")
+        cr: Optional["ComponentReference"] = None
+        if (name_split[0] == "" and len(name_split) > 2) or (  # /a/b
+            name_split[0] != "" and len(name_split) > 1
+        ):  # a/b ../b
+            if name_split[0] == "":
+                name_split = name_split[1:]
+                name_split[0] = "/{}".format(name_split[0])
+            for pname in name_split[:-1]:
+                if cr is None:
+                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
+                else:
+                    cr = cr.component(pname)
+            cr = (
+                cr.component(name_split[-1], **kwargs)
+                if cr is not None
+                else cls(
+                    caller_exec_name, name_split[-1], kwargs, merge_existing_params
+                )
+            )
+        else:
+            cr = cls(caller_exec_name, name, kwargs, merge_existing_params)
+        return cr
 
     def __init__(
         self,
@@ -259,8 +295,8 @@ class ComponentReference:
             caller_exec_name_split = self.caller_exec_name.split("/")
             return Component._build_exec_name(
                 caller_exec_name_split[-2],
-                self._key,"/".join(caller_exec_name_split[:-3])
-
+                self._key,
+                "/".join(caller_exec_name_split[:-3]),
             )
         elif self.caller_exec_name is not None:
             return Component._build_exec_name(
@@ -326,7 +362,7 @@ def component(
     jmb_exec_name: str, jmb_reset: bool = True, **kwargs
 ) -> "ComponentReference":
     """Creates component renderer that can be used to obtain any component url, jrl or check if it is accessible"""
-    return ComponentReference(None, jmb_exec_name, kwargs, not jmb_reset)
+    return ComponentReference.factory(None, jmb_exec_name, kwargs, not jmb_reset)
 
 
 def componentInitDecorator(init_method):
@@ -797,7 +833,9 @@ class Component(metaclass=ComponentMeta):
                 raise JembeError("Previous component renderer is not set")
         else:
             self.__prev_sub_component_renderer: "ComponentReference" = (
-                ComponentReference(self.exec_name, name, kwargs, merge_existing_params)
+                ComponentReference.factory(
+                    self.exec_name, name, kwargs, merge_existing_params
+                )
             )
             return self.__prev_sub_component_renderer
 
