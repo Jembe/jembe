@@ -296,7 +296,7 @@ class ComponentReference:
             return Component._build_exec_name(
                 caller_exec_name_split[-2],
                 self._key,
-                "/".join(caller_exec_name_split[:-3]),
+                "/".join(caller_exec_name_split[:-2]),
             )
         elif self.caller_exec_name is not None:
             return Component._build_exec_name(
