@@ -200,13 +200,10 @@ class ComponentReference:
         return cr
 
     def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
-        return self._component(self.merge_existing_params, jmb_exec_name, **kwargs)
+        return self._component(True, jmb_exec_name, **kwargs)
 
     def component_reset(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
         return self._component(False, jmb_exec_name, **kwargs)
-
-    def component_merge(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
-        return self._component(True, jmb_exec_name, **kwargs)
 
     def _init_component(self):
         if self._component_initialise_done:
@@ -396,8 +393,15 @@ def componentInitDecorator(init_method):
                 }
             )
             self.state._injected_params_names = self._jembe_injected_params_names
-        # TODO raise Jembe error if not all required params are present
-        init_method(self, *args, **kwargs)
+        try:
+            init_method(self, *args, **kwargs)
+        except Exception as e:
+            current_app.logger.warning(
+                "{}: {};  args={}; kwargs={};".format(
+                    self.__class__.__name__, e, args, kwargs
+                )
+            )
+            raise e
 
     return decoratedInit
 
@@ -817,14 +821,16 @@ class Component(metaclass=ComponentMeta):
             },
             # command to render subcomponents
             "component": self.component,
-            "component_merge": self.component_merge,
             "component_reset": self.component_reset,
             # add helpers
             "_config": self._config,
         }
 
     def _component_template_tag(
-        self, merge_existing_params: bool, name: Optional[str] = None, **kwargs
+        self,
+        kwargs: Dict[str, Any],
+        name: Optional[str] = None,
+        merge_existing_params: bool = True,
     ) -> "ComponentReference":
         if name is None:
             try:
@@ -839,20 +845,15 @@ class Component(metaclass=ComponentMeta):
             )
             return self.__prev_sub_component_renderer
 
-    def component(self, name: Optional[str] = None, **kwargs) -> "ComponentReference":
-        return self._component_template_tag(
-            self._jembe_merged_existing_params, name, **kwargs
-        )
-
-    def component_merge(
-        self, name: Optional[str] = None, **kwargs
+    def component(
+        self, _jmb_component_name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
-        return self._component_template_tag(True, name, **kwargs)
+        return self._component_template_tag(kwargs, _jmb_component_name)
 
     def component_reset(
-        self, name: Optional[str] = None, **kwargs
+        self, _jmb_component_name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
-        return self._component_template_tag(False, name, **kwargs)
+        return self._component_template_tag(kwargs, _jmb_component_name, False)
 
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()

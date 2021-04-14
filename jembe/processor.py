@@ -39,7 +39,7 @@ from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
 if TYPE_CHECKING:  # pragma: no cover
     from .app import Jembe
     from flask import Request
-    from .component import Component, ComponentState
+    from .component import Component
     from .component_config import ComponentListener
 
 
@@ -727,6 +727,7 @@ class InitialiseCommand(Command):
             init_params.update(
                 {**existing_params, **self.init_params, **self._inject_into_params,}
             )
+
             component = self._cconfig.component_class._jembe_init_(
                 self._cconfig,
                 list(self._inject_into_params.keys()),
