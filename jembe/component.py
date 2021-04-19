@@ -131,7 +131,12 @@ class ComponentReference:
                 name_split[0] = "/{}".format(name_split[0])
             for pname in name_split[:-1]:
                 if cr is None:
-                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
+                    cr = cls(
+                        caller_exec_name,
+                        pname,
+                        {},
+                        merge_existing_params,
+                    )
                 else:
                     cr = cr.component(pname)
             cr = (
@@ -308,6 +313,14 @@ class ComponentReference:
     def processor(self) -> Processor:
         return get_processor()
 
+    def force_init(self):
+        """Force initialisation of component in processor.components"""
+        if self.is_accessible:
+            initialise_command = InitialiseCommand(
+                self.exec_name, self.kwargs, self.merge_existing_params
+            )
+            self.processor.add_command(initialise_command, True)
+
     def __call__(self) -> str:
         """
         Do render
@@ -333,7 +346,10 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name, self.action, self.action_args, self.action_kwargs,
+                    self.exec_name,
+                    self.action,
+                    self.action_args,
+                    self.action_kwargs,
                 ),
                 end=True,
             )
