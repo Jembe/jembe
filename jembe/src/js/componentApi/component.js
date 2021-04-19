@@ -530,6 +530,7 @@ export default class Component {
                 if (mutations[i].addedNodes.length > 0) {
                     mutations[i].addedNodes.forEach(node => {
                         if (node.nodeType !== 1 || node.__jmb_inserted_me) return
+                        if ((node.hasAttribute('jmb-name') && node.getAttribute('jmb-name') !== this.execName) || node.hasAttribute('jmb-placeholder')) return
 
                         // @jembeModification
                         // can only create component for jembe component it ignores jmb-local on
