@@ -160,7 +160,10 @@ class CallActionCommand(Command):
                 )
             )
         # if component injects params into children save component state json hesh
-        if cconfig._inject_into_components is not None:
+        if (
+            cconfig._inject_into_components is not None
+            or cconfig.component_class._jembe_inject_into_overriden
+        ):
             self._component_state_before_execute = component.state.tojsondict(
                 component, True
             )
@@ -653,19 +656,31 @@ class InitialiseCommand(Command):
     @cached_property
     def _inject_into_params(self) -> Dict[str, Any]:
         parent_cconfig = self._cconfig.parent
-        injected_params = dict()
-        if parent_cconfig and parent_cconfig._inject_into_components:
-            injected_params = parent_cconfig._inject_into_components(
-                self.processor.components[parent_exec_name(self.component_exec_name)],
-                self._cconfig,
+        if parent_cconfig:
+            parent_component = self.processor.components[
+                parent_exec_name(self.component_exec_name)
+            ]
+            injected_params = (
+                parent_component.inject_into(self._cconfig)
+                if parent_component._jembe_inject_into_overriden
+                else dict()
             )
+            if parent_cconfig._inject_into_components:
+                injected_params.update(
+                    parent_cconfig._inject_into_components(
+                        parent_component, self._cconfig,
+                    )
+                )
             # clean up injected params
-            injected_params = {
-                key: value
-                for key, value in injected_params.items()
-                if key in self._cconfig.component_class._jembe_init_param_names
-            }
-        return injected_params
+            if injected_params:
+                injected_params = {
+                    key: value
+                    for key, value in injected_params.items()
+                    if key in self._cconfig.component_class._jembe_init_param_names
+                }
+            return injected_params
+        else:
+            return dict()
 
     def _must_do_init(self, is_accessible_run: bool):
         if self.component_exec_name in self.processor.components:

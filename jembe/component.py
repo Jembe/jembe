@@ -131,12 +131,7 @@ class ComponentReference:
                 name_split[0] = "/{}".format(name_split[0])
             for pname in name_split[:-1]:
                 if cr is None:
-                    cr = cls(
-                        caller_exec_name,
-                        pname,
-                        {},
-                        merge_existing_params,
-                    )
+                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
                 else:
                     cr = cr.component(pname)
             cr = (
@@ -346,10 +341,7 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name,
-                    self.action,
-                    self.action_args,
-                    self.action_kwargs,
+                    self.exec_name, self.action, self.action_args, self.action_kwargs,
                 ),
                 end=True,
             )
@@ -446,6 +438,20 @@ class ComponentMeta(ABCMeta):
                 and not p.name.startswith("_")
             }
             attrs["__init__"] = componentInitDecorator(attrs["__init__"])
+
+        # check if inject_into is overriden
+        inject_into_overriden = False
+        if "inject_into" in attrs:
+            inject_into_overriden = True
+        else:
+            for b in bases:
+                if b != Component and getattr(
+                    b, "_jembe_inject_into_overriden", False
+                ):
+                    inject_into_overriden = True
+                    break
+        attrs["_jembe_inject_into_overriden"] = inject_into_overriden
+
         new_class = super().__new__(cls, name, bases, dict(attrs), **kwargs)
         return new_class
 
@@ -478,6 +484,7 @@ class Component(metaclass=ComponentMeta):
     _jembe_injected_params_names: List[str]
     _jembe_config_init_params: Dict[str, Any]
     _jembe_merged_existing_params: bool
+    _jembe_inject_into_overriden: bool
     _config: "Config"
 
     class Config(ComponentConfig):
@@ -737,7 +744,7 @@ class Component(metaclass=ComponentMeta):
         """
         return dict()
 
-    def inject_into(self, component: "Component") -> Dict[str, Any]:
+    def inject_into(self, cconfig: "ComponentConfig") -> Dict[str, Any]:
         """
         inject_into params are used to inject  params into child component.
         This params usually defines values required by child compoennt that are
@@ -763,6 +770,9 @@ class Component(metaclass=ComponentMeta):
         if some param is injected it value will not be send to client nor acepted from x-jembe
         http request and JembeError will be raised.
         """
+        #  Not supportting this becouse it will force reinitialise of all childrens if
+        #   parent component action changes state regardles if parent injects params with
+        #   this method
         return dict()
 
     def isinjected(self, param_name: str) -> bool:

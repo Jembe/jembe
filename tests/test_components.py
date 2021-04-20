@@ -21,10 +21,10 @@ from jembe import (
     Forbidden,
     Unauthorized,
     Event,
-    Jembe
 )
 
 if TYPE_CHECKING:
+    from jembe import ComponentConfig
     from flask import Response
 
 
@@ -1994,7 +1994,7 @@ def test_page_with_two_components(jmb, client):
     ).encode("utf-8")
 
 
-def test_component_load_dump_params(app, jmb:"Jembe"):
+def test_component_load_dump_params(app, jmb: "Jembe"):
     from jembe import File
 
     class FC(Component):
@@ -2020,7 +2020,9 @@ def test_component_load_dump_params(app, jmb:"Jembe"):
                 "storage": "tmp",
             },
         ]
-        files = FC.load_init_param(jmb.components_configs["/page/fc"], "files", files_json)
+        files = FC.load_init_param(
+            jmb.components_configs["/page/fc"], "files", files_json
+        )
 
         assert isinstance(files, list)
         assert len(files) == 3
@@ -2096,13 +2098,17 @@ def test_component_renderer_absolute_path(jmb, client):
         """</body></html>"""
     ).encode("utf-8")
 
+
 def test_component_can_use_relative_reference(jmb, client):
     class A(Component):
         def display(self) -> Union[str, "Response"]:
             return self.render_template_string("A")
+
     class B(Component):
         def display(self) -> Union[str, "Response"]:
-            return self.render_template_string("B2A: {{component('..').component('a').url}}, {{component('../a').url}}")
+            return self.render_template_string(
+                "B2A: {{component('..').component('a').url}}, {{component('../a').url}}"
+            )
 
     @jmb.page("page", Component.Config(components=dict(a=A, b=B)))
     class Page(Component):
@@ -2123,3 +2129,95 @@ def test_component_can_use_relative_reference(jmb, client):
         """<p jmb-name="/page/b" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/b"}\'>B2A: /page/a, /page/a</p>"""
         """</body></html>"""
     ).encode("utf-8")
+
+
+def test_inject_into_component_method(jmb, client):
+    class Project(Component):
+        def __init__(self, id: int):
+            super().__init__()
+
+        def inject_into(self, cconfig: "ComponentConfig") -> Dict[str, Any]:
+            return dict(project_id=self.state.id)
+
+        @action
+        def goto(self, id: int):
+            self.state.id = id
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<div>Project {{id}}{{component('tasks')}}</div>"
+            )
+
+    class Tasks(Component):
+        def __init__(self, project_id: Optional[int] = None):
+            super().__init__()
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<div>Tasks for project: {{project_id}}</div>"
+            )
+
+    @jmb.page(
+        "test",
+        Component.Config(
+            components=dict(
+                project=(Project, Project.Config(components=dict(tasks=Tasks)))
+            )
+        ),
+    )
+    class Test(Component):
+        @listener(event="_display", source="./project")
+        def on_project_display(self, event):
+            self.project_id = event.source.state.id
+
+        def display(self) -> Union[str, "Response"]:
+            self.project_id = getattr(self, "project_id", 1)
+            return self.render_template_string(
+                "<html><body>{{component('project', id=project_id)}}</body></html>"
+            )
+
+    r = client.get("/test")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/test" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test"}\'><body>"""
+        """<div jmb-name="/test/project" jmb-data=\'{"actions":["goto"],"changesUrl":true,"state":{"id":1},"url":"/test/project/1"}\'>"""
+        """Project 1"""
+        """<div jmb-name="/test/project/tasks" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/test/project/1/tasks"}\'>"""
+        """Tasks for project: 1"""
+        """</div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r = client.post(
+        "/test/project/1",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/test", state=dict()),
+                    dict(execName="/test/project", state=dict(id=1)),
+                    dict(execName="/test/project/tasks", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/test/project",
+                        actionName="goto",
+                        args=list(),
+                        kwargs=dict(id=2),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 2
+    assert json_response[0]["execName"] == "/test/project"
+    assert (
+        json_response[0]["dom"]
+        == """<div>Project 2<template jmb-placeholder="/test/project/tasks"></template></div>"""
+    )
+    assert json_response[1]["execName"] == "/test/project/tasks"
+    assert json_response[1]["dom"] == """<div>Tasks for project: 2</div>"""
