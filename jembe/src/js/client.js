@@ -1,5 +1,5 @@
 import ComponentAPI from "./componentApi/index.js"
-import { deepCopy, walkComponentDom } from "./utils.js"
+import { deepCopy, walkComponentDom, getCookie } from "./utils.js"
 import morphdom from "./morphdom/index.js"
 import { walk } from "./componentApi/utils.js"
 import JMB from "./componentApi/magic/jmb.js"
@@ -204,6 +204,9 @@ class JembeClient {
     this.xRequestDisabledElements = []
 
     window.onpopstate = this.onHistoryPopState
+
+    // support adding x-jembe request headers
+    this.xRequestHeadersGenerators = []
   }
   /**
    * Finds all jmb-name and associate jmb-data tags in document 
@@ -475,13 +478,15 @@ class JembeClient {
         resolve(null)
       })
     }
+    const headers = this.xRequestHeadersGenerators.length === 0 ? {} : this.calculateXRequestHeaders()
+    headers['X-JEMBE'] = 'upload'
     return window.fetch(url, {
       method: "POST",
       cache: "no-cache",
       credentials: "same-origin",
       redirect: "follow",
       referrer: "no-referrer",
-      headers: { 'X-JEMBE': 'upload' },
+      headers: headers,
       body: uploadFormData
     }).then(response => {
       if (!response.ok) {
@@ -516,6 +521,11 @@ class JembeClient {
         const requestBody = this.getXRequestJson()
         // reset commads since we create request body from it
         this.commands = []
+        const headers = this.xRequestHeadersGenerators.length === 0 ? {} : this.calculateXRequestHeaders()
+        headers['X-JEMBE'] = 'commands'
+        if (fileUploadResponseId !== null) {
+          headers['X-JEMBE-RELATED-UPLOAD'] = fileUploadResponseId
+        }
         // fetch request and process response
         window.fetch(url, {
           method: "POST",
@@ -523,7 +533,8 @@ class JembeClient {
           credentials: "same-origin",
           redirect: "follow",
           referrer: "no-referrer",
-          headers: fileUploadResponseId !== null ? { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId } : { 'X-JEMBE': 'commands' },
+          // headers: fileUploadResponseId !== null ? { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId } : { 'X-JEMBE': 'commands' },
+          headers: headers,
           body: requestBody
         }).then(response => {
           if (!response.ok) {
@@ -687,7 +698,7 @@ class JembeClient {
         node.setAttribute('jmb-node-initially-disabled', node.disabled)
         if (!node.disabled) {
           node.disabled = true
-          this.xRequestDisabledElements.push(() => { 
+          this.xRequestDisabledElements.push(() => {
             if (node.hasAttribute("jmb-node-initially-disabled")) {
               node.disabled = node.getAttribute("jmb-node-initially-disabled") === "true"
               node.removeAttribute("jmb-node-initially-disabled")
@@ -703,7 +714,7 @@ class JembeClient {
         node.setAttribute('jmb-node-initially-readonly', node.readOnly)
         if (!node.readOnly) {
           node.readOnly = true
-          this.xRequestDisabledElements.push(() => { 
+          this.xRequestDisabledElements.push(() => {
             if (node.hasAttribute("jmb-node-initially-readonly")) {
               node.readOnly = node.getAttribute("jmb-node-initially-readonly") === "true"
               node.removeAttribute("jmb-node-initially-readonly")
@@ -724,6 +735,19 @@ class JembeClient {
       this.xRequestActiveElement.focus()
     }
     this.xRequestActiveElement = null
+  }
+  addXRequestHeaderGenerator(callback) {
+    this.xRequestHeadersGenerators.push(callback)
+  }
+  calculateXRequestHeaders() {
+    let header = {}
+    for (const headerGenCallback of this.xRequestHeadersGenerators) {
+      header = { ...header, ...headerGenCallback() }
+    }
+    return header
+  }
+  getCookie(name) {
+    return getCookie(name)
   }
 }
 
