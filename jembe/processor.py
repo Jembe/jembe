@@ -474,14 +474,14 @@ class EmitCommand(Command):
 
             - None -> match to every initialised component 
             - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
-            - ./*                               -> direct children with or without key
-            - ./*.*                             -> direct children with any key
-            - ./**/*                            -> all children with or without key
-            - ./**/*.*                          -> all children with any key
-            - ./component                       -> match to direct child named "component" without key
-            - ./component.*                     -> match to direct child named "component" with any key
-            - ./component.key                   -> match to direct child named "component with key equals "key"
-            - ./**/component[.[*|<key>]]        -> match to child at any level
+            - *                               -> direct children with or without key
+            - *.*                             -> direct children with any key
+            - **/*                            -> all children with or without key
+            - **/*.*                          -> all children with any key
+            - component                       -> match to direct child named "component" without key
+            - component.*                     -> match to direct child named "component" with any key
+            - component.key                   -> match to direct child named "component with key equals "key"
+            - **/component[.[*|<key>]]        -> match to child at any level
             - ..                                -> match to parent
             - ../component[.[*|<key>]]          -> match to sibling 
             - /**/.                             -> match to parent at any level
@@ -526,7 +526,11 @@ class EmitCommand(Command):
             # regular path match
             if pattern.startswith("/"):
                 pass
-            elif pattern.startswith("./") or pattern == ".":
+            elif pattern == ".":
+                pattern = pattern_exec_name
+            elif not(pattern.startswith(".") or pattern.startswith("/")):
+                pattern = "{}/{}".format(pattern_exec_name, pattern)
+            elif pattern.startswith("./"):
                 pattern = "{}{}".format(pattern_exec_name, pattern.lstrip("."))
             elif pattern.startswith(".."):
                 pattern_begins = pattern_exec_name.lstrip("/").split("/")
@@ -543,7 +547,7 @@ class EmitCommand(Command):
                 re.escape(pattern)
                 .replace(
                     "/\\*\\*/",
-                    "((/.*/)|(/))",  # ** replace wit regex to match compoente path
+                    "((/.*/)|(/))",  # ** replace wit regex to match component path
                 )
                 .replace("\\*\\.\\*", "[^./]+\\.[^./]+")
                 .replace("\\.\\*", "\\.[^./]+")  # replace with regex to match any key

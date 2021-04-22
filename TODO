@@ -8,7 +8,7 @@ Public Dev Lunch:
       ☐ template for "default" project (session, postgres, sqlalchemy)
       ☐ reusable components (pages, menues, notifications, messages, tables, forms etc.)
   Dev:
-    ☐ Add csfr protection
+    ✔ Add csfr protection @done(21-04-22 09:33)
     ☐ Calling action from comoponet if other componet changed state must be confirmed (losse of data) - define flow end actions with custom confirmation message and inflow list of comonents and actions
     ✘ Include component in non jembe html @cancelled(21-04-20 16:25)
     ☐ PUsh to browser history only if url is changed??? or something else so can't go back on deleted record
@@ -16,7 +16,7 @@ Public Dev Lunch:
     ✔ disable all inputs and buttons while processing x-jembe request??? so that we donot get conflicts with data and lose data on update @done(21-04-14 11:10)
     ☐ Rendering same component twice brakes the jembe
     ✔ InitilaliseCommoand._must_do_init:  new_params = {**[default params values from __init__ definiton], **self.init_param, **self._inject_into_params} then check if new_params == component.state in both way not just if new_params has_new_params @done(21-03-16 23:20)
-    ☐ Update @listener to
+    ✔ Update @listener to @done(21-04-22 14:12)
       /c1.k1/c2.k2/c3
 
       /page/me

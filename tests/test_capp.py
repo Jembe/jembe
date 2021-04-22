@@ -207,21 +207,21 @@ class TaskList(Component):
                         self._tasks[tid] = t
             return self._tasks
 
-    @listener(event="_display", source="./*")
+    @listener(event="_display", source="*")
     def on_display_child(self, event: Event):
         self.state.mode = event.source_name
         self.goto_task_id = event.params.get("task_id", None)
 
-    @listener(event="save", source=["./edit", "./add"])
+    @listener(event="save", source=["edit", "add"])
     def on_tasks_changed(self, event: Event):
         self.state.mode = "view" if "view" in self._config.components else "edit"
         self.goto_task_id = event.params.get("task_id", None)
 
-    @listener(event="cancel", source="./*")
+    @listener(event="cancel", source="*")
     def on_cancel_operation(self, event: Event):
         self.state.mode = "list"
 
-    @listener(event="delete", source=["./delete"])
+    @listener(event="delete", source=["delete"])
     def on_delete_task(self, event: Event):
         self.state.mode = "list"
 

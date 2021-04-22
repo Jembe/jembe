@@ -392,7 +392,7 @@ def test_multi_counter_intercommunication_events(jmb, client):
     class CPage(Component):
         @action
         def increase_all(self):
-            self.emit("increase").to("./*")  # direct children
+            self.emit("increase").to("*")  # direct children
 
         def display(self):
             return self.render_template_string(
@@ -553,7 +553,7 @@ def test_dynamic_add_remove_counters(jmb, client):
             if key and key in self.state.counters:
                 self.state.counters.remove(key)
 
-        @listener(event="_display", source="./*")
+        @listener(event="_display", source="*")
         def on_counter_render(self, event):
             if event.source.key not in self.state.counters:
                 self.state.counters.append(event.source.key)
@@ -944,7 +944,7 @@ def test_error_handlings(jmb, client):
         def __init__(self, display_counter: bool = False):
             super().__init__()
 
-        @listener(event="_display", source="./counter")
+        @listener(event="_display", source="counter")
         def on_display_counter(self, event):
             self.state.display_counter = True
 
@@ -976,7 +976,7 @@ def test_catch_exception_by_parent_and_ignore_it(jmb, client):
 
     @jmb.page("cpage", Component.Config(components=dict(c=Counter)))
     class Page(Component):
-        @listener(event="_exception", source="./**")
+        @listener(event="_exception", source="**")
         def on_exception(self, event):
             if isinstance(event.exception, Forbidden):
                 event.handled = True
@@ -1042,7 +1042,7 @@ def test_error_handling_leaves_empty_placeholder(client, jmb):
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
     class Page(Component):
-        @listener(event="_exception", source="./a")
+        @listener(event="_exception", source="a")
         def on_error_in_a(self, event):
             event.handled = True
 
@@ -1067,7 +1067,7 @@ def test_error_handling_leaves_empty_placeholder_deep(client, jmb):
 
     @config(Component.Config(components=dict(b=B)))
     class A(Component):
-        @listener(event="_exception", source="./b")
+        @listener(event="_exception", source="b")
         def on_error_in_b(self, event):
             event.handled = True
 
@@ -1116,7 +1116,7 @@ def test_error_handling_with_listener_on_display_with_deferred_action(client, jm
             # self.b_has_error = False
             super().__init__()
 
-        @listener(event="_exception", source="./b")
+        @listener(event="_exception", source="b")
         def on_error_in_b(self, event):
             event.handled = True
             self.state.b_has_error = True
@@ -1435,7 +1435,7 @@ def test_client_emit_event_handling(jmb, client):
             self.canceled = False
             super().__init__()
 
-        @listener(event="cancel", source="./*")
+        @listener(event="cancel", source="*")
         def on_cancel(self, event: "Event"):
             self.canceled = True
 
@@ -1506,7 +1506,7 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
             super().__init__()
             self.events: List[str] = []
 
-        @listener(source="./a")
+        @listener(source="a")
         def on_a_events(self, event):
             self.events.append(event.name)
 
@@ -1692,7 +1692,7 @@ def test_event_source_name_with_keyed_exec_name(jmb, client):
             source_to=None,
             destination_exec_name="/test",
             destination_listener=ComponentListener(
-                method_name="on_test", event_name="test", source=["./view.*"]
+                method_name="on_test", event_name="test", source=["view.*"]
             ),
         )
         == True
@@ -1739,7 +1739,7 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
         ),
     )
     class Test(Component):
-        @listener(event="_display", source="./project")
+        @listener(event="_display", source="project")
         def on_project_display(self, event):
             self.project_id = event.source.state.project_id
 
@@ -1844,11 +1844,11 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
         def __init__(self, display_mode: Optional[str] = None):
             super().__init__()
 
-        @listener(event="_display", source="./a")
+        @listener(event="_display", source="a")
         def on_display_a(self, event):
             self.state.display_mode = "a"
 
-        @listener(event="cancel", source="./a")
+        @listener(event="cancel", source="a")
         def on_cancel_a(self, event):
             self.state.display_mode = None
 
@@ -1962,7 +1962,7 @@ def test_page_with_two_components(jmb, client):
                 self.state.display_mode = "a"
             super().__init__()
 
-        @listener(event="_display", source="./*")
+        @listener(event="_display", source="*")
         def on_child_display(self, event: "Event"):
             self.state.display_mode = event.source_name
 
@@ -2067,7 +2067,7 @@ def test_component_renderer_absolute_path(jmb, client):
         def __init__(self, display_mode: str = "a1"):
             super().__init__()
 
-        @listener(event="_display", source="./*")
+        @listener(event="_display", source="*")
         def on_display_a(self, event: "Event"):
             if event.source_name in ("a1", "a2"):
                 self.state.display_mode = event.source_name
@@ -2166,7 +2166,7 @@ def test_inject_into_component_method(jmb, client):
         ),
     )
     class Test(Component):
-        @listener(event="_display", source="./project")
+        @listener(event="_display", source="project")
         def on_project_display(self, event):
             self.project_id = event.source.state.id
 

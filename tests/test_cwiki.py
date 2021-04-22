@@ -233,12 +233,12 @@ def test_wiki(jmb, client):
             self.goto: Optional[str] = None
             super().__init__()
 
-        @listener(event="_display", source=["./view", "./edit", "./add"])
+        @listener(event="_display", source=["view", "edit", "add"])
         def on_display_child(self, event):
             self.state.mode = event.source._config.name
             self.goto = event.source.state.page_path
 
-        @listener(event=["cancel", "save"], source=["./edit", "./add"])
+        @listener(event=["cancel", "save"], source=["edit", "add"])
         def on_cancel_edit_or_add(self, event):
             self.goto = event.source.state.page_path
             self.state.mode = "view"
