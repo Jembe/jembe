@@ -751,12 +751,12 @@ class InitialiseCommand(Command):
 
             component = self._cconfig.component_class._jembe_init_(
                 self._cconfig,
+                self.component_exec_name,
                 list(self._inject_into_params.keys()),
                 self.merge_existing_params,
                 **init_params
             )
 
-            component.exec_name = self.component_exec_name
             self.initialised_component = component
             if not is_accessible_run:
                 self.processor.components[component.exec_name] = component

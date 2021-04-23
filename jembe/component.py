@@ -461,6 +461,7 @@ class Component(metaclass=ComponentMeta):
     def _jembe_init_(
         cls,
         _config: ComponentConfig,
+        _component_exec_name: str,
         _jembe_injected_params_names: List[str],
         _jembe_merged_existing_params: bool,
         **init_params
@@ -469,11 +470,12 @@ class Component(metaclass=ComponentMeta):
         Instance creation by explicitly calling __new__ and __init__
         because _config should be avaiable in __init__
         """
-        component = object.__new__(cls)
-        component._config = _config
+        component: "Component" = object.__new__(cls)
+        component._config = _config # type: ignore
         component._jembe_injected_params_names = _jembe_injected_params_names
         component._jembe_merged_existing_params = _jembe_merged_existing_params
-        component.__init__(**init_params)
+        component.exec_name = _component_exec_name
+        component.__init__(**init_params) # type: ignore
         return component
 
     state: "ComponentState"
@@ -491,7 +493,10 @@ class Component(metaclass=ComponentMeta):
         pass
 
     def __init__(self):
-        self.__key: str = ""
+        try:
+            self.__key:str = self.__key
+        except:
+            self.__key = ""
         self.__exec_name: str
         self.__has_action_or_listener_executed: bool = False
 
