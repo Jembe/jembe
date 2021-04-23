@@ -17,17 +17,17 @@ Public Dev Lunch:
     ☐ Rendering same component twice brakes the jembe
     ✔ InitilaliseCommoand._must_do_init:  new_params = {**[default params values from __init__ definiton], **self.init_param, **self._inject_into_params} then check if new_params == component.state in both way not just if new_params has_new_params @done(21-03-16 23:20)
     ✔ Update @listener to @done(21-04-22 14:12)
-      /c1.k1/c2.k2/c3
+        /c1.k1/c2.k2/c3
 
-      /page/me
-      c2 == /page/me/c1
-      * == /page/me/*
-      ** == /page/me/**/*
-      .. == /page
-      ../test == /page/test
-      // = /page
-      /**/ = 
-      /**/c1.k1/**/
+        /page/me
+        c2 == /page/me/c1
+        * == /page/me/*
+        ** == /page/me/**/*
+        .. == /page
+        ../test == /page/test
+        // = /page
+        /**/ = 
+        /**/c1.k1/**/
     ☐ Perseve component state vriable in local storage to enable restoring search and pagination when returning to list, and to enable nested forms(??)
 
 Archive:

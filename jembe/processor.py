@@ -24,7 +24,8 @@ from flask.globals import current_app
 from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
-from flask import json, jsonify, Response, g
+from flask import json, jsonify, g
+from werkzeug import Response
 from .common import (
     convert_to_annotated_type,
     exec_name_to_full_name,
@@ -283,14 +284,15 @@ class CallDisplayCommand(CallActionCommand):
         elif isinstance(action_result, Response):
             # TODO If self.component is component directly requested via http request
             # othervise raise JembeError
-            if not self.processor.renderers:
-                return action_result
-            else:
-                raise JembeError(
-                    "{} action should be first one to return responses if that response is not html string but full response object".format(
-                        self._component._config.full_name
-                    )
-                )
+            # if not self.processor.renderers:
+            #     return action_result
+            # else:
+            #     raise JembeError(
+            #         "{} action should be first one to return responses if that response is not html string but full response object".format(
+            #             self._component._config.full_name
+            #         )
+            #     )
+            return action_result
         elif not isinstance(action_result, str):
             # Display should return html string if not raise JembeError
             raise JembeError(
