@@ -24,7 +24,7 @@ from jembe import (
 )
 
 if TYPE_CHECKING:
-    from jembe import ComponentConfig
+    from jembe import ComponentConfig, Jembe
     from flask import Response
 
 
@@ -2221,3 +2221,106 @@ def test_inject_into_component_method(jmb, client):
     )
     assert json_response[1]["execName"] == "/test/project/tasks"
     assert json_response[1]["dom"] == """<div>Tasks for project: 2</div>"""
+
+
+def test_redirect_to(jmb, client):
+    class B(Component):
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div>{{exec_name}}</div>")
+
+    @config(Component.Config(components=dict(b=B)))
+    class A(Component):
+        @action
+        def goto(self, where):
+            self.redirect_to(self.component(where))
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string("<div>{{component('b')}}</div>")
+
+    @jmb.page(
+        "page", Component.Config(components=dict(a1=A, a2=A)),
+    )
+    class Page(Component):
+        def __init__(self, display_mode: str = "a1"):
+            super().__init__()
+
+        @listener(event="_display", source="*")
+        def on_display(self, event):
+            self.state.display_mode = event.source_name
+
+        def display(self) -> Union[str, "Response"]:
+            return self.render_template_string(
+                "<html><body>{{component(display_mode)}}</body></html>"
+            )
+
+    r = client.get("/page")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":"a1"},"url":"/page"}\'><body>"""
+        """<div jmb-name="/page/a1" jmb-data=\'{"actions":["goto"],"changesUrl":true,"state":{},"url":"/page/a1"}\'>"""
+        """<div jmb-name="/page/a1/b" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a1/b"}\'>"""
+        """/page/a1/b"""
+        """</div>"""
+        """</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r = client.post(
+        "/page/a1",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict(display_mode="a1")),
+                    dict(execName="/page/a1", state=dict()),
+                    dict(execName="/page/a1/b", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/page/a1",
+                        actionName="goto",
+                        args=list(),
+                        kwargs=dict(where="../a2"),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    print(json_response)
+    assert r.status_code == 200
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["state"] == dict(display_mode="a2")
+    assert json_response[1]["execName"] == "/page/a2"
+    assert json_response[2]["execName"] == "/page/a2/b"
+    r = client.post(
+        "/page/a1",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/page", state=dict(display_mode="a1")),
+                    dict(execName="/page/a1", state=dict()),
+                    dict(execName="/page/a1/b", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/page/a1",
+                        actionName="goto",
+                        args=list(),
+                        kwargs=dict(where="/page/a2"),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    json_response = json.loads(r.data)
+    assert r.status_code == 200
+    assert len(json_response) == 3
+    assert json_response[0]["execName"] == "/page"
+    assert json_response[0]["state"] == dict(display_mode="a2")
+    assert json_response[1]["execName"] == "/page/a2"
+    assert json_response[2]["execName"] == "/page/a2/b"

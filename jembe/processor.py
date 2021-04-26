@@ -530,7 +530,7 @@ class EmitCommand(Command):
                 pass
             elif pattern == ".":
                 pattern = pattern_exec_name
-            elif not(pattern.startswith(".") or pattern.startswith("/")):
+            elif not (pattern.startswith(".") or pattern.startswith("/")):
                 pattern = "{}/{}".format(pattern_exec_name, pattern)
             elif pattern.startswith("./"):
                 pattern = "{}{}".format(pattern_exec_name, pattern.lstrip("."))
@@ -1476,3 +1476,26 @@ class Processor:
                 ts.rmdir("uploads")
             except:
                 pass
+
+    def remove_component(self, exec_name: str, only_children: bool = False): 
+        def match_exec_name(match: str) -> bool: 
+            if match.startswith("{}/".format(exec_name)):
+                return True
+            if only_children == False and match == exec_name:
+                return True
+            return False
+
+        self._commands = deque(
+            (
+                c
+                for c in self._commands
+                if not match_exec_name(c.component_exec_name)
+                or isinstance(c, EmitCommand)
+            )
+        )
+        self.renderers = {
+            en: r for en, r in self.renderers.items() if not match_exec_name(en)
+        }
+        self.components = {
+            en: c for en, c in self.components.items() if not match_exec_name(en)
+        }

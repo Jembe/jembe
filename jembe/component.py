@@ -895,3 +895,24 @@ class Component(metaclass=ComponentMeta):
     def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
         processor = get_processor()
         return processor.jembe.get_storage(storage_name)
+
+    def redirect_to(self, component_ref:"ComponentReference"):
+        """
+        Redirects request to another component removing all unecessory 
+        components from processing.
+        """
+        processor = get_processor()
+        # Remove all unecessary components that should not be needed after
+        # redirect by finding first component that is parent to both this compoment
+        # and redirected to compomennt (have same exec_name and same state)
+        # and remove all existing components and its assciated commands from
+        # jembe processors
+        root_cr = component_ref.root_renderer
+        root_cr.exec_name
+        print(root_cr.exec_name)
+        # processor.remove_component()
+
+        # Creates new commands to init and display for redirect components
+        # and puts in processenig que
+        component_ref()
+
