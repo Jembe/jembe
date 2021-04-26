@@ -177,14 +177,15 @@ class CallActionCommand(Command):
         if action_result is None or (
             isinstance(action_result, bool) and action_result == True
         ):
-            # after executing action that returns True or None
-            # component should be rendered by executing display
-            self.processor.add_command(
-                CallDisplayCommand(
-                    self.component_exec_name, force=action_result == True
-                ),
-                end=True,
-            )
+            if self.component_exec_name in self.processor.components.keys():
+                # after executing action that returns True or None
+                # component should be rendered by executing display
+                self.processor.add_command(
+                    CallDisplayCommand(
+                        self.component_exec_name, force=action_result == True
+                    ),
+                    end=True,
+                )
         elif isinstance(action_result, bool) and action_result == False:
             # Do nothing
             pass
@@ -1477,8 +1478,8 @@ class Processor:
             except:
                 pass
 
-    def remove_component(self, exec_name: str, only_children: bool = False): 
-        def match_exec_name(match: str) -> bool: 
+    def remove_component(self, exec_name: str, only_children: bool = False):
+        def match_exec_name(match: str) -> bool:
             if match.startswith("{}/".format(exec_name)):
                 return True
             if only_children == False and match == exec_name:

@@ -2086,7 +2086,6 @@ def test_component_renderer_absolute_path(jmb, client):
 
     r = client.get("/page")
     assert r.status_code == 200
-    print(r.data)
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
         """<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{"display_mode":"a1"},"url":"/page"}\'><body>"""
@@ -2288,7 +2287,6 @@ def test_redirect_to(jmb, client):
         headers={"x-jembe": True},
     )
     json_response = json.loads(r.data)
-    print(json_response)
     assert r.status_code == 200
     assert len(json_response) == 3
     assert json_response[0]["execName"] == "/page"

@@ -445,9 +445,7 @@ class ComponentMeta(ABCMeta):
             inject_into_overriden = True
         else:
             for b in bases:
-                if b != Component and getattr(
-                    b, "_jembe_inject_into_overriden", False
-                ):
+                if b != Component and getattr(b, "_jembe_inject_into_overriden", False):
                     inject_into_overriden = True
                     break
         attrs["_jembe_inject_into_overriden"] = inject_into_overriden
@@ -471,11 +469,11 @@ class Component(metaclass=ComponentMeta):
         because _config should be avaiable in __init__
         """
         component: "Component" = object.__new__(cls)
-        component._config = _config # type: ignore
+        component._config = _config  # type: ignore
         component._jembe_injected_params_names = _jembe_injected_params_names
         component._jembe_merged_existing_params = _jembe_merged_existing_params
         component.exec_name = _component_exec_name
-        component.__init__(**init_params) # type: ignore
+        component.__init__(**init_params)  # type: ignore
         return component
 
     state: "ComponentState"
@@ -494,7 +492,7 @@ class Component(metaclass=ComponentMeta):
 
     def __init__(self):
         try:
-            self.__key:str = self.__key
+            self.__key: str = self.__key
         except:
             self.__key = ""
         self.__exec_name: str
@@ -896,7 +894,7 @@ class Component(metaclass=ComponentMeta):
         processor = get_processor()
         return processor.jembe.get_storage(storage_name)
 
-    def redirect_to(self, component_ref:"ComponentReference"):
+    def redirect_to(self, component_ref: "ComponentReference"):
         """
         Redirects request to another component removing all unecessory 
         components from processing.
@@ -908,9 +906,10 @@ class Component(metaclass=ComponentMeta):
         # and remove all existing components and its assciated commands from
         # jembe processors
         root_cr = component_ref.root_renderer
-        root_cr.exec_name
-        print(root_cr.exec_name)
-        # processor.remove_component()
+        processor.remove_component(
+            root_cr.exec_name,
+            self.exec_name.startswith("{}/".format(root_cr.exec_name)),
+        )
 
         # Creates new commands to init and display for redirect components
         # and puts in processenig que
