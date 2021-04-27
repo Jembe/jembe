@@ -29,11 +29,13 @@ from .processor import (
     EmitCommand,
     Processor,
 )
-from .common import JembeInitParamSupport, exec_name_to_full_name, get_annotation_type
+from .common import (
+    JembeInitParamSupport,
+    exec_name_to_full_name,
+    get_annotation_type,
+    DisplayResponse,
+)
 from .files import Storage
-
-if TYPE_CHECKING:  # pragma: no cover
-    from flask import Response
 
 
 class ComponentState(dict):
@@ -131,7 +133,12 @@ class ComponentReference:
                 name_split[0] = "/{}".format(name_split[0])
             for pname in name_split[:-1]:
                 if cr is None:
-                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
+                    cr = cls(
+                        caller_exec_name,
+                        pname,
+                        {},
+                        merge_existing_params,
+                    )
                 else:
                     cr = cr.component(pname)
             cr = (
@@ -286,6 +293,8 @@ class ComponentReference:
 
     @cached_property
     def exec_name(self) -> str:
+        if self.name == ".":
+            from pdb import set_trace; set_trace()
         if self.name.startswith("/"):
             return Component._build_exec_name(self.name.split("/")[1], self._key)
         elif self.caller_exec_name is not None and self.name == "..":
@@ -341,7 +350,10 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name, self.action, self.action_args, self.action_kwargs,
+                    self.exec_name,
+                    self.action,
+                    self.action_args,
+                    self.action_kwargs,
                 ),
                 end=True,
             )
@@ -781,7 +793,7 @@ class Component(metaclass=ComponentMeta):
     def isinjected(self, param_name: str) -> bool:
         return param_name in self._jembe_injected_params_names
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> DisplayResponse:
         return self.render_template()
 
     def render_template(
@@ -855,7 +867,7 @@ class Component(metaclass=ComponentMeta):
             "_config": self._config,
         }
 
-    def _component_template_tag(
+    def _component_reference(
         self,
         kwargs: Dict[str, Any],
         name: Optional[str] = None,
@@ -877,12 +889,12 @@ class Component(metaclass=ComponentMeta):
     def component(
         self, _jmb_component_name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
-        return self._component_template_tag(kwargs, _jmb_component_name)
+        return self._component_reference(kwargs, _jmb_component_name)
 
     def component_reset(
         self, _jmb_component_name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
-        return self._component_template_tag(kwargs, _jmb_component_name, False)
+        return self._component_reference(kwargs, _jmb_component_name, False)
 
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()
@@ -896,7 +908,7 @@ class Component(metaclass=ComponentMeta):
 
     def redirect_to(self, component_ref: "ComponentReference"):
         """
-        Redirects request to another component removing all unecessory 
+        Redirects request to another component removing all unecessory
         components from processing.
         """
         processor = get_processor()
@@ -914,4 +926,3 @@ class Component(metaclass=ComponentMeta):
         # Creates new commands to init and display for redirect components
         # and puts in processenig que
         component_ref()
-

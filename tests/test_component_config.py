@@ -4,7 +4,7 @@ from jembe import Component, config, redisplay, Jembe
 if TYPE_CHECKING:
     from flask import Response
     from jembe.component_config import RedisplayFlag, ComponentConfig
-    from jembe.common import ComponentRef
+    from jembe.common import ComponentRef, DisplayResponse
 
 
 def test_redisplay_settings(jmb: Jembe):
@@ -65,7 +65,7 @@ def test_config_init_params(jmb: Jembe, client):
 
         _config: Config
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("a")
 
     @config(A.Config(model="test"))
@@ -77,7 +77,7 @@ def test_config_init_params(jmb: Jembe, client):
         "page", Component.Config(components=dict(a=AA),),
     )
     class Page(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component('a')}}</body></html>"
             )

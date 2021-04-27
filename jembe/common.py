@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_o
 from abc import ABC, abstractmethod
 import inspect
 from importlib import import_module
+from flask import Response
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component import Component, ComponentConfig
@@ -10,6 +11,8 @@ ComponentRef = Union[
     Union[Type["Component"], str],
     Tuple[Union[Type["Component"], str], Union["ComponentConfig", Dict[str, Any]]],
 ]
+
+DisplayResponse = Union[str, Response]
 
 
 def exec_name_to_full_name(exec_name: str) -> str:

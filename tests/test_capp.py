@@ -16,7 +16,7 @@ from jembe import (
 )
 
 if TYPE_CHECKING:
-    from flask import Response
+    from jembe import DisplayResponse
 
     """build simple task apps for testing server side processing and jembe api"""
 
@@ -228,7 +228,7 @@ class TaskList(Component):
     # redisplay whenever it is executed regardles if the state is changed
     # becouse state changes in task_db or wipdb will not be reflected to the state
     @redisplay(when_executed=True)
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         list_template = (
             """<div>"""
             """{% if component("add").is_accessible %}"""
@@ -322,7 +322,7 @@ class ViewTask(Component):
         else:
             return tasks_db[self.state.task_id]
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         self.emit("set_page_title", title="View {}".format(self.task.title))
         return self.render_template_string(
             """<h1><a href="#" jmb-on:click="$jmb.component('..').display()">Back</a> {{task.title}}</h1>"""
@@ -425,7 +425,7 @@ class EditTask(Component):
             return False
         # form is not valid redisplay it with error
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         self.mount()
         self.emit("set_page_title", title="Edit {}".format(self.task.title))
         return self.render_template_string(
@@ -550,7 +550,7 @@ class AddTask(Component):
             return False
         # form is not valid redisplay it with error
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         self.mount()
         self.emit("set_page_title", title="Add task")
         return self.render_template_string(
@@ -617,7 +617,7 @@ class DeleteTask(Component):
         # successful delete
         return False
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         self.emit("set_page_title", title="Delete {}".format(self.task.title))
         return self.render_template_string(
             "<h1>Delete {{task.title}}</h1>"
@@ -724,7 +724,7 @@ class TasksPage(Component):
             event.handled = True
             return True  # Force redisplay
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         return self.render_template_string(
             "<html><head>{{component('page_title')}}</head>"
             "<body>"

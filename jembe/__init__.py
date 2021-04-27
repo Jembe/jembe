@@ -7,7 +7,7 @@ from .app import (
     get_temp_storage,
 )
 from .component import Component, ComponentReference
-from .common import JembeInitParamSupport, ComponentRef
+from .common import JembeInitParamSupport, ComponentRef, DisplayResponse
 from .component_config import action, listener, redisplay, config, UrlPath, ComponentConfig, RedisplayFlag
 from .processor import Event
 from .exceptions import (
@@ -43,6 +43,7 @@ __all__ = (
     "ComponentConfig",
     "RedisplayFlag",
     "ComponentRef",
+    "DisplayResponse",
     "Event",
     "BadRequest",
     "Unauthorized",

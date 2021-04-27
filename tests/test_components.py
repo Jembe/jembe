@@ -24,7 +24,7 @@ from jembe import (
 )
 
 if TYPE_CHECKING:
-    from jembe import ComponentConfig, Jembe
+    from jembe import ComponentConfig, Jembe, DisplayResponse
     from flask import Response
 
 
@@ -1330,7 +1330,7 @@ def test_update_window_location(jmb, client):
 
 def test_url_get_query_params(jmb, client):
     class AComponent(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div></div>")
 
     @jmb.page(
@@ -1346,7 +1346,7 @@ def test_url_get_query_params(jmb, client):
                 self.state.page = 0
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<html><body></body></html>")
 
     r = client.get("/list")
@@ -1380,7 +1380,7 @@ def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
                 self.state.page = 0
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<html><body></body></html>")
 
     r = client.get("/list")
@@ -1424,7 +1424,7 @@ def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
 
 def test_client_emit_event_handling(jmb, client):
     class TestComponent(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 """<div><button jmb-on:click="$jmb.emit('cancel')">Cancel</button></div>"""
             )
@@ -1440,7 +1440,7 @@ def test_client_emit_event_handling(jmb, client):
             self.canceled = True
 
         @redisplay(when_executed=True)
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component('test')}}<div>{{canceled}}</div></body></html>"
             )
@@ -1497,7 +1497,7 @@ def test_client_emit_event_handling(jmb, client):
 
 def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client):
     class A(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div></div>")
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
@@ -1511,7 +1511,7 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
             self.events.append(event.name)
 
         @redisplay(when_executed=True)
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component('a')}}<div>{{events|safe}}</div></body></html>"
             )
@@ -1625,12 +1625,12 @@ def test_add_actions_data_in_response(jmb, client):
             pass
 
         @redisplay(when_executed=True)
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div></div>")
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
     class Page(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component('a')}}</body></html>"
             )
@@ -1708,7 +1708,7 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
         def goto(self, project_id: int):
             self.state.project_id = project_id
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<div>Project {{project_id}}{{component('tasks')}}</div>"
             )
@@ -1717,7 +1717,7 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
         def __init__(self, project_id: Optional[int] = None):
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<div>Tasks for project: {{project_id}}</div>"
             )
@@ -1743,7 +1743,7 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
         def on_project_display(self, event):
             self.project_id = event.source.state.project_id
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             self.project_id = getattr(self, "project_id", 1)
             return self.render_template_string(
                 "<html><body>{{component('project', project_id=project_id)}}</body></html>"
@@ -1798,17 +1798,17 @@ def test_inject_into_should_refresh_childs_when_parent_state_is_changed(jmb, cli
 
 def test_component_inside_component(jmb, client):
     class B(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div>B</div>")
 
     @config(Component.Config(components=dict(b=B)))
     class A(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("{{component('b')}}")
 
     @jmb.page("test", Component.Config(components=dict(a=A)))
     class Page(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component('a')}}</body></html>"
             )
@@ -1836,7 +1836,7 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
         def cancel(self):
             self.emit("cancel")
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("C{{rid}}")
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
@@ -1852,7 +1852,7 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
         def on_cancel_a(self, event):
             self.state.display_mode = None
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>"
                 "{%if display_mode is none %}"
@@ -1948,11 +1948,11 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
 
 def test_page_with_two_components(jmb, client):
     class A(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div>A</div>")
 
     class B(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div>B</div>")
 
     @jmb.page("page", Component.Config(components=dict(a=A, b=B)))
@@ -1966,7 +1966,7 @@ def test_page_with_two_components(jmb, client):
         def on_child_display(self, event: "Event"):
             self.state.display_mode = event.source_name
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component(display_mode)}}</body></html>"
             )
@@ -2043,14 +2043,14 @@ def test_component_renderer_absolute_path(jmb, client):
         def __init__(self, rid: int):
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("{{exec_name}}:{{rid}}")
 
     class B(Component):
         def __init__(self):
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 """<ul>"""
                 """{% if component('/page').component('a1', rid=1).is_accessible %}"""
@@ -2072,7 +2072,7 @@ def test_component_renderer_absolute_path(jmb, client):
             if event.source_name in ("a1", "a2"):
                 self.state.display_mode = event.source_name
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>"
                 "{{component('b')}}"
@@ -2100,18 +2100,18 @@ def test_component_renderer_absolute_path(jmb, client):
 
 def test_component_can_use_relative_reference(jmb, client):
     class A(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("A")
 
     class B(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "B2A: {{component('..').component('a').url}}, {{component('../a').url}}"
             )
 
     @jmb.page("page", Component.Config(components=dict(a=A, b=B)))
     class Page(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>"
                 "{{component('a')}}"
@@ -2142,7 +2142,7 @@ def test_inject_into_component_method(jmb, client):
         def goto(self, id: int):
             self.state.id = id
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<div>Project {{id}}{{component('tasks')}}</div>"
             )
@@ -2151,7 +2151,7 @@ def test_inject_into_component_method(jmb, client):
         def __init__(self, project_id: Optional[int] = None):
             super().__init__()
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<div>Tasks for project: {{project_id}}</div>"
             )
@@ -2169,7 +2169,7 @@ def test_inject_into_component_method(jmb, client):
         def on_project_display(self, event):
             self.project_id = event.source.state.id
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             self.project_id = getattr(self, "project_id", 1)
             return self.render_template_string(
                 "<html><body>{{component('project', id=project_id)}}</body></html>"
@@ -2224,7 +2224,7 @@ def test_inject_into_component_method(jmb, client):
 
 def test_redirect_to(jmb, client):
     class B(Component):
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div>{{exec_name}}</div>")
 
     @config(Component.Config(components=dict(b=B)))
@@ -2233,7 +2233,7 @@ def test_redirect_to(jmb, client):
         def goto(self, where):
             self.redirect_to(self.component(where))
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string("<div>{{component('b')}}</div>")
 
     @jmb.page(
@@ -2247,7 +2247,7 @@ def test_redirect_to(jmb, client):
         def on_display(self, event):
             self.state.display_mode = event.source_name
 
-        def display(self) -> Union[str, "Response"]:
+        def display(self) -> "DisplayResponse":
             return self.render_template_string(
                 "<html><body>{{component(display_mode)}}</body></html>"
             )
@@ -2322,3 +2322,145 @@ def test_redirect_to(jmb, client):
     assert json_response[0]["state"] == dict(display_mode="a2")
     assert json_response[1]["execName"] == "/page/a2"
     assert json_response[2]["execName"] == "/page/a2/b"
+
+
+# def test_ghost_component(jmb, client):
+#     @config(Component.Config(changes_url=False))
+#     class B(Component):
+#         def __init__(self, id: int = 0):
+#             super().__init__()
+
+#         @action
+#         def remove_me(self):
+#             self._remove_me = True
+
+#         """Ghost component"""
+
+#         def display(self) -> "DisplayResponse":
+#             return not getattr(self, "_remove_me", False)
+
+#     @config(Component.Config(components=dict(b=B)))
+#     class A(Component):
+#         def display(self) -> "DisplayResponse":
+#             return self.render_template_string(
+#                 "<div><a jmb-on:click.stop.prevent='component(\"b\")'>add ghoust</a></div>"
+#             )
+
+#     @jmb.page(
+#         "page", Component.Config(components=dict(a=A)),
+#     )
+#     class Page(Component):
+#         def display(self) -> "DisplayResponse":
+#             return self.render_template_string(
+#                 "<html><body>{{component('a')}}</body></html>"
+#             )
+
+#     r = client.get("/page")
+#     assert r.status_code == 200
+#     assert r.data == (
+#         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+#         """<html jmb-name="/page" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
+#         """<div jmb-name="/page/a" jmb-data=\'{"actions":[],"changesUrl":true,"state":{},"url":"/page/a"}\'>"""
+#         """<a jmb-on:click.stop.prevent=\'component("b")\'>add ghoust</a>"""
+#         """</div>"""
+#         """</body></html>"""
+#     ).encode("utf-8")
+#     r = client.post(
+#         "/page/a",
+#         data=json.dumps(
+#             dict(
+#                 components=[
+#                     dict(execName="/page", state=dict()),
+#                     dict(execName="/page/a", state=dict()),
+#                 ],
+#                 commands=[
+#                     dict(
+#                         type="init",
+#                         componentExecName="/page/a/b",
+#                         initParams=dict(id=1),
+#                         mergeExistingParams=True,
+#                     ),
+#                     dict(
+#                         type="call",
+#                         componentExecName="/page/a/b",
+#                         actionName="display",
+#                         args=list(),
+#                         kwargs=dict(),
+#                     ),
+#                 ],
+#             )
+#         ),
+#         headers={"x-jembe": True},
+#     )
+#     json_response = json.loads(r.data)
+#     assert r.status_code == 200
+#     assert len(json_response) == 1
+#     assert json_response[0]["execName"] == "/page/a/b"
+#     assert json_response[0]["state"] == dict(id=1)
+#     assert json_response[0]["dom"] == None
+#     assert json_response[0]["is_ghost"] == True
+#     r = client.post(
+#         "/page/a",
+#         data=json.dumps(
+#             dict(
+#                 components=[
+#                     dict(execName="/page", state=dict()),
+#                     dict(execName="/page/a", state=dict()),
+#                     dict(execName="/page/a/b", state=dict(id=1)),
+#                 ],
+#                 commands=[
+#                     dict(
+#                         type="call",
+#                         componentExecName="/page/a/b",
+#                         actionName="remove_me",
+#                         args=list(),
+#                         kwargs=dict(),
+#                     ),
+#                 ],
+#             )
+#         ),
+#         headers={"x-jembe": True},
+#     )
+#     json_response = json.loads(r.data)
+#     assert r.status_code == 200
+#     assert len(json_response) == 1
+#     assert json_response[0]["execName"] == "/page/a/b"
+#     assert json_response[0]["state"] == dict(id=1)
+#     assert json_response[0]["dom"] == None
+#     assert json_response[0]["is_ghost"] == False
+
+#     r = client.post(
+#         "/page/a",
+#         data=json.dumps(
+#             dict(
+#                 components=[
+#                     dict(execName="/page", state=dict()),
+#                     dict(execName="/page/a", state=dict()),
+#                     dict(execName="/page/a/b", state=dict()),
+#                 ],
+#                 commands=[
+#                     dict(
+#                         type="init",
+#                         componentExecName="/page/a/b",
+#                         initParams=dict(id=2),
+#                         mergeExistingParams=True,
+#                     ),
+#                     dict(
+#                         type="call",
+#                         componentExecName="/page/a/b",
+#                         actionName="display",
+#                         args=list(),
+#                         kwargs=dict(),
+#                     ),
+#                 ],
+#             )
+#         ),
+#         headers={"x-jembe": True},
+#     )
+#     json_response = json.loads(r.data)
+#     assert r.status_code == 200
+#     assert len(json_response) == 1
+#     assert json_response[0]["execName"] == "/page/a/b"
+#     assert json_response[0]["state"] == dict(id=2)
+#     assert json_response[0]["dom"] == None
+#     assert json_response[0]["is_ghost"] == False

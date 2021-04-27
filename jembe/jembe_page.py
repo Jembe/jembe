@@ -11,6 +11,7 @@ from .app import get_storage, get_temp_storage, get_processor
 
 if TYPE_CHECKING:
     from flask import Response
+    from .common import DisplayResponse
 
 
 class DisplayFileComponent(Component):
@@ -19,7 +20,7 @@ class DisplayFileComponent(Component):
     def __init__(self, storage_name: str, file_path: UrlPath):
         super().__init__()
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         return get_storage(self.state.storage_name).send_file(self.state.file_path)
 
 
@@ -74,7 +75,7 @@ class UploadFilesComponent(Component):
                         else:
                             self.files[fileUploadId] = [tmp_file]
 
-    def display(self) -> Union[str, "Response"]:
+    def display(self) -> "DisplayResponse":
         self._save_files_to_temp_storage()
 
         return jsonify(
