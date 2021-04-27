@@ -1,3 +1,4 @@
+from jembe.app import get_processor
 from typing import (
     Any,
     NewType,
@@ -2464,3 +2465,35 @@ def test_redirect_to(jmb, client):
 #     assert json_response[0]["state"] == dict(id=2)
 #     assert json_response[0]["dom"] == None
 #     assert json_response[0]["is_ghost"] == False
+
+
+def test_build_exec_name(app, jmb:"Jembe"):
+    class A(Component):
+        def display(self) -> "DisplayResponse":
+            return ""
+
+    @jmb.page(
+        "page",
+        Component.Config(
+            components=dict(
+                a=(A, A.Config(components=dict(a1=A, a2=A, a3=A))), 
+                b=(A, A.Config(components=dict(b1=A, b2=A, b3=A))), 
+                c=(A, A.Config(components=dict(c1=A, c2=A, c3=A))), 
+            )
+        ),
+    )
+    class Page(Component):
+        def display(self) -> "DisplayResponse":
+            return ""
+
+
+    with app.test_request_context(path="/page/a"):
+        processor = get_processor()
+        processor.process_request()
+        def getc(exec_name):
+            return processor.components[exec_name]
+        assert getc("/page/a").component("a1").call("update").jrl== "$jmb.component('a1').call('update',{})"
+        assert getc("/page/a").component("a1").call("update", a=1, b=2).jrl== "$jmb.component('a1').call('update',{a:1,b:2})"
+        assert getc("/page/a").component(".").call("display").jrl == "$jmb.display()"
+        assert getc("/page/a").component(".").call("update").jrl == "$jmb.call('update',{})"
+        assert getc("/page").component().call("display").jrl == "$jmb.display()"

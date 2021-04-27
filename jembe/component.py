@@ -133,12 +133,7 @@ class ComponentReference:
                 name_split[0] = "/{}".format(name_split[0])
             for pname in name_split[:-1]:
                 if cr is None:
-                    cr = cls(
-                        caller_exec_name,
-                        pname,
-                        {},
-                        merge_existing_params,
-                    )
+                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
                 else:
                     cr = cr.component(pname)
             cr = (
@@ -162,11 +157,18 @@ class ComponentReference:
         """
         - name can be name of subcomponent or if it starts with '/' name of root component
         """
+        self._key = ""
+
         if name == "":
             raise JembeError("Component name can't be empty string")
+
+        if name == "." and caller_exec_name is None:
+            raise JembeError(
+                "ComponentReference can't be called  to reference self without caller_exec_name specified"
+            )
+
         self.caller_exec_name = caller_exec_name
         self.name = name
-        self._key = ""
         self.action = ComponentConfig.DEFAULT_DISPLAY_ACTION
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
@@ -188,7 +190,7 @@ class ComponentReference:
             # and len(self.name.split("/")) == 2
         ):
             raise JembeError(
-                "Component renderer only supports rendering and accessing direct childs, root page or parent component"
+                "Component reference only supports rendering and accessing direct childs, root page or parent component"
             )
 
         self.root_renderer = self
@@ -217,13 +219,16 @@ class ComponentReference:
             return
         self._component_initialise_done = True
 
-        initialise_command = InitialiseCommand(
-            self.exec_name, self.kwargs, self.merge_existing_params
-        )
-        (
-            self._is_accessible,
-            self._component_instance,
-        ) = self.processor.execute_initialise_command_successfully(initialise_command)
+        if self.name != ".":
+            initialise_command = InitialiseCommand(
+                self.exec_name, self.kwargs, self.merge_existing_params
+            )
+            (
+                self._is_accessible,
+                self._component_instance,
+            ) = self.processor.execute_initialise_command_successfully(
+                initialise_command
+            )
 
     @property
     def component_instance(self) -> Optional["Component"]:
@@ -235,6 +240,8 @@ class ComponentReference:
         # TODO add param ignore_incoplete_params = True so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
+        if self.name == ".":
+            return True
         self._init_component()
         return self._is_accessible == True
 
@@ -256,13 +263,31 @@ class ComponentReference:
                 return v
             return "'{}'".format(v)
 
-        jrl = "component{reset}('{name}'{kwargs}{key}){action}".format(
-            reset="_reset" if not self.merge_existing_params else "",
-            name=self.name,
-            key=",key='{}'".format(self._key) if self._key else "",
-            action=".call('{name}',{{{kwargs}}},[{args}])".format(
+        jrl = (
+            "component{reset}('{name}'{kwargs}{key})".format(
+                reset="_reset" if not self.merge_existing_params else "",
+                name=self.name,
+                key=",key='{}'".format(self._key) if self._key else "",
+                kwargs=",{{{}}}".format(
+                    ",".join(
+                        (
+                            "{}:{}".format(k, _prep_v(v))
+                            for k, v in self.kwargs.items()
+                            if not k.startswith("_")
+                        )
+                    )
+                )
+                if self.kwargs
+                else "",
+            )
+            if self.name != "."
+            else ""
+        )
+        jrl += (
+            # ".call('{name}',{{{kwargs}}},[{args}])".format(
+            ".call('{name}',{{{kwargs}}})".format(
                 name=self.action,
-                args=",".join((_prep_v(v) for v in self.action_args)),
+                # args=",".join((_prep_v(v) for v in self.action_args)),
                 kwargs=",".join(
                     (
                         "{}:{}".format(k, _prep_v(v))
@@ -271,19 +296,10 @@ class ComponentReference:
                 ),
             )
             if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
-            else ".display()",
-            kwargs=",{{{}}}".format(
-                ",".join(
-                    (
-                        "{}:{}".format(k, _prep_v(v))
-                        for k, v in self.kwargs.items()
-                        if not k.startswith("_")
-                    )
-                )
-            )
-            if self.kwargs
-            else "",
+            else ".display()"
         )
+        if jrl.startswith("."):
+            jrl = jrl[1:]
         base_jrl = (
             self.base_jrl[:-10]
             if self.base_jrl.endswith(".display()")
@@ -294,8 +310,8 @@ class ComponentReference:
     @cached_property
     def exec_name(self) -> str:
         if self.name == ".":
-            from pdb import set_trace; set_trace()
-        if self.name.startswith("/"):
+            return self.caller_exec_name  # type:ignore
+        elif self.name.startswith("/"):
             return Component._build_exec_name(self.name.split("/")[1], self._key)
         elif self.caller_exec_name is not None and self.name == "..":
             caller_exec_name_split = self.caller_exec_name.split("/")
@@ -317,13 +333,13 @@ class ComponentReference:
     def processor(self) -> Processor:
         return get_processor()
 
-    def force_init(self):
-        """Force initialisation of component in processor.components"""
-        if self.is_accessible:
-            initialise_command = InitialiseCommand(
-                self.exec_name, self.kwargs, self.merge_existing_params
-            )
-            self.processor.add_command(initialise_command, True)
+    # def force_init(self):
+    #     """Force initialisation of component in processor.components"""
+    #     if self.is_accessible:
+    #         initialise_command = InitialiseCommand(
+    #             self.exec_name, self.kwargs, self.merge_existing_params
+    #         )
+    #         self.processor.add_command(initialise_command, True)
 
     def __call__(self) -> str:
         """
@@ -350,10 +366,7 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name,
-                    self.action,
-                    self.action_args,
-                    self.action_kwargs,
+                    self.exec_name, self.action, self.action_args, self.action_kwargs,
                 ),
                 end=True,
             )
@@ -861,8 +874,8 @@ class Component(metaclass=ComponentMeta):
                 )
             },
             # command to render subcomponents
-            "component": self.component,
-            "component_reset": self.component_reset,
+            "component": self._jinja2_component,
+            "component_reset": self._jinja2_component_reset,
             # add helpers
             "_config": self._config,
         }
@@ -887,11 +900,21 @@ class Component(metaclass=ComponentMeta):
             return self.__prev_sub_component_renderer
 
     def component(
-        self, _jmb_component_name: Optional[str] = None, **kwargs
+        self, _jmb_component_name: str = ".", **kwargs
     ) -> "ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name)
 
     def component_reset(
+        self, _jmb_component_name: str = ".", **kwargs
+    ) -> "ComponentReference":
+        return self._component_reference(kwargs, _jmb_component_name, False)
+
+    def _jinja2_component(
+        self, _jmb_component_name: Optional[str] = None, **kwargs
+    ) -> "ComponentReference":
+        return self._component_reference(kwargs, _jmb_component_name)
+
+    def _jinja2_component_reset(
         self, _jmb_component_name: Optional[str] = None, **kwargs
     ) -> "ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name, False)
