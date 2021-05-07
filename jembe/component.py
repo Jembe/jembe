@@ -512,6 +512,7 @@ class Component(metaclass=ComponentMeta):
         component._jembe_disabled_actions = []
         component.exec_name = _component_exec_name
         component.__init__(**init_params)  # type: ignore
+        component.init()
         return component
 
     _jembe_init_signature: "Signature"
@@ -537,6 +538,15 @@ class Component(metaclass=ComponentMeta):
             self.__key = ""
         self.__exec_name: str
         self.__has_action_or_listener_executed: bool = False
+
+    def init(self):
+        """
+        Normalised __init__ without params definition.
+
+        Executed after __init__, usefull for adding logic that should be
+        executed on init but without need to rewrite/list init params.
+        """
+        pass
 
     @property
     def key(self) -> str:
