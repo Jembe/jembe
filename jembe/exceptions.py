@@ -4,6 +4,7 @@ from werkzeug import exceptions as we
 class JembeError(Exception):
     pass
 
+
 class BadRequest(we.BadRequest):
     pass
 
@@ -17,6 +18,10 @@ class Forbidden(we.Forbidden):
 
 
 class NotFound(we.NotFound):
+    pass
+
+
+class AccessDenied(NotFound):
     pass
 
 
