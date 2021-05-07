@@ -70,7 +70,7 @@ export default class Component {
         this.actions = actions
 
         for (const stateName of Object.keys(this.state)) {
-            if (this.actions.includes(stateName)) {
+            if (Object.keys(this.actions).includes(stateName)) {
                 console.warn(`state param '${stateName}' overrides action with same name in component ${this.execName}!`)
             }
         }
@@ -98,7 +98,7 @@ export default class Component {
                 : originalComponent.getUnobservedData()['$local']
         }
         // add actions
-        this.actions.forEach(actionName => {
+        Object.entries(this.actions).forEach(([actionName, actionEnabled]) => {
             Object.defineProperty(
                 this.unobservedData,
                 `${actionName}`,

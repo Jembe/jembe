@@ -9,6 +9,16 @@ Public Dev Lunch:
       ☐ reusable components (pages, menues, notifications, messages, tables, forms etc.)
   Dev:
     ✔ Add csfr protection @done(21-04-22 09:33)
+    Access Control:
+      ✔ Send list of disabled actions to client (change actions list to dict[str,bool]) @done(21-05-07 15:09)
+      ✘ Components part of x-jembe request must contain list of disabled actions @cancelled(21-05-07 14:44)
+      ✘ threat list of disabled actions like state variable (redisplay when changed etc) @cancelled(21-05-07 14:44)
+      ✘ ??? Mayby disabled actions list should be optional state param like (_cda) so that I dont need to change all the code @cancelled(21-05-07 14:14)
+      ✘ Add $jmb.action_available(action_name)->bool in javascript @cancelled(21-05-07 15:42)
+        This shuld be check in jinja2 template not by javascript
+      ✘ if client tries to add call to disabled/unavailable action call hook if exist (or not who cares let it call server and get error message) @cancelled(21-05-07 15:43)
+      ☐ comoponentRef is_accessible should work on action call
+    ☐ Reenable inputs after server error on x-jembe request
     ☐ Calling action from comoponet if other componet changed state must be confirmed (losse of data) - define flow end actions with custom confirmation message and inflow list of comonents and actions
     ✘ Include component in non jembe html @cancelled(21-04-20 16:25)
     ☐ PUsh to browser history only if url is changed??? or something else so can't go back on deleted record

@@ -19,7 +19,7 @@ class ComponentRef {
     this.state = data.state
     this.url = data.url
     this.changesUrl = data.changesUrl
-    this.actions = data.actions !== undefined ? data.actions : []
+    this.actions = data.actions !== undefined ? data.actions : {}
     this.dom = this._cleanDom(dom)
     this.onDocument = onDocument
 

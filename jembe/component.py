@@ -209,6 +209,12 @@ class ComponentReference:
         return cr
 
     def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+        if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION:
+            raise JembeError(
+                "<{}> Cant reference child component when action '{}' is called".format(
+                    str(self), self.action
+                )
+            )
         return self._component(True, jmb_exec_name, **kwargs)
 
     def component_reset(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
@@ -240,6 +246,9 @@ class ComponentReference:
         # TODO add param ignore_incoplete_params = True so that exception trown during initialise
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
+        if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION:
+            raise NotImplementedError()
+
         if self.name == ".":
             return True
         self._init_component()
@@ -332,14 +341,6 @@ class ComponentReference:
     @cached_property
     def processor(self) -> Processor:
         return get_processor()
-
-    # def force_init(self):
-    #     """Force initialisation of component in processor.components"""
-    #     if self.is_accessible:
-    #         initialise_command = InitialiseCommand(
-    #             self.exec_name, self.kwargs, self.merge_existing_params
-    #         )
-    #         self.processor.add_command(initialise_command, True)
 
     def __call__(self) -> str:
         """
@@ -497,11 +498,11 @@ class Component(metaclass=ComponentMeta):
         component._config = _config  # type: ignore
         component._jembe_injected_params_names = _jembe_injected_params_names
         component._jembe_merged_existing_params = _jembe_merged_existing_params
+        component._jembe_disabled_actions = []
         component.exec_name = _component_exec_name
         component.__init__(**init_params)  # type: ignore
         return component
 
-    state: "ComponentState"
     _jembe_init_signature: "Signature"
     _jembe_init_param_names: Tuple[str, ...]
     _jembe_state_param_names: Tuple[str, ...]
@@ -511,6 +512,9 @@ class Component(metaclass=ComponentMeta):
     _jembe_merged_existing_params: bool
     _jembe_inject_into_overriden: bool
     _config: "Config"
+
+    state: "ComponentState"
+    _jembe_disabled_actions: List[str]
 
     class Config(ComponentConfig):
         pass
@@ -806,7 +810,7 @@ class Component(metaclass=ComponentMeta):
     def isinjected(self, param_name: str) -> bool:
         return param_name in self._jembe_injected_params_names
 
-    def display(self) -> DisplayResponse:
+    def display(self) -> "DisplayResponse":
         return self.render_template()
 
     def render_template(
@@ -949,3 +953,43 @@ class Component(metaclass=ComponentMeta):
         # Creates new commands to init and display for redirect components
         # and puts in processenig que
         component_ref()
+
+    def ac_allow(self, *action_names):
+        """
+            Allow execution of listed actions. 
+            If no acction is listed allow execution of all actions.
+        """
+        if len(action_names) == 0:
+            self._jembe_disabled_actions = []
+        else:
+            for a in action_names:
+                try:
+                    self._jembe_disabled_actions.remove(a)
+                except ValueError:
+                    pass
+
+    def ac_deny(self, *action_names):
+        """
+            Deny execution of listed actions.
+            If no action is listed or "display" is listed 
+            whole component is not accesible (__init__ will raise NotFound)
+        """
+        if len(action_names) == 0:
+            self._jembe_disabled_actions = [ComponentConfig.DEFAULT_DISPLAY_ACTION]
+            for a in self._config.component_actions.keys():
+                self._jembe_disabled_actions.append(a)
+        else:
+            for a in action_names:
+                if a not in self._jembe_disabled_actions and (
+                    a in self._config.component_actions.keys()
+                    or a == ComponentConfig.DEFAULT_DISPLAY_ACTION
+                ):
+                    self._jembe_disabled_actions.append(a)
+
+    def ac_check(self, action_name: Optional[str] = None) -> bool:
+        """
+        Apply access control rules
+        """
+        if ComponentConfig.DEFAULT_DISPLAY_ACTION in self._jembe_disabled_actions:
+            return False
+        return action_name not in self._jembe_disabled_actions

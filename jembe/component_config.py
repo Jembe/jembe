@@ -17,7 +17,7 @@ from operator import add
 from inspect import getmembers, isfunction, signature, Parameter
 
 from jembe.common import import_by_name
-from .exceptions import JembeError
+from .exceptions import JembeError, NotFound
 from flask import url_for
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -440,6 +440,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     KEY_URL_PARAM_NAME = "component_key"
     KEY_URL_PARAM_SEPARATOR = "."
     DEFAULT_DISPLAY_ACTION = "display"
+    DEFAULT_AC_EXCEPTION = NotFound
 
     _raw_init_params: dict
 

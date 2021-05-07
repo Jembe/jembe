@@ -160,6 +160,10 @@ class CallActionCommand(Command):
                     cconfig.full_name, self.action_name
                 )
             )
+        # check if action passes access control
+        if not component.ac_check(self.action_name):
+            raise ComponentConfig.DEFAULT_AC_EXCEPTION()
+
         # if component injects params into children save component state json hesh
         if (
             cconfig._inject_into_components is not None
@@ -266,6 +270,11 @@ class CallDisplayCommand(CallActionCommand):
     def execute(self) -> Optional["Response"]:
         if not self._redisplay_needed:
             return None
+
+        # check if action passes access control
+        if not self._component.ac_check():
+            raise ComponentConfig.DEFAULT_AC_EXCEPTION()
+
         # execute action
         action_result = getattr(self._component, self.action_name)(
             *self.args, **self.kwargs
@@ -277,6 +286,7 @@ class CallDisplayCommand(CallActionCommand):
             self.processor.renderers[self.component_exec_name] = ComponentRender(
                 True,
                 self._component.state.tojsondict(self._component, True),
+                self._component._jembe_disabled_actions.copy(),
                 self._component.state._injected_params_names,
                 self._component.url,
                 self._component._config.changes_url,
@@ -758,6 +768,10 @@ class InitialiseCommand(Command):
                 **init_params
             )
 
+            # check if action passes access control
+            if not component.ac_check():
+                raise ComponentConfig.DEFAULT_AC_EXCEPTION()
+
             self.initialised_component = component
             if not is_accessible_run:
                 self.processor.components[component.exec_name] = component
@@ -766,6 +780,7 @@ class InitialiseCommand(Command):
                     self.processor.renderers[component.exec_name] = ComponentRender(
                         False,
                         component.state.tojsondict(component, True),
+                        component._jembe_disabled_actions.copy(),
                         component.state._injected_params_names,
                         component.url,
                         component._config.changes_url,
@@ -800,6 +815,7 @@ class ComponentRender(NamedTuple):
 
     fresh: bool
     state_jsondict: Dict[str, Any]
+    disabled_actions: List[str]
     injected_params: List[str]
     url: Optional[str]
     changes_url: bool
@@ -1245,9 +1261,15 @@ class Processor:
             EmitCommand(
                 command.component_exec_name,
                 SystemEvents.EXCEPTION.value,
-                dict(exception=exc, handled=False),
+                dict(
+                    exception=exc,
+                    handled=False,
+                    in_action=command.action_name
+                    if isinstance(command, CallActionCommand)
+                    else None,
+                ),
             )
-            .to("/**/.")
+            .to((".", "/**/."))
             .mount(self)
         )
         emit_command.execute()
@@ -1292,7 +1314,7 @@ class Processor:
             ajax_responses = []
             for (
                 exec_name,
-                (fresh, state_jsondict, injected_params_names, url, changes_url, html),
+                (fresh, state_jsondict, disabled_actions, injected_params_names, url, changes_url, html),
             ) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
@@ -1306,13 +1328,13 @@ class Processor:
                             dom=html,
                             url=url,
                             changesUrl=changes_url,
-                            actions=[
-                                action_name
+                            actions={
+                                action_name: action_name not in disabled_actions
                                 for action_name in self.jembe.get_component_config(
                                     exec_name
                                 ).component_actions.keys()
                                 if action_name != ComponentConfig.DEFAULT_DISPLAY_ACTION
-                            ],
+                            },
                         )
                     )
             return jsonify(ajax_responses)
@@ -1329,10 +1351,12 @@ class Processor:
                     },
                     url,
                     changes_url,
+                    disabled_actions
                 )
                 for exec_name, (
                     fresh,
                     state_jsondict,
+                    disabled_actions,
                     injected_params_names,
                     url,
                     changes_url,
@@ -1390,6 +1414,7 @@ class Processor:
         state_jsondict: Dict[str, Any],
         url: str,
         changes_url: bool,
+        disabled_actions: List[str]
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.
@@ -1403,13 +1428,13 @@ class Processor:
                 "jmb-data",
                 json.dumps(
                     dict(
-                        actions=[
-                            action_name
+                        actions={
+                            action_name: action_name not in disabled_actions
                             for action_name in self.jembe.get_component_config(
                                 exec_name
                             ).component_actions.keys()
                             if action_name != ComponentConfig.DEFAULT_DISPLAY_ACTION
-                        ],
+                        },
                         changesUrl=changes_url,
                         state=state_jsondict,
                         url=url,
