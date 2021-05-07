@@ -225,7 +225,7 @@ class ComponentReference:
             return
         self._component_initialise_done = True
 
-        if self.name != ".":
+        if not (self.name == "." and self.root_renderer == self):
             initialise_command = InitialiseCommand(
                 self.exec_name, self.kwargs, self.merge_existing_params
             )
@@ -238,8 +238,11 @@ class ComponentReference:
 
     @property
     def component_instance(self) -> Optional["Component"]:
-        self._init_component()
-        return self._component_instance
+        if self.name == "." and self.root_renderer == self:
+            return self.processor.components[self.exec_name]
+        else:
+            self._init_component()
+            return self._component_instance
 
     @property
     def is_accessible(self) -> bool:
@@ -247,12 +250,20 @@ class ComponentReference:
         # becouse not all required init parameters are suplied are treated as not accessible (
         # catch exception and return False in this case)
         if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION:
-            raise NotImplementedError()
-
-        if self.name == ".":
-            return True
-        self._init_component()
-        return self._is_accessible == True
+            ci = self.component_instance
+            if ci is None:
+                current_app.logger.warning(
+                    "Component '{}' can't acuire referenced component '{}' to check if action '{}' is accessible".format(
+                        self.root_renderer.caller_exec_name, self.exec_name, self.action
+                    )
+                )
+                return True
+            return self.action not in ci._jembe_disabled_actions
+        else:
+            if self.name == ".":
+                return True
+            self._init_component()
+            return self._is_accessible == True
 
     @cached_property
     def url(self) -> str:

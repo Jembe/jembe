@@ -2475,6 +2475,7 @@ def test_handling_exception_raised_by_action(jmb, client):
     assert res[0]["execName"] == "/test/a"
     assert res[0]["dom"] == """<div>A</div>"""
 
+
 def test_access_control(jmb, client):
     class B(Component):
         def __init__(self):
@@ -2484,7 +2485,7 @@ def test_access_control(jmb, client):
     class A(Component):
         def __init__(self):
             super().__init__()
-            self.ac_deny('test_action')
+            self.ac_deny("test_action")
 
         @action
         def test_action(self):
@@ -2569,22 +2570,31 @@ def test_access_control(jmb, client):
         == """<html><body>/test/b:None<template jmb-placeholder="/test/a"></template></body></html>"""
     )
 
+
 def test_reference_call_action_is_accessible(app, jmb: "Jembe"):
     class A(Component):
         def __init__(self):
             self.ac_deny("taction")
             super().__init__()
+
         @action
         def taction(self):
             pass
+
         def display(self) -> "DisplayResponse":
-            return "<div>A{{component('c')}}</div>"
+            return self.render_template_string(
+                "<div>A{% if component('c').is_accessible %}{{component()}}{% endif %}</div>"
+            )
+
     class B(Component):
         @action
         def taction(self):
             pass
+
         def display(self) -> "DisplayResponse":
-            return "<div>B{{component('c')}}</div>"
+            return self.render_template_string(
+                "<div>B{% if component('c').is_accessible %}{{component()}}{% endif %}</div>"
+            )
 
     @jmb.page(
         "page",
@@ -2597,7 +2607,9 @@ def test_reference_call_action_is_accessible(app, jmb: "Jembe"):
     )
     class Page(Component):
         def display(self) -> "DisplayResponse":
-            return "<html><body>{{component('a')}}{{component('b')}}</body></html>"
+            return self.render_template_string(
+                "<html><body>{{component('a')}}{{component('b')}}</body></html>"
+            )
 
     with app.test_request_context(path="/page/a"):
         processor = get_processor()
