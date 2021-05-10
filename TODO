@@ -18,7 +18,7 @@ Public Dev Lunch:
         This shuld be check in jinja2 template not by javascript
       ✘ if client tries to add call to disabled/unavailable action call hook if exist (or not who cares let it call server and get error message) @cancelled(21-05-07 15:43)
       ✔ comoponentRef is_accessible should work on action call @done(21-05-07 21:24)
-    ☐ Component reference factory test case za /main/dash from /auth/user
+    ✔ Component reference factory test case za /main/dash from /auth/user @done(21-05-10 12:23)
     ☐ Reenable inputs after server error on x-jembe request
     ☐ Calling action from comoponet if other componet changed state must be confirmed (losse of data) - define flow end actions with custom confirmation message and inflow list of comonents and actions
     ✘ Include component in non jembe html @cancelled(21-04-20 16:25)
