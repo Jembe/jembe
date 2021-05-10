@@ -1186,7 +1186,7 @@ class Processor:
             return None
 
     def execute_initialise_command_successfully(
-        self, command: "InitialiseCommand"
+        self, command: "InitialiseCommand", *additional_components: "Component"
     ) -> Tuple[bool, Optional["Component"]]:
         """
         Directly out of commands que execute initialise command
@@ -1210,6 +1210,11 @@ class Processor:
         # execute initialise command without running before or after commands
         backup_current_staging_commands = self._staging_commands
         self._staging_commands = CommandsQue(self.jembe)
+        backup_current_components = self.components.copy()
+        # add additional components into components
+        for acomp in additional_components:
+            self.components[acomp.exec_name] = acomp
+
         cmd: "InitialiseCommand" = (
             command if command.is_mounted else command.mount(self)
         )
@@ -1218,6 +1223,7 @@ class Processor:
         except JembeError as jmb_error:
             # JembeError are exceptions raised by jembe
             # and thay indicate bad usage of framework
+            self.components = backup_current_components
             raise jmb_error
         except Exception as exc:
             self._raised_exception_on_initialise[cmd.component_exec_name] = deepcopy(
@@ -1227,14 +1233,18 @@ class Processor:
 
             # restore _staging_commands
             self._staging_commands = backup_current_staging_commands
+            self.components = backup_current_components
             if current_app.debug or current_app.testing:
+                import traceback
+                traceback.print_exc()
                 current_app.logger.warning(
                     "Exception when initialising component out of proccessing que {}: {}".format(
-                        cmd, exc
+                        cmd, exc.__repr__()
                     )
                 )
             return (False, None)
         self._staging_commands = backup_current_staging_commands
+        self.components = backup_current_components
         return (True, cmd.initialised_component)
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):

@@ -122,7 +122,6 @@ class ComponentReference:
         kwargs: dict,
         merge_existing_params: bool = True,
     ) -> "ComponentReference":
-
         name_split = name.split("/")
         cr: Optional["ComponentReference"] = None
         if (name_split[0] == "" and len(name_split) > 2) or (  # /a/b
@@ -195,6 +194,7 @@ class ComponentReference:
 
         self.root_renderer = self
         self.active_renderer = self
+        self._aditional_components: List["Component"] = []
         self.base_jrl = "$jmb"
 
     def _component(
@@ -205,6 +205,12 @@ class ComponentReference:
         )
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
+        cr._aditional_components = self._aditional_components.copy()
+        if (
+            self.component_instance is not None
+            and self.component_instance.exec_name not in self.processor.components
+        ):
+            cr._aditional_components.append(self.component_instance)
         cr.base_jrl = self.jrl
         return cr
 
@@ -233,7 +239,7 @@ class ComponentReference:
                 self._is_accessible,
                 self._component_instance,
             ) = self.processor.execute_initialise_command_successfully(
-                initialise_command
+                initialise_command, *self._aditional_components
             )
 
     @property
@@ -269,7 +275,15 @@ class ComponentReference:
     def url(self) -> str:
         if not self.is_accessible:
             raise NotFound()
-        return self.component_instance.url  # type: ignore
+        if self._aditional_components:
+            backup_components = self.processor.components.copy()
+            for acomp in self._aditional_components:
+                self.processor.components[acomp.exec_name] = acomp
+            url =  self.component_instance.url  # type: ignore
+            self.processor.components = backup_components
+            return url
+        else:
+            return self.component_instance.url  # type: ignore
 
     @cached_property
     def jrl(self) -> str:

@@ -1936,6 +1936,7 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
     )
     json_response = json.loads(r.data)
     assert r.status_code == 200
+    print(json_response)
     assert len(json_response) == 1
     assert json_response[0]["execName"] == "/page"
     assert json_response[0]["dom"] == (
@@ -2622,3 +2623,54 @@ def test_reference_call_action_is_accessible(app, jmb: "Jembe"):
         assert getc("/page/b").component().call("taction").is_accessible == True
         assert getc("/page/a/c").component().call("taction").is_accessible == True
         assert getc("/page/b/c").component().call("taction").is_accessible == False
+
+def test_reference_deep_component_on_another_page(app, jmb: "Jembe", client):
+    class A(Component):
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string(
+                "<div>A</div>"
+            )
+
+    class B(Component):
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string(
+                "<div>B</div>"
+            )
+
+    @jmb.page(
+        "pagea",
+        Component.Config(
+            components=dict(
+                a=A,
+            )
+        ),
+    )
+    class PageA(Component):
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string(
+                "<html><body>{{component('a')}}<div>{{component('/pageb/b').url}}</div></body></html>"
+            )
+    @jmb.page(
+        "pageb",
+        Component.Config(
+            components=dict(
+                b=B,
+            )
+        ),
+    )
+    class PageB(Component):
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string(
+                "<html><body>{{component('b')}}</body></html>"
+            )
+
+
+    r = client.get("/pagea")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">"""
+        "\n"
+        """<html jmb-name="/pagea" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/pagea"}\'><body>"""
+        """<div jmb-name="/pagea/a" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/pagea/a"}\'>A</div><div>/pageb/b</div>"""
+        "</body></html>"
+    ).encode("utf-8")
