@@ -201,7 +201,9 @@ class CallActionCommand(Command):
         else:
             raise JembeError(
                 "Invalid action result type: {}.{} {}".format(
-                    cconfig.full_name, self.action_name, action_result,
+                    cconfig.full_name,
+                    self.action_name,
+                    action_result,
                 )
             )
 
@@ -272,7 +274,7 @@ class CallDisplayCommand(CallActionCommand):
             return None
 
         # check if action passes access control
-        if not self._component.ac_check():
+        if not self.force and not self._component.ac_check():
             raise ComponentConfig.DEFAULT_AC_EXCEPTION()
 
         # execute action
@@ -316,7 +318,9 @@ class CallDisplayCommand(CallActionCommand):
         else:
             raise JembeError(
                 "Invalid display result type: {}.{} {}".format(
-                    self._component._config.full_name, self.action_name, action_result,
+                    self._component._config.full_name,
+                    self.action_name,
+                    action_result,
                 )
             )
         return None
@@ -344,7 +348,10 @@ class CallDisplayCommand(CallActionCommand):
 
 class CallListenerCommand(Command):
     def __init__(
-        self, component_exec_name: str, listener_name: str, event: "Event",
+        self,
+        component_exec_name: str,
+        listener_name: str,
+        event: "Event",
     ):
         super().__init__(component_exec_name)
         self.listener_name = listener_name
@@ -378,7 +385,9 @@ class CallListenerCommand(Command):
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
-                    cconfig.full_name, self.listener_name, listener_result,
+                    cconfig.full_name,
+                    self.listener_name,
+                    listener_result,
                 )
             )
 
@@ -414,14 +423,14 @@ class EmitCommand(Command):
 
         if emit_event_to is:
 
-            - None -> match to every initialised component 
+            - None -> match to every initialised component
             - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
             - ./component                       -> emit to direct child named "component" without key
             - ./component.*                     -> emit to direct child named "component" with any key
             - ./component.key                   -> emit to direct child named "component with key equals "key"
             - ./**/component[.[*|<key>]]        -> emit to child at any level
             - ..                                -> emit to parent
-            - ../component[.[*|<key>]]          -> emit to sibling 
+            - ../component[.[*|<key>]]          -> emit to sibling
             - /**/.                             -> emit to parent at any level
             - /**/component[.[*|<key>]]/**/.    -> emit to parent at any level named
             - //                                -> emit to my root page TODO
@@ -438,7 +447,7 @@ class EmitCommand(Command):
     def execute(self):
         """
         finds all components mathcing self.to that have registred listeners
-        whose source is matched to self.component.exec_name and calls matching 
+        whose source is matched to self.component.exec_name and calls matching
         listeners
         """
         self.event = Event(
@@ -485,7 +494,7 @@ class EmitCommand(Command):
 
         if pattern is:
 
-            - None -> match to every initialised component 
+            - None -> match to every initialised component
             - /compoent1.key1/compoent2.key2    -> compoenent with complete exec_name
             - *                               -> direct children with or without key
             - *.*                             -> direct children with any key
@@ -496,7 +505,7 @@ class EmitCommand(Command):
             - component.key                   -> match to direct child named "component with key equals "key"
             - **/component[.[*|<key>]]        -> match to child at any level
             - ..                                -> match to parent
-            - ../component[.[*|<key>]]          -> match to sibling 
+            - ../component[.[*|<key>]]          -> match to sibling
             - /**/.                             -> match to parent at any level
             - /**/component[.[*|<key>]]/**/.    -> match to parent at any level named
             - //                                -> process event from root page
@@ -591,7 +600,9 @@ class EmitCommand(Command):
             ):
                 commands.append(
                     CallListenerCommand(
-                        reemit_component.exec_name, listener_method_name, self.event,
+                        reemit_component.exec_name,
+                        listener_method_name,
+                        self.event,
                     )
                 )
         return commands
@@ -632,12 +643,16 @@ class EmitCommand(Command):
             )
 
         sources_to: tuple = tuple((None,)) if not source_to else source_to
-        listener_events: tuple = tuple(
-            (None,)
-        ) if not destination_listener.event_names else destination_listener.event_names
-        listener_sources: tuple = tuple(
-            (None,)
-        ) if not destination_listener.sources else destination_listener.sources
+        listener_events: tuple = (
+            tuple((None,))
+            if not destination_listener.event_names
+            else destination_listener.event_names
+        )
+        listener_sources: tuple = (
+            tuple((None,))
+            if not destination_listener.sources
+            else destination_listener.sources
+        )
 
         for s_to in sources_to:
             for dl_event in listener_events:
@@ -685,7 +700,8 @@ class InitialiseCommand(Command):
             if parent_cconfig._inject_into_components:
                 injected_params.update(
                     parent_cconfig._inject_into_components(
-                        parent_component, self._cconfig,
+                        parent_component,
+                        self._cconfig,
                     )
                 )
             # clean up injected params
@@ -701,17 +717,17 @@ class InitialiseCommand(Command):
 
     def _must_do_init(self, is_accessible_run: bool):
         if self.component_exec_name in self.processor.components:
+            component = self.processor.components[self.component_exec_name]
             new_params = (
                 {}
                 if self.merge_existing_params
                 else {**self._cconfig.component_class._jembe_state_param_default_values}
             )
             new_params.update(
-                {**self.init_params, **self._inject_into_params,}
+                {**self.init_params, **self._inject_into_params, **component.inject()}
             )
             # if state params are same continue
             # else raise jembeerror until find better solution
-            component = self.processor.components[self.component_exec_name]
             has_new_params = False
             for k, v in new_params.items():
                 if k in component.state and v != component.state[k]:
@@ -757,7 +773,7 @@ class InitialiseCommand(Command):
                 else {**self._cconfig.component_class._jembe_state_param_default_values}
             )
             init_params.update(
-                {**existing_params, **self.init_params, **self._inject_into_params,}
+                {**existing_params, **self.init_params, **self._inject_into_params}
             )
 
             component = self._cconfig.component_class._jembe_init_(
@@ -833,7 +849,7 @@ class CommandsQue:
         """
         Adds new command into staginig commands que.
         if end is True command is added at the end of que (last to execute)
-        
+
         Staging que exist in order to allow commands generated by while
         execution one command to be internally ordered by appending at
         the beginig or the end of staging que
@@ -905,8 +921,8 @@ class CommandsQue:
 class Processor:
     """
     1. Will use deapest component.url from all components on the page as window.location
-    2. When any component action or listener returns False default action 
-       (display) will not be called 
+    2. When any component action or listener returns False default action
+       (display) will not be called
     """
 
     def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
@@ -954,9 +970,9 @@ class Processor:
         self, command_data: dict, is_component: bool = False
     ) -> "Command":
         """Process data received by json and build commands
-        
-            is_component - mark that command_data is received in components section of x-jembe request
-                        describing current compoents and their state displayed to the user
+
+        is_component - mark that command_data is received in components section of x-jembe request
+                    describing current compoents and their state displayed to the user
         """
 
         if is_component:
@@ -1022,21 +1038,23 @@ class Processor:
             )
 
             self.add_command(
-                CallDisplayCommand(exec_names[-1]), end=True,
+                CallDisplayCommand(exec_names[-1]),
+                end=True,
             )
             for exec_name in exec_names[:-1]:
                 self.add_command(
-                    CallDisplayCommand(exec_name), end=True,
+                    CallDisplayCommand(exec_name),
+                    end=True,
                 )
 
     def __create_commands_from_url_path(
         self, component_full_name: str, to_be_initialised: List[str]
     ) -> List[str]:
-        """ 
-            inits components from request url_path 
-            if component with same exec_name is not already initialised
+        """
+        inits components from request url_path
+        if component with same exec_name is not already initialised
 
-            returns exec names from root to component_full_name
+        returns exec names from root to component_full_name
         """
         from .component import Component
 
@@ -1235,8 +1253,8 @@ class Processor:
             self._staging_commands = backup_current_staging_commands
             self.components = backup_current_components
             if current_app.debug or current_app.testing:
-                import traceback
-                traceback.print_exc()
+                # import traceback
+                # traceback.print_exc()
                 current_app.logger.warning(
                     "Exception when initialising component out of proccessing que {}: {}".format(
                         cmd, exc.__repr__()
@@ -1252,9 +1270,9 @@ class Processor:
         Exception that ocure while executing command (call action, display, listener invocation etc)
         are handled in following way.
 
-        Event('_exception', source=command.component_exec_name, params=dict(exception=exc, handled=False)) is created 
-        and emited to all its parent components from top to bottom. 
-        This is only time when ordering for receiving messages is guaranted, so that root components can know if 
+        Event('_exception', source=command.component_exec_name, params=dict(exception=exc, handled=False)) is created
+        and emited to all its parent components from top to bottom.
+        This is only time when ordering for receiving messages is guaranted, so that root components can know if
         exception is already handled by its children.
 
         Parent component can use regular listener to catch event do whatever thay want. @listener('_exception')
@@ -1324,7 +1342,15 @@ class Processor:
             ajax_responses = []
             for (
                 exec_name,
-                (fresh, state_jsondict, disabled_actions, injected_params_names, url, changes_url, html),
+                (
+                    fresh,
+                    state_jsondict,
+                    disabled_actions,
+                    injected_params_names,
+                    url,
+                    changes_url,
+                    html,
+                ),
             ) in self.renderers.items():
                 if fresh:
                     ajax_responses.append(
@@ -1361,7 +1387,7 @@ class Processor:
                     },
                     url,
                     changes_url,
-                    disabled_actions
+                    disabled_actions,
                 )
                 for exec_name, (
                     fresh,
@@ -1424,7 +1450,7 @@ class Processor:
         state_jsondict: Dict[str, Any],
         url: str,
         changes_url: bool,
-        disabled_actions: List[str]
+        disabled_actions: List[str],
     ):  # -> "lxml.html.HtmlElement":
         """
         Adds dom attrs to html.

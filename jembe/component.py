@@ -132,7 +132,12 @@ class ComponentReference:
                 name_split[0] = "/{}".format(name_split[0])
             for pname in name_split[:-1]:
                 if cr is None:
-                    cr = cls(caller_exec_name, pname, {}, merge_existing_params,)
+                    cr = cls(
+                        caller_exec_name,
+                        pname,
+                        {},
+                        merge_existing_params,
+                    )
                 else:
                     cr = cr.component(pname)
             cr = (
@@ -269,7 +274,11 @@ class ComponentReference:
             if self.name == ".":
                 return True
             self._init_component()
-            return self._is_accessible == True
+            return (
+                self._is_accessible == True
+                and self._component_instance is not None
+                and self._component_instance.ac_check()
+            )
 
     @cached_property
     def url(self) -> str:
@@ -279,7 +288,7 @@ class ComponentReference:
             backup_components = self.processor.components.copy()
             for acomp in self._aditional_components:
                 self.processor.components[acomp.exec_name] = acomp
-            url =  self.component_instance.url  # type: ignore
+            url = self.component_instance.url  # type: ignore
             self.processor.components = backup_components
             return url
         else:
@@ -392,7 +401,10 @@ class ComponentReference:
         else:
             self.processor.add_command(
                 CallActionCommand(
-                    self.exec_name, self.action, self.action_args, self.action_kwargs,
+                    self.exec_name,
+                    self.action,
+                    self.action_args,
+                    self.action_kwargs,
                 ),
                 end=True,
             )
@@ -991,8 +1003,8 @@ class Component(metaclass=ComponentMeta):
 
     def ac_allow(self, *action_names):
         """
-            Allow execution of listed actions. 
-            If no acction is listed allow execution of all actions.
+        Allow execution of listed actions.
+        If no acction is listed allow execution of all actions.
         """
         if len(action_names) == 0:
             self._jembe_disabled_actions = []
@@ -1005,9 +1017,9 @@ class Component(metaclass=ComponentMeta):
 
     def ac_deny(self, *action_names):
         """
-            Deny execution of listed actions.
-            If no action is listed or "display" is listed 
-            whole component is not accesible (__init__ will raise NotFound)
+        Deny execution of listed actions.
+        If no action is listed or "display" is listed
+        whole component is not accesible (__init__ will raise NotFound)
         """
         if len(action_names) == 0:
             self._jembe_disabled_actions = [ComponentConfig.DEFAULT_DISPLAY_ACTION]
