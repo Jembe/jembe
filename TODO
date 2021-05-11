@@ -23,6 +23,7 @@ Public Dev Lunch:
     ☐ Calling action from comoponet if other componet changed state must be confirmed (losse of data) - define flow end actions with custom confirmation message and inflow list of comonents and actions
     ✘ Include component in non jembe html @cancelled(21-04-20 16:25)
     ☐ PUsh to browser history only if url is changed??? or something else so can't go back on deleted record
+      Mayby if going back raise 404 or other error on server display message and delete it from history
     ☐ Temp storage contains uploadet and regular temp files, user can access his temp files via url, (in order to alow saving uploaded files in temp storage  and working with them before moving them to permanent storage )
     ✔ disable all inputs and buttons while processing x-jembe request??? so that we donot get conflicts with data and lose data on update @done(21-04-14 11:10)
     ☐ Rendering same component twice brakes the jembe
