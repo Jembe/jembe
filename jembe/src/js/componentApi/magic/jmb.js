@@ -109,7 +109,11 @@ export default class JMB {
     this.jembeClient.consolidateCommands()
     this.jembeClient.executeCommands()
   }
-  componentsOnPage() {
-    return Object.keys(this.jembeClient.components)
+  componentsOnPage(filter) {
+    if (filter === undefined) {
+      return Object.keys(this.jembeClient.components)
+    } else {
+      return Object.values(this.jembeClient.components).filter(filter).map(c => c.execName)
+    }
   }
 }
