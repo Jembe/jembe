@@ -124,6 +124,9 @@ class File(JembeInitParamSupport):
         self.storage = file.storage
         self.path = file.path
 
+    def remove(self):
+        self.storage.remove(self.path)
+
     def open(
         self,
         mode="r",
