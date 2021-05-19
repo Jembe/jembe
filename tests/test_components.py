@@ -2010,15 +2010,15 @@ def test_component_load_dump_params(app, jmb: "Jembe"):
         files_json = [
             {
                 "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-08-14_11-06-33.png",
-                "storage": "tmp",
+                "storage": "temp",
             },
             {
                 "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-07-22_23-21-24.png",
-                "storage": "tmp",
+                "storage": "temp",
             },
             {
                 "path": "uploads/2d2dfe28-71bb-11eb-9dcc-8cc84b229c61/Screenshot_from_2020-07-22_23-21-21.png",
-                "storage": "tmp",
+                "storage": "temp",
             },
         ]
         files = FC.load_init_param(

@@ -3,14 +3,19 @@ from enum import Enum
 import shutil
 import os
 from abc import ABC, abstractmethod
-from uuid import uuid1
+from uuid import uuid4
 
-from flask import session, current_app, url_for, send_from_directory, session
+from flask import session, current_app, url_for, send_from_directory
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import cached_property, secure_filename
-from .app import get_private_storage, get_public_storage, get_storage
+from .app import get_private_storage, get_public_storage, get_storage, get_temp_storage
 from .exceptions import NotFound
 from .common import JembeInitParamSupport
+from .defaults import (
+    DEFAULT_SESSION_TEMP_STORAGE_ID,
+    DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
+)
 
 if TYPE_CHECKING:
     from flask import Response
@@ -45,6 +50,11 @@ class File(JembeInitParamSupport):
 
     def in_temp_storage(self) -> bool:
         return self.storage.type == self.storage.Type.TEMP
+
+    def is_just_uploaded(self) -> bool:
+        return self.in_temp_storage() and self.path.startswith(
+            "{}/".format(DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER)
+        )
 
     def in_public_storage(self) -> bool:
         return self.storage.type == self.storage.Type.PUBLIC
@@ -82,6 +92,20 @@ class File(JembeInitParamSupport):
     def copy_to_private(self, subdir: str = "") -> "File":
         return self.copy_to(get_private_storage(), subdir)
 
+    def copy_to_temp(self, subdir: Optional[str] = None) -> "File":
+        return self.copy_to(
+            get_temp_storage(),
+            subdir if subdir is not None else self._get_default_temp_subdir(),
+        )
+
+    def _get_default_temp_subdir(self) -> str:
+        if DEFAULT_SESSION_TEMP_STORAGE_ID not in session:
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID] = uuid4()
+        return "{}/{}".format(
+            DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID],
+        )
+
     def move_to_public(self, subdir: str = ""):
         file = self.move_to(get_public_storage(), subdir)
         self.storage = file.storage
@@ -89,6 +113,14 @@ class File(JembeInitParamSupport):
 
     def move_to_private(self, subdir: str = ""):
         file = self.move_to(get_private_storage(), subdir)
+        self.storage = file.storage
+        self.path = file.path
+
+    def move_to_temp(self, subdir: Optional[str] = None):
+        file = self.move_to(
+            get_temp_storage(),
+            subdir if subdir is not None else self._get_default_temp_subdir(),
+        )
         self.storage = file.storage
         self.path = file.path
 
@@ -149,6 +181,13 @@ class Storage(ABC):
         by current user using http request
         """
         if self.type == self.Type.TEMP:
+            if DEFAULT_SESSION_TEMP_STORAGE_ID in session and file_path.startswith(
+                "{}/{}/".format(
+                    DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+                    session[DEFAULT_SESSION_TEMP_STORAGE_ID],
+                )
+            ):
+                return True
             return False
         elif self.type == self.Type.PUBLIC:
             return True
@@ -280,7 +319,7 @@ class DiskStorage(Storage):
         while self.exists(os.path.join(subdir, sfn)):
             sfn_base, sfn_ext = os.path.splitext(sfn)
             sfn = secure_filename(
-                "{}_{}{}".format(sfn_base, str(uuid1()).split("-")[0], sfn_ext)
+                "{}_{}{}".format(sfn_base, str(uuid4()).split("-")[0], sfn_ext)
             )
         return sfn
 
@@ -296,6 +335,7 @@ class DiskStorage(Storage):
         if isinstance(file, File):
             sfn = self._get_unique_filename(file.basename, subdir)
             if isinstance(file.storage, DiskStorage):
+                os.makedirs(os.path.join(self.folder, subdir), exist_ok=True)
                 shutil.copy(
                     os.path.join(file.storage.folder, file.path),
                     os.path.join(self.folder, subdir, sfn),

@@ -1,3 +1,4 @@
+from jembe.defaults import DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER
 from typing import Dict, Optional, TYPE_CHECKING, List
 from uuid import uuid1
 from flask import jsonify
@@ -52,11 +53,15 @@ class UploadFilesComponent(Component):
 
             # generate unique file_upload_response_id
             while self.file_upload_response_id is None or temp_storage.exists(
-                temp_storage.path_join("uploads", self.file_upload_response_id)
+                temp_storage.path_join(
+                    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id
+                )
             ):
                 self.file_upload_response_id = secure_filename(str(uuid1()))
             temp_storage.makedirs(
-                temp_storage.path_join("uploads", self.file_upload_response_id)
+                temp_storage.path_join(
+                    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id
+                )
             )
 
             for fileUploadId, file in processor.request.files.items(True):
@@ -65,7 +70,8 @@ class UploadFilesComponent(Component):
                         tmp_file = temp_storage.store_file(
                             file,
                             temp_storage.path_join(
-                                "uploads", self.file_upload_response_id
+                                DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
+                                self.file_upload_response_id,
                             ),
                             True,
                         )

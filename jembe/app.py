@@ -1,5 +1,12 @@
 from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from os import path
+from .defaults import (
+    DEFAULT_JEMBE_MEDIA_FOLDER,
+    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
+    PRIVATE_STORAGE_NAME,
+    PUBLIC_STORAGE_NAME,
+    TEMP_STORAGE_NAME,
+)
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
@@ -89,18 +96,20 @@ class Jembe:
         if storages is None and not hasattr(self, "_storages"):
             # initialise default storages
 
-            upload_folder = self.flask.config.get(
-                "JEMBE_UPLOAD_FOLDER", path.join("..", "data", "media")
+            media_folder = self.flask.config.get(
+                "JEMBE_MEDIA_FOLDER", DEFAULT_JEMBE_MEDIA_FOLDER
             )
             storages = [
-                DiskStorage("public", path.join(upload_folder, "public")),
+                DiskStorage(PUBLIC_STORAGE_NAME, path.join(media_folder, "public")),
                 DiskStorage(
-                    "private",
-                    path.join(upload_folder, "private"),
+                    PRIVATE_STORAGE_NAME,
+                    path.join(media_folder, "private"),
                     type=DiskStorage.Type.PRIVATE,
                 ),
                 DiskStorage(
-                    "tmp", path.join(upload_folder, "temp"), type=DiskStorage.Type.TEMP
+                    TEMP_STORAGE_NAME,
+                    path.join(media_folder, "temp"),
+                    type=DiskStorage.Type.TEMP,
                 ),
             ]
         if storages is None or not next(
