@@ -115,8 +115,8 @@ class File(JembeInitParamSupport):
     def load_init_param(
         cls, value: Union[Dict[str, str], List[Dict[str, str]]]
     ) -> "File":
-        # handelse both list and dict in order to support 
-        # using $jmb.set(xx, $el.files) instead of jmb.set(xx, $el.files[0]) 
+        # handelse both list and dict in order to support
+        # using $jmb.set(xx, $el.files) instead of jmb.set(xx, $el.files[0])
         # for regular, not multiple, file upload input
         if isinstance(value, list):
             value = value[0]
@@ -137,7 +137,7 @@ class Storage(ABC):
         Initialise the Jembe Files Storage used
         to store and present uplaoded files/media
 
-        name -- storage name 
+        name -- storage name
         type -- Storage.Type
         """
         self.name = name
@@ -276,7 +276,7 @@ class DiskStorage(Storage):
         raise NotFound
 
     def _get_unique_filename(self, filename: Optional[str], subdir: str) -> str:
-        sfn = secure_filename(filename)
+        sfn = secure_filename(filename if filename is not None else "unnamed")
         while self.exists(os.path.join(subdir, sfn)):
             sfn_base, sfn_ext = os.path.splitext(sfn)
             sfn = secure_filename(

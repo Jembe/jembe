@@ -1,4 +1,4 @@
-from typing import Dict, Optional, TYPE_CHECKING, Union, List
+from typing import Dict, Optional, TYPE_CHECKING, List
 from uuid import uuid1
 from flask import jsonify
 from werkzeug.utils import secure_filename
@@ -10,7 +10,6 @@ from .files import File
 from .app import get_storage, get_temp_storage, get_processor
 
 if TYPE_CHECKING:
-    from flask import Response
     from .common import DisplayResponse
 
 
