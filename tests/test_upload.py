@@ -20,13 +20,13 @@ def test_upload_files(jmb, client):
     assert len(rd["files"].keys()) == 2
     assert rd["files"]["uploadId1"] == [
         dict(
-            path="uploads/{}/file1.txt".format(rd["fileUploadResponseId"]),
+            path="UPLOADS/{}/file1.txt".format(rd["fileUploadResponseId"]),
             storage="temp",
         )
     ]
     assert rd["files"]["uploadId2"] == [
         dict(
-            path="uploads/{}/file2.txt".format(rd["fileUploadResponseId"]),
+            path="UPLOADS/{}/file2.txt".format(rd["fileUploadResponseId"]),
             storage="temp",
         )
     ]

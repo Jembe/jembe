@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
 import shutil
 import os
+from io import BufferedIOBase, FileIO, TextIOWrapper, TextIOBase, RawIOBase, IOBase
 from abc import ABC, abstractmethod
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from .common import JembeInitParamSupport
 from .defaults import (
     DEFAULT_SESSION_TEMP_STORAGE_ID,
     DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+    DEFAULT_STORAGE_CACHE_FOLDER,
     DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
 )
 
@@ -54,6 +56,11 @@ class File(JembeInitParamSupport):
     def is_just_uploaded(self) -> bool:
         return self.in_temp_storage() and self.path.startswith(
             "{}/".format(DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER)
+        )
+
+    def is_cache_version(self) -> bool:
+        return not self.in_temp_storage() and self.path.startswith(
+            "{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)
         )
 
     def in_public_storage(self) -> bool:
@@ -98,14 +105,6 @@ class File(JembeInitParamSupport):
             subdir if subdir is not None else self._get_default_temp_subdir(),
         )
 
-    def _get_default_temp_subdir(self) -> str:
-        if DEFAULT_SESSION_TEMP_STORAGE_ID not in session:
-            session[DEFAULT_SESSION_TEMP_STORAGE_ID] = uuid4()
-        return "{}/{}".format(
-            DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
-            session[DEFAULT_SESSION_TEMP_STORAGE_ID],
-        )
-
     def move_to_public(self, subdir: str = ""):
         file = self.move_to(get_public_storage(), subdir)
         self.storage = file.storage
@@ -137,10 +136,34 @@ class File(JembeInitParamSupport):
         closefd=True,
         opener=None,
     ):
-        raise NotImplementedError()
+        return self.storage.open(
+            self.path,
+            buffering=buffering,
+            mode=mode,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+            closefd=closefd,
+            opener=None,
+        )
 
     def exists(self) -> bool:
-        raise NotImplementedError()
+        return self.storage.exists(self.path)
+
+    def store_cache_version(
+        self,
+        cache_name: str,
+        file: Union[
+            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+        ],
+    ) -> "File":
+        return self.storage.store_cache_version_of_file(self.path, cache_name, file)
+
+    def get_cache_version(self, cache_name: str) -> "File":
+        return self.storage.get_cache_version_of_file(self.path, cache_name)
+
+    def get_original(self) -> "File":
+        return self.storage.get_original_file(self.path)
 
     @classmethod
     def dump_init_param(cls, value: "File") -> Any:
@@ -159,6 +182,14 @@ class File(JembeInitParamSupport):
 
     def __str__(self) -> str:
         return "<File: storage={}, path={}>".format(self.storage, self.path)
+
+    def _get_default_temp_subdir(self) -> str:
+        if DEFAULT_SESSION_TEMP_STORAGE_ID not in session:
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID] = uuid4()
+        return "{}/{}".format(
+            DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID],
+        )
 
 
 class Storage(ABC):
@@ -191,13 +222,20 @@ class Storage(ABC):
                 )
             ):
                 return True
+            # Access to uploaded files before they are moved to session_temp_storage_subdir
+            # or public or private storage is prohibited
             return False
         elif self.type == self.Type.PUBLIC:
             return True
         # private storage
-        return file_path in session.get(JEMBE_FILES_ACCESS_GRANTED, dict()).get(
-            self.name, list()
-        )
+        if file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
+            return self.get_original_file(file_path).path in session.get(
+                JEMBE_FILES_ACCESS_GRANTED, dict()
+            ).get(self.name, list())
+        else:
+            return file_path in session.get(JEMBE_FILES_ACCESS_GRANTED, dict()).get(
+                self.name, list()
+            )
 
     def grant_access_to_file(self, file_path: str):
         """Grants current user access to file"""
@@ -205,6 +243,12 @@ class Storage(ABC):
             # public already have granted access to all files
             # cannot grant access to temporay file
             return
+        if file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
+            raise ValueError(
+                "Cant grant access to cache_version directly: file_path='{}', storage='{}'".format(
+                    file_path, self.name
+                )
+            )
         # adds file_path to session variable
         try:
             if file_path not in session[JEMBE_FILES_ACCESS_GRANTED][self.name]:
@@ -238,26 +282,130 @@ class Storage(ABC):
         except (KeyError, ValueError):
             pass
 
-    @abstractmethod
     def send_file(self, file_path: str) -> "Response":
         """send file via http response"""
-        raise NotImplementedError()
+        if self.can_access_file(file_path):
+            return self.send_file_raw(file_path)
+        raise NotFound()
 
-    @abstractmethod
     def store_file(
-        self, file: Union[File, FileStorage, str], subdir: str = "", move=False
+        self,
+        file: Union[
+            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+        ],
+        subdir: str = "",
+        filename: Optional[str] = None,
     ) -> File:
         """
         Store file inside this storage dir with unique file name inside subdir
 
         file -- Jembe File instance or full file path relative to JEMBE_UPLOAD_FOLDER
-        move -- if True then remove file from original location
+        subdir -- path iniside storage where file should be saved
+        filename -- optionaly overide filename
         """
+        # Check if subdir is valid when storing file
+        if self.type == self.Type.TEMP:
+            if not subdir.startswith(
+                "{}/".format(DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER)
+            ) and not subdir.startswith(
+                "{}/".format(DEFAULT_SESSION_TEMP_STORAGE_SUBDIR)
+            ):
+                raise ValueError(
+                    "Invalid storage subdir '{}': In temporary storage '{}' files"
+                    " can only be saved inside UPLOAD and SESSION TEMP STORAGE subdirs.".format(
+                        subdir, self.name
+                    )
+                )
+        elif (
+            self.type == self.Type.PUBLIC or self.type == self.Type.PRIVATE
+        ) and subdir.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
+            raise ValueError(
+                "Invalid storage subdir '{}': Cant store files directly "
+                "inside CACHE dir in storage '{}'.".format(subdir, self.name)
+            )
+        return self.store_file_raw(file=file, subdir=subdir, filename=filename)
+
+    def store_cache_version_of_file(
+        self,
+        file_path: str,
+        cache_name: str,
+        cache_file: Union[
+            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+        ],
+    ) -> "File":
+        return self.store_file_raw(
+            cache_file,
+            self._get_cache_subdir(file_path),
+            self._get_cache_name_with_extension(self.basename(file_path), cache_name),
+        )
+
+    def _get_cache_name_with_extension(self, file_name, cache_name) -> str:
+        cache_name_with_extension = cache_name
+        if "." not in cache_name:
+            if "." in file_name:
+                ext = file_name.split(".")[-1]
+                cache_name_with_extension = "{}.{}".format(cache_name, ext)
+        return cache_name_with_extension
+
+    def _get_cache_subdir(self, file_path: str) -> str:
+        return "{}/{}".format(DEFAULT_STORAGE_CACHE_FOLDER, file_path)
+
+    def get_cache_version_of_file(self, file_path: str, cache_name: str) -> "File":
+        return File(
+            storage=self,
+            file_path=self._get_cache_name_with_extension(
+                self.basename(file_path), cache_name
+            ),
+        )
+
+    def get_original_file(self, cache_file_path: str) -> "File":
+        if cache_file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
+            raise ValueError(
+                "Invalid cache file name '{}' in storage '{}'".format(
+                    cache_file_path, self.name
+                )
+            )
+        return File(self, "/".join(cache_file_path.split("/")[1:-1]))
+
+    def remove(self, file_path: str):
+        self.remove_raw(file_path)
+        cache_subdir =self._get_cache_subdir(file_path)
+        if self.type != self.Type.TEMP and self.exists(cache_subdir):
+            self.rmdir(cache_subdir)
+
+    @abstractmethod
+    def send_file_raw(self, file_path: str) -> "Response":
+        """send file via http response"""
         raise NotImplementedError()
 
     @abstractmethod
-    def remove_file(self, file: Union[File, str]):
+    def store_file_raw(
+        self,
+        file: Union[
+            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+        ],
+        subdir: str = "",
+        filename: Optional[str] = None,
+    ) -> File:
         raise NotImplementedError()
+
+    @abstractmethod
+    def open(
+        self,
+        file_path: str,
+        mode="r",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    ) -> "IOBase":
+        raise NotImplementedError()
+
+    @abstractmethod
+    def remove_raw(self, file_path: str):
+        raise NotImplementedError
 
     @abstractmethod
     def isdir(self, dir_path: str) -> bool:
@@ -276,19 +424,11 @@ class Storage(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def path_join(self, path: str, *paths: str) -> str:
-        raise NotImplementedError()
-
-    @abstractmethod
     def rmdir(self, dir_path: str):
         raise NotImplementedError()
 
     @abstractmethod
     def rmtree(self, dir_path: str):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def remove(self, file_path: str):
         raise NotImplementedError()
 
     @abstractmethod
@@ -312,10 +452,8 @@ class DiskStorage(Storage):
             return os.path.join(current_app.root_path, self._folder)  # type:ignore
         return self._folder
 
-    def send_file(self, file_path: str) -> "Response":
-        if self.can_access_file(file_path):
-            return send_from_directory(self.folder, file_path)
-        raise NotFound
+    def send_file_raw(self, file_path: str) -> "Response":
+        return send_from_directory(self.folder, file_path)
 
     def _get_unique_filename(self, filename: Optional[str], subdir: str) -> str:
         sfn = secure_filename(filename if filename is not None else "unnamed")
@@ -326,14 +464,18 @@ class DiskStorage(Storage):
             )
         return sfn
 
-    def store_file(
-        self, file: Union[File, FileStorage, str], subdir: str = "", move=False
+    def store_file_raw(
+        self,
+        file: Union[
+            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+        ],
+        subdir: str = "",
+        filename: Optional[str] = None,
     ) -> File:
         """
         Store file inside this storage dir with unique file name inside subdir
 
         file -- Jembe File instance or full file path relative to JEMBE_UPLOAD_FOLDER
-        move -- if True then remove file from original location
         """
         if isinstance(file, File):
             sfn = self._get_unique_filename(file.basename, subdir)
@@ -348,14 +490,37 @@ class DiskStorage(Storage):
                 raise NotImplementedError()
         elif isinstance(file, FileStorage):
             sfn = self._get_unique_filename(file.filename, subdir)
+            os.makedirs(os.path.join(self.folder, subdir), exist_ok=True)
             file.save(os.path.join(self.folder, subdir, sfn))
             return File(self, os.path.join(subdir, sfn))
+        elif isinstance(file, IOBase):
+            if filename is None:
+                raise ValueError(
+                    "Storge '{}': Filename is required when storing BufferedIOBase".format(
+                        self.name
+                    )
+                )
+            sfn = self._get_unique_filename(filename, subdir)
+            os.makedirs(os.path.join(self.folder, subdir), exist_ok=True)
+            new_file = File(self, os.path.join(self.folder, subdir, sfn))
+            if isinstance(file, (BufferedIOBase, RawIOBase)):
+                fio = new_file.open(mode="wb")
+                file.seek(0)
+                fio.write(file.read())
+                fio.close()
+                return new_file
+            elif isinstance(file, TextIOBase):
+                fio = new_file.open(mode="w")
+                file.seek(0)
+                fio.write(file.read())
+                fio.close()
+                return new_file
         else:
             # file is instance of str
             raise NotImplementedError()
 
-    def remove_file(self, file: Union[File, str]):
-        raise NotImplementedError()
+    def remove_raw(self, file_path: str):
+        os.remove(os.path.join(self.folder, file_path))
 
     def isdir(self, dir_path: str) -> bool:
         return os.path.isdir(os.path.join(self.folder, dir_path))
@@ -369,17 +534,33 @@ class DiskStorage(Storage):
     def makedirs(self, path: str, mode=0o777):
         os.makedirs(os.path.join(self.folder, path), mode)
 
-    def path_join(self, path: str, *paths: str) -> str:
-        return os.path.join(path, *paths)
-
     def rmdir(self, dir_path: str):
         os.rmdir(os.path.join(self.folder, dir_path))
 
     def rmtree(self, dir_path: str):
         shutil.rmtree(os.path.join(self.folder, dir_path))
 
-    def remove(self, file_path: str):
-        os.remove(os.path.join(self.folder, file_path))
-
     def basename(self, path: str) -> str:
         return os.path.basename(path)
+
+    def open(
+        self,
+        file_path: str,
+        mode: str = "r",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    ):
+        return open(
+            os.path.join(self.folder, file_path),
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+            closefd=closefd,
+            opener=opener,
+        )

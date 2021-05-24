@@ -26,16 +26,16 @@ class DisplayFileComponent(Component):
 
 class UploadFilesComponent(Component):
     """
-        Saves uploaded files in temporary storage in new dir named uniquly named fileUploadRequestId.
-        Returns json 
-            dict(files = dict(fileUploadId, [{storage=storage_name, path=file_path}]), fileUploadResponseId = fileUplaodResponseId)
+    Saves uploaded files in temporary storage in new dir named uniquly named fileUploadRequestId.
+    Returns json
+        dict(files = dict(fileUploadId, [{storage=storage_name, path=file_path}]), fileUploadResponseId = fileUplaodResponseId)
 
-        This component is only component that directly interecat with 
-        http post request in order to obtain files from it.
-        It does not uses state parama.
+    This component is only component that directly interecat with
+    http post request in order to obtain files from it.
+    It does not uses state parama.
 
-        Basicaly this component create state params of file instances for other 
-        components so that thay can use file as init/state param.
+    Basicaly this component create state params of file instances for other
+    components so that thay can use file as init/state param.
     """
 
     def __init__(self):
@@ -53,14 +53,14 @@ class UploadFilesComponent(Component):
 
             # generate unique file_upload_response_id
             while self.file_upload_response_id is None or temp_storage.exists(
-                temp_storage.path_join(
-                    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id
+                "/".join(
+                    [DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id]
                 )
             ):
                 self.file_upload_response_id = secure_filename(str(uuid1()))
             temp_storage.makedirs(
-                temp_storage.path_join(
-                    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id
+                "/".join(
+                    [DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER, self.file_upload_response_id]
                 )
             )
 
@@ -69,9 +69,11 @@ class UploadFilesComponent(Component):
                     if file and self.allowed_file(file.filename):
                         tmp_file = temp_storage.store_file(
                             file,
-                            temp_storage.path_join(
-                                DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
-                                self.file_upload_response_id,
+                            "/".join(
+                                [
+                                    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
+                                    self.file_upload_response_id,
+                                ]
                             ),
                             True,
                         )
