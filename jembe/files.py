@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
 import shutil
 import os
-from io import BufferedIOBase, FileIO, TextIOWrapper, TextIOBase, RawIOBase, IOBase
+from io import BufferedIOBase, TextIOBase, RawIOBase, IOBase
 from abc import ABC, abstractmethod
 from uuid import uuid4
 
