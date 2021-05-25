@@ -347,6 +347,8 @@ class Storage(ABC):
     def _get_cache_subdir(self, file_path: str) -> str:
         if self.type == self.Type.TEMP:
             split_file_path = file_path.split("/")
+            if split_file_path[0] == DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER:
+                return ""
             if split_file_path[0] in (
                 DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
                 DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
@@ -414,12 +416,22 @@ class Storage(ABC):
         except Exception as e:
             current_app.logger.warning(e)
         cache_subdir = self._get_cache_subdir(file_path)
-        if self.type != self.Type.TEMP and self.exists(cache_subdir):
+        if cache_subdir and self.exists(cache_subdir):
             self.rmtree(cache_subdir)
-        try:
-            self.rmdir("/".join(file_path.split("/")[:-1]))
-        except Exception as e:
-            current_app.logger.warning(e)
+            self._remove_empty_dirs("/".join(cache_subdir.split("/")[:-1]))
+        self._remove_empty_dirs("/".join(file_path.split("/")[:-1]))
+
+    def _remove_empty_dirs(self, file_path):
+        fp_split = file_path.split("/")
+        while fp_split:
+            path = "/".join(fp_split)
+            print("deleting", path)
+            try:
+                self.rmdir(path)
+            except Exception as e:
+                current_app.logger.warning(e)
+                return
+            fp_split.pop()
 
     @abstractmethod
     def send_file_raw(self, file_path: str) -> "Response":
