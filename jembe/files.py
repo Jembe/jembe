@@ -409,14 +409,17 @@ class Storage(ABC):
         return File(self, "/".join(cache_file_path.split("/")[1:-1]))
 
     def remove(self, file_path: str):
-        self.remove_raw(file_path)
+        try:
+            self.remove_raw(file_path)
+        except Exception as e:
+            current_app.logger.warning(e)
         cache_subdir = self._get_cache_subdir(file_path)
         if self.type != self.Type.TEMP and self.exists(cache_subdir):
             self.rmtree(cache_subdir)
         try:
             self.rmdir("/".join(file_path.split("/")[:-1]))
         except Exception as e:
-            pass
+            current_app.logger.warning(e)
 
     @abstractmethod
     def send_file_raw(self, file_path: str) -> "Response":
