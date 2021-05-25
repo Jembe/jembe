@@ -100,9 +100,10 @@ class File(JembeInitParamSupport):
         return self.copy_to(get_private_storage(), subdir)
 
     def copy_to_temp(self, subdir: Optional[str] = None) -> "File":
+        temp_subdir = self.storage._get_default_temp_subdir()
         return self.copy_to(
             get_temp_storage(),
-            subdir if subdir is not None else self._get_default_temp_subdir(),
+            "/".join((temp_subdir, subdir)) if subdir is not None else temp_subdir,
         )
 
     def move_to_public(self, subdir: str = ""):
@@ -116,9 +117,10 @@ class File(JembeInitParamSupport):
         self.path = file.path
 
     def move_to_temp(self, subdir: Optional[str] = None):
+        temp_subdir = self.storage._get_default_temp_subdir()
         file = self.move_to(
             get_temp_storage(),
-            subdir if subdir is not None else self._get_default_temp_subdir(),
+            "/".join((temp_subdir, subdir)) if subdir is not None else temp_subdir,
         )
         self.storage = file.storage
         self.path = file.path
@@ -181,15 +183,10 @@ class File(JembeInitParamSupport):
         return File(value["storage"], value["path"])
 
     def __str__(self) -> str:
-        return "<File: storage={}, path={}>".format(self.storage, self.path)
+        return "<File: storage={}, path={}>".format(self.storage.name, self.path)
 
-    def _get_default_temp_subdir(self) -> str:
-        if DEFAULT_SESSION_TEMP_STORAGE_ID not in session:
-            session[DEFAULT_SESSION_TEMP_STORAGE_ID] = uuid4()
-        return "{}/{}".format(
-            DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
-            session[DEFAULT_SESSION_TEMP_STORAGE_ID],
-        )
+    def __repr__(self) -> str:
+        return "<File: storage={}, path={}>".format(self.storage.name, self.path)
 
 
 class Storage(ABC):
@@ -348,15 +345,59 @@ class Storage(ABC):
         return cache_name_with_extension
 
     def _get_cache_subdir(self, file_path: str) -> str:
-        return "{}/{}".format(DEFAULT_STORAGE_CACHE_FOLDER, file_path)
+        if self.type == self.Type.TEMP:
+            split_file_path = file_path.split("/")
+            if split_file_path[0] in (
+                DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+                DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
+            ):
+                file_path = "/".join(split_file_path[2:])
+            return "{}/{}/{}".format(
+                self._get_default_temp_subdir(), DEFAULT_STORAGE_CACHE_FOLDER, file_path
+            )
+        else:
+            return "{}/{}".format(DEFAULT_STORAGE_CACHE_FOLDER, file_path)
+
+    def _get_default_temp_subdir(self) -> str:
+        if DEFAULT_SESSION_TEMP_STORAGE_ID not in session:
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID] = uuid4()
+        return "{}/{}".format(
+            DEFAULT_SESSION_TEMP_STORAGE_SUBDIR,
+            session[DEFAULT_SESSION_TEMP_STORAGE_ID],
+        )
 
     def get_cache_version_of_file(self, file_path: str, cache_name: str) -> "File":
-        return File(
-            storage=self,
-            file_path=self._get_cache_name_with_extension(
-                self.basename(file_path), cache_name
-            ),
+        split_file_path = file_path.split("/")
+        if self.type != self.Type.TEMP:
+            if split_file_path[0] == DEFAULT_STORAGE_CACHE_FOLDER:
+                raise ValueError(
+                    "Cant crate cache version of cached version '{}':'{}'".format(
+                        self.name, file_path
+                    )
+                )
+        else:
+            if split_file_path[0] == DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER:
+                raise ValueError(
+                    "Cant create cache version of just uploaded file, save it first somwhere else."
+                )
+            elif (
+                split_file_path[0] == DEFAULT_SESSION_TEMP_STORAGE_SUBDIR
+                and split_file_path[2] == DEFAULT_STORAGE_CACHE_FOLDER
+            ):
+                raise ValueError(
+                    "Cant crate cache version of cached version '{}':'{}'".format(
+                        self.name, file_path
+                    )
+                )
+        full_path = "/".join(
+            (
+                self._get_cache_subdir(file_path),
+                self._get_cache_name_with_extension(
+                    self.basename(file_path), cache_name
+                ),
+            )
         )
+        return File(storage=self, file_path=full_path)
 
     def get_original_file(self, cache_file_path: str) -> "File":
         if cache_file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
@@ -369,9 +410,13 @@ class Storage(ABC):
 
     def remove(self, file_path: str):
         self.remove_raw(file_path)
-        cache_subdir =self._get_cache_subdir(file_path)
+        cache_subdir = self._get_cache_subdir(file_path)
         if self.type != self.Type.TEMP and self.exists(cache_subdir):
-            self.rmdir(cache_subdir)
+            self.rmtree(cache_subdir)
+        try:
+            self.rmdir("/".join(file_path.split("/")[:-1]))
+        except Exception as e:
+            pass
 
     @abstractmethod
     def send_file_raw(self, file_path: str) -> "Response":
@@ -389,8 +434,31 @@ class Storage(ABC):
     ) -> File:
         raise NotImplementedError()
 
-    @abstractmethod
     def open(
+        self,
+        file_path: str,
+        mode="r",
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None,
+    ) -> "IOBase":
+        self.makedirs("/".join(file_path.split("/")[:-1]))
+        return self.open_raw(
+            file_path=file_path,
+            mode=mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+            closefd=closefd,
+            opener=opener,
+        )
+
+    @abstractmethod
+    def open_raw(
         self,
         file_path: str,
         mode="r",
@@ -532,7 +600,7 @@ class DiskStorage(Storage):
         return os.path.exists(os.path.join(self.folder, path))
 
     def makedirs(self, path: str, mode=0o777):
-        os.makedirs(os.path.join(self.folder, path), mode)
+        os.makedirs(os.path.join(self.folder, path), mode, exist_ok=True)
 
     def rmdir(self, dir_path: str):
         os.rmdir(os.path.join(self.folder, dir_path))
@@ -543,7 +611,7 @@ class DiskStorage(Storage):
     def basename(self, path: str) -> str:
         return os.path.basename(path)
 
-    def open(
+    def open_raw(
         self,
         file_path: str,
         mode: str = "r",
