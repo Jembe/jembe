@@ -1,7 +1,7 @@
 Jembe Web Framework
 ===================
 
-Python Web Framework for modern web applications, build on top of Flask, designed with following goals:
+Python Web Framework for builiding modern web applications, runs on top of Flask, designed with following goals:
 
 - App is build using custom, reusable, reactive, responsive UI components;
 - Developers can stay focused on "business" logic and write UI logic only for very specific use cases;
