@@ -1,0 +1,3 @@
+recursive-include {{project_name}} *.py *.html *.css *.js *.jpt
+prune .venv
+prune node_modules

@@ -1,0 +1,4 @@
+recursive-include jembe *.py *.html *.css *.js *.jpt
+prune jembe/src
+prune .venv
+prune node_modules

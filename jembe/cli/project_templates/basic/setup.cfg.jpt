@@ -33,7 +33,7 @@ long_description = file: README.md
 #     Documentation = https://github.com/Jembe/jembe
 
 [options]
-packages = {{project_name}}
+packages = find:
 include_package_data = True
 python_requires = >=3.8
 install_requires = 
@@ -41,6 +41,9 @@ install_requires =
     Flask-SeaSurf
     Flask-Session
     python-dotenv
+    
+[options.packages.find]
+exclude = tests
 
 [options.extras_require]
 dev = 

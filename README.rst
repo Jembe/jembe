@@ -14,6 +14,22 @@ Python Web Framework for builiding modern web applications, runs on top of Flask
 
 Official web site https://jembe.io
 
+Instalation
+-----------
+
+Requires python 3.8 or above:
+
+```
+    $ mkdir myproject
+    $ cd myproject
+    $ python -m venv .venv
+    $ . .venv/bin/activate 
+    $ pip install jembe
+    $ jembe startproject
+    $ pip install -e .[dev]
+    $ flask run
+```
+
 
 License
 -------

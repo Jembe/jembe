@@ -29,6 +29,7 @@ h2 {
     box-shadow: 1px 1px 4px 0px #0000004a;
     border: 1px solid #3d3d3d54;
     height: 1.5rem;
+    cursor: pointer;
 }
 .counter button:disabled {
     border: none;
