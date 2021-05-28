@@ -19,7 +19,6 @@ Instalation
 
 Requires python 3.8 or above:
 
-.. code:: 
     $ mkdir myproject
     $ cd myproject
     $ python -m venv .venv
