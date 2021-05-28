@@ -2,7 +2,7 @@
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["{{project.name}}"]
+source = ["{{project_name}}"]
 branch = true
 
 

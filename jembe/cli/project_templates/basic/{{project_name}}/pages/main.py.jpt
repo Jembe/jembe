@@ -1,5 +1,5 @@
 from jembe import Component
-from {{project.name}}.app import jmb
+from {{project_name}}.app import jmb
 
 __all__ = ("main",)
 

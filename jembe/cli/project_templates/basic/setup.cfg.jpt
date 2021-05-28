@@ -1,13 +1,13 @@
 [metadata]
-name = {{project.name}}
+name = {{project_name}}
 version = 0.0.1
-description = {{project.description}}
+description = {{project_description}}
 # Look at https://spdx.org/licenses/ for license indetifier or use "proprietary"
 # license = MIT
 license_files = LICENSE
 
 # Enter your full name or the name of your company
-author = {{project.author}}
+author = {{project_author}}
 # Enter your email or email of your company
 # author_email = 
 
@@ -33,7 +33,7 @@ long_description = file: README.md
 #     Documentation = https://github.com/Jembe/jembe
 
 [options]
-packages = {{project.name}}
+packages = {{project_name}}
 include_package_data = True
 python_requires = >=3.8
 install_requires = 
@@ -49,4 +49,4 @@ dev =
 
 [options.entry_points]
 console_scripts = 
-    {{project.name}} = {{project.name}}.cli.scripts:cli
+    {{project_name}} = {{project_name}}.cli.scripts:cli

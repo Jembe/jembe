@@ -34,9 +34,9 @@ def startproject(template, name, description):
     """Starts new Jembe project in current directory"""
     name = make_python_identifier(name)
     ctx = dict(
-        project=dict(
-            template=template, name=name, description=description, author=getuser()
-        ),
+        project_name=name,
+        project_description=description,
+        project_author=getuser(),
         jembe_version=importlib.metadata.version("jembe"),
         secret_key=str(os.urandom(24).__repr__()),
     )

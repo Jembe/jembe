@@ -1,2 +1,2 @@
-FLASK_APP={{project.name}}
+FLASK_APP={{project_name}}
 FLASK_ENV=development

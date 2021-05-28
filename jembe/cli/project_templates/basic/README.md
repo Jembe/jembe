@@ -1,3 +1,3 @@
-# {{project.name}}
+# {{project_name}}
 
-{{project.description}}
+{{project_description}}

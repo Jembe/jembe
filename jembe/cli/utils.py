@@ -131,4 +131,8 @@ def make_python_identifier(
 
 
 def extract_project_template(name: str, ctx: dict):
+    # obtain current_dir and template_dir
+    # recursivly copy all files and directories from temple_dir to current_dir
+    # remove .jpt file extension, run files thought jinja2 template with ctx
+    # run file name throught jinja2 template
     pass
