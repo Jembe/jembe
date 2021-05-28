@@ -1,0 +1,9 @@
+from jembe import Component
+from {{project.name}}.app import jmb
+
+__all__ = ("main",)
+
+
+@jmb.page("main")
+class MainPage(Component):
+    pass

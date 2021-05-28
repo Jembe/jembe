@@ -1,0 +1,52 @@
+[metadata]
+name = {{project.name}}
+version = 0.0.1
+description = {{project.description}}
+# Look at https://spdx.org/licenses/ for license indetifier or use "proprietary"
+# license = MIT
+license_files = LICENSE
+
+# Enter your full name or the name of your company
+author = {{project.author}}
+# Enter your email or email of your company
+# author_email = 
+
+long_description = file: README.md
+
+# Home page of the project
+# url= https://jembe.io
+
+# Classifiers for project if you are going to upload it to pypi.org
+# https://pypi.org/classifiers/
+# classifiers =
+#     Development Status :: 3 - Alpha
+#     Environment :: Web Environment
+#     Framework :: Flask
+#     License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+#     License :: Other/Proprietary License
+#     Programming Language :: Python :: 3.8
+
+# keywords = ["jembe"]
+
+# project_urls=
+#     Repository = https://github.com/Jembe/jembe
+#     Documentation = https://github.com/Jembe/jembe
+
+[options]
+packages = {{project.name}}
+include_package_data = True
+python_requires = >=3.8
+install_requires = 
+    jembe >= {{jembe_version}}
+    python-dotenv
+
+[options.extras_require]
+dev = 
+    black
+    mypy
+    pytest
+    coverage [toml]
+
+[options.entry_points]
+console_scripts = 
+    {{project.name}} = {{project.name}}.cli.scripts:cli

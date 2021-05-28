@@ -1,0 +1,16 @@
+from typing import TYPE_CHECKING
+from jembe import Jembe
+
+if TYPE_CHECKING:
+    from flask import Flask
+
+__all__ = (
+    "init_app",
+    "jmb",
+)
+
+jmb = Jembe()
+
+
+def init_app(app: "Flask"):
+    jmb.init_app(app)

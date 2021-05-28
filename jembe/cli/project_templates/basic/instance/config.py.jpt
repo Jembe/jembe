@@ -1,0 +1,4 @@
+import os
+
+JEMBE_MEDIA_FOLDER = os.path.join("..", "data", "media")
+SECRET_KEY = b"{{secret_key}}"

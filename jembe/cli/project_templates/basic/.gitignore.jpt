@@ -1,7 +1,7 @@
 .DS_Store
-.env
-.venv
-/.flaskenv
+/.env
+/.venv
+# /.flaskenv
 *.pyc
 *.pyo
 env/
@@ -19,16 +19,13 @@ _mailinglist
 docs/_build/
 .vscode
 
-# node
-/node_modules/
-
 # Coverage reports
 htmlcov/
 .coverage
 .coverage.*
 *,cover
-yarn-error.log
-
-
 
 /data/
+
+# javascript/node
+/node_modules/

@@ -1,7 +1,10 @@
 import re
 import keyword
 
-__all__ = ("make_python_identifier",)
+__all__ = (
+    "make_python_identifier",
+    "extract_project_template",
+)
 
 # https://gist.github.com/JamesPHoughton/3a3f87c6662bf5c9eccc9f2206e228fd
 def make_python_identifier(
@@ -125,3 +128,7 @@ def make_python_identifier(
     namespace[string] = s
 
     return s
+
+
+def extract_project_template(name: str, ctx: dict):
+    pass

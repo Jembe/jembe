@@ -1,9 +1,9 @@
 import os
 import click
+import importlib.metadata
 from getpass import getuser
 from click import echo, secho
-from click.termui import prompt
-from .utils import make_python_identifier
+from .utils import extract_project_template, make_python_identifier
 
 
 @click.group()
@@ -30,25 +30,17 @@ def jembe():
 @click.option(
     "--description", help="Description", prompt=True, required=False, default=""
 )
-@click.option(
-    "--author",
-    help="Author full name",
-    default=lambda: getuser(),
-)
-@click.option("--author-email", help="Author email")
-def startproject(template, name, description, author, author_email):
+def startproject(template, name, description):
     """Starts new Jembe project in current directory"""
     name = make_python_identifier(name)
     ctx = dict(
         project=dict(
-            template=template,
-            name=name,
-            description=description,
-            author=author,
-            author_email=author_email
-        )
+            template=template, name=name, description=description, author=getuser()
+        ),
+        jembe_version=importlib.metadata.version("jembe"),
+        secret_key=str(os.urandom(24).__repr__()),
     )
-    echo("startproject: {}".format(ctx))
+    extract_project_template(template, ctx=ctx)
 
     echo()
     echo("New project is suceessfully created in current directory!", color=True)
