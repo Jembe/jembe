@@ -19,7 +19,7 @@ Instalation
 
 Requires python 3.8 or above:
 
-```
+.. code:: bash
     $ mkdir myproject
     $ cd myproject
     $ python -m venv .venv
@@ -28,7 +28,6 @@ Requires python 3.8 or above:
     $ jembe startproject
     $ pip install -e .[dev]
     $ flask run
-```
 
 
 License
