@@ -19,7 +19,7 @@ Instalation
 
 Requires python 3.8 or above:
 
-.. code:: bash
+.. code:: 
     $ mkdir myproject
     $ cd myproject
     $ python -m venv .venv
