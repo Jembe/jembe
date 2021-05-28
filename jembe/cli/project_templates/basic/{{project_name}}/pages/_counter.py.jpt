@@ -1,0 +1,17 @@
+from jembe import Component, action, config
+
+__all__ = ("Counter",)
+
+
+@config(Component.Config(changes_url=False))
+class Counter(Component):
+    def __init__(self, value: int = 0):
+        super().__init__()
+
+    @action
+    def up(self):
+        self.state.value += 1
+
+    @action
+    def down(self):
+        self.state.value = self.state.value - 1 if self.state.value > 0 else 0

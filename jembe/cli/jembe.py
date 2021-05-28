@@ -18,7 +18,7 @@ def jembe():
     prompt="Choose Project Template",
     type=click.Choice(["basic", "standard"], case_sensitive=False),
     required=True,
-    default="standard",
+    default="basic",
 )
 @click.option(
     "--name",

@@ -1,3 +1,33 @@
-.body {
+body {
     background-color: #F5F5F5;
+}
+body > div {
+    background: #FFFFFF;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: auto;
+    width: 700px;
+    margin-top: 4rem;
+    box-shadow: 2px 2px 5px 0px #0000008c;
+}
+h1 {
+    color: #4D7C0F;
+    margin: 0 0 1rem 0;  
+}
+h2 {
+    color: #3d3d3d;
+}
+.counter {
+    display: flex;
+    gap: 1rem;
+    flex-direction: row;
+    align-items: center;
+}
+.counter button {
+    width: 2rem;
+    border-radius: 0.3rem;
+    border: none;
+    box-shadow: 1px 1px 4px 0px #0000004a;
+    border: 1px solid #3d3d3d54;
+    height: 1.5rem;
 }

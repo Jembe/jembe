@@ -7,7 +7,18 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
 </head>
 <body>
-    <h1>Welcome to {{project_name}}</h1>
+    <div>
+        <h1>Welcome to "{{project_name}}"</h1>
+        {{'{{'}}component("counter"){{'}}'}}
+    </div>
     <script src="{{'{{'}} url_for('jembe.static', filename='js/jembe.js') {{'}}'}}"></script>
+    <script defer>
+    {# Add CSRF token to Jembe ajax requests  #}
+    window.addEventListener('DOMContentLoaded', function(event){
+        window.jembeClient.addXRequestHeaderGenerator(function () {
+            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
+        })
+    })
+    </script>
 </body>
 </html>

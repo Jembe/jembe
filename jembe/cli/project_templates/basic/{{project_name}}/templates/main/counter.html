@@ -1,0 +1,8 @@
+<div>
+    <h2>Counter Demo</h2>
+    <div class="counter">
+        <button jmb-on:click="down()" type="button" {{'{% if value <= 0 %}disabled{% endif %}'}}>-</button>
+        <div>{{'{{'}}value{{'}}'}}</div>
+        <button jmb-on:click="up()" type="button">+</button>
+    </div>
+</div>

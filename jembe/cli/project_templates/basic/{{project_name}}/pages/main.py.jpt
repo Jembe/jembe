@@ -1,9 +1,10 @@
 from jembe import Component
 from {{project_name}}.app import jmb
+from ._counter import Counter
 
-__all__ = ("main",)
+__all__ = ("MainPage",)
 
 
-@jmb.page("main")
+@jmb.page("main", Component.Config(components={"counter": Counter}))
 class MainPage(Component):
     pass

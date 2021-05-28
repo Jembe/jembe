@@ -1,5 +1,7 @@
 import re
+import os
 import keyword
+from jinja2 import Environment, FileSystemLoader, Template
 
 __all__ = (
     "make_python_identifier",
@@ -131,8 +133,34 @@ def make_python_identifier(
 
 
 def extract_project_template(name: str, ctx: dict):
-    # obtain current_dir and template_dir
+    import jembe
+
+    # obtain destination dir and template_dir
+    dest = os.getcwd()
+    template_dir = os.path.join(
+        jembe.__path__[0], "cli", "project_templates", name  # type:ignore
+    )
+    env = Environment(autoescape=False, loader=FileSystemLoader(template_dir))
     # recursivly copy all files and directories from temple_dir to current_dir
-    # remove .jpt file extension, run files thought jinja2 template with ctx
-    # run file name throught jinja2 template
-    pass
+    for root, dirs, files in os.walk(template_dir):
+        rel_root = Template(os.path.relpath(root, template_dir)).render(ctx)
+        for name in dirs:
+            # run dir name throught jinja2 template
+            dname = Template(name).render(ctx)
+
+            try:
+                os.mkdir(os.path.join(dest, rel_root, dname))
+            except FileExistsError:
+                pass
+        for name in files:
+            # run file name throught jinja2 template
+            dname = Template(name).render(ctx)
+            # remove .jpt file extension,
+            dname = dname[:-4] if dname.endswith(".jpt") else dname
+
+            # run files thought jinja2 template with ctx
+            st = env.get_template(
+                os.path.relpath(os.path.join(root, name), template_dir)
+            )
+            with open(os.path.join(dest, rel_root, dname), "w") as df:
+                df.write(st.render(ctx))

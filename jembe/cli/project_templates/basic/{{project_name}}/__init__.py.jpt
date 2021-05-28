@@ -6,7 +6,9 @@ from . import app as app_services
 def create_app(config=None) -> "Flask":
     from . import views, pages, commands
 
-    instance_path = os.environ.get("FLASK_INSTANCE_PATH", None)
+    instance_path = os.environ.get(
+        "FLASK_INSTANCE_PATH", os.path.join(os.getcwd(), "instance")
+    )
     app = Flask(__name__, instance_relative_config=True, instance_path=instance_path)
 
     if config is not None:

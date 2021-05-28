@@ -1,16 +1,19 @@
 from typing import TYPE_CHECKING
 from jembe import Jembe
+from flask_seasurf import SeaSurf
+from flask_session import Session
 
 if TYPE_CHECKING:
     from flask import Flask
 
-__all__ = (
-    "init_app",
-    "jmb",
-)
+__all__ = ("init_app", "jmb", "csrf", "session")
 
 jmb = Jembe()
+csrf = SeaSurf()
+session = Session()
 
 
 def init_app(app: "Flask"):
+    csrf.init_app(app)
+    session.init_app(app)
     jmb.init_app(app)
