@@ -202,6 +202,7 @@ class JembeClient {
     this.xRequestsInProgress = 0
     this.xRequestActiveElement = null
     this.xRequestDisabledElements = []
+    this.disableInputBeforeRequestTimeoutId = null
 
     window.onpopstate = this.onHistoryPopState
 
@@ -623,6 +624,7 @@ class JembeClient {
     if (isXUpdate) {
       this.xRequestsInProgress -= 1
     }
+    window.clearTimeout(this.disableInputBeforeRequestTimeoutId)
     if (this.xRequestsInProgress === 0) {
       this.enableInputsAfterResponse()
     }
@@ -642,7 +644,9 @@ class JembeClient {
       this.xRequestsInProgress += 1
     }
     if (this.xRequestsInProgress === 1) {
-      this.disableInputsBeforeRequest()
+      this.disableInputBeforeRequestTimeoutId = window.setTimeout(
+        () => {this.disableInputsBeforeRequest()}, 25
+      )
     }
     window.dispatchEvent(
       new CustomEvent(
