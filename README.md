@@ -15,17 +15,28 @@ Official web site https://jembe.io
 
 ## Instalation
 
-Requires python 3.8 or above:
+Requires **Python 3.8** or above:
 
-```
-    $ mkdir myproject
-    $ cd myproject
-    $ python -m venv .venv
-    $ . .venv/bin/activate 
-    $ pip install jembe
-    $ jembe startproject
-    $ pip install -e .[dev]
-    $ flask run
+``` bash
+# Create project directory
+$ mkdir myproject
+$ cd myproject
+
+# Create python virtual enviroment and activate it
+$ python -m venv .venv
+$ . .venv/bin/activate 
+
+# Install Jembe framework
+$ pip install jembe
+
+# Start new project
+$ jembe startproject
+
+# Install developer dependencies in virtual enviroment
+$ pip install -e .[dev]
+
+# Run application
+$ flask run
 ```
 
 
