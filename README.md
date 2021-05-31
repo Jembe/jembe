@@ -13,7 +13,7 @@ Python Web Framework for builiding modern web applications, runs on top of Flask
 
 Official web site https://jembe.io
 
-## Instalation
+## Starting new project
 
 Requires **Python 3.8** or above:
 

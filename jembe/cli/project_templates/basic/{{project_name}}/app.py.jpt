@@ -14,6 +14,7 @@ session = Session()
 
 
 def init_app(app: "Flask"):
-    csrf.init_app(app)
-    session.init_app(app)
-    jmb.init_app(app)
+    with app.app_context():
+        csrf.init_app(app)
+        session.init_app(app)
+        jmb.init_app(app)

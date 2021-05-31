@@ -24,8 +24,6 @@ from .exceptions import (
 from .files import File, Storage, DiskStorage
 from .utils import page_url, run_only_once
 
-__version__ = "0.3.0"
-
 __all__ = (
     "Jembe",
     "get_storage",
