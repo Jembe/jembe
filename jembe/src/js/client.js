@@ -227,7 +227,6 @@ class JembeClient {
       this.components[componentRef.execName] = componentRef
       componentRef.mount()
     }
-    this.dispatchUpdatePageEvent(false)
   }
   /**
    * Create dict of {execName:component} for all components find in
@@ -552,7 +551,7 @@ class JembeClient {
             if (updateLocation) {
               this.updateLocation()
             }
-            this.dispatchUpdatePageEvent()
+            this.dispatchUpdatePageEvent(true, components)
           }).catch(error => {
             this.dispatchUpdatePageErrorEvent(null, error)
           })
@@ -620,14 +619,18 @@ class JembeClient {
     return new JMB(this, componentExecName)
   }
 
-  dispatchUpdatePageEvent(isXUpdate = true) {
+  dispatchUpdatePageEvent(isXUpdate = true, components = {}) {
     this.enableInputsAfterResponse(isXUpdate)
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePage',
         {
           detail: {
-            isXUpdate: isXUpdate
+            isXUpdate: isXUpdate,
+            components: Object.fromEntries(
+              Object.entries(components).map(
+                ([key, val]) => [key, val.dom]
+            ))
           }
         }
       )
@@ -671,13 +674,13 @@ class JembeClient {
       )
     )
   }
-  disableInputsBeforeRequest(isXUpdate=true) {
+  disableInputsBeforeRequest(isXUpdate = true) {
     if (isXUpdate) {
       this.xRequestsInProgress += 1
     }
     if (this.xRequestsInProgress === 1) {
       this.disableInputBeforeRequestTimeoutId = window.setTimeout(
-        () => {this._disableInputsBeforeRequest()}, 25
+        () => { this._disableInputsBeforeRequest() }, 25
       )
     }
   }
@@ -758,6 +761,15 @@ class JembeClient {
   }
   getCookie(name) {
     return getCookie(name)
+  }
+  walkComponent(component, callback) {
+    if (component instanceof String) {
+      component = this.document.querySelector(`[jmb-name=${component}]`)
+    }
+    walkComponentDom(component, callback)
+  }
+  walkDocument(callback) {
+    walk(this.document.documentElement, callback)
   }
 }
 
