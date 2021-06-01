@@ -621,13 +621,7 @@ class JembeClient {
   }
 
   dispatchUpdatePageEvent(isXUpdate = true) {
-    if (isXUpdate) {
-      this.xRequestsInProgress -= 1
-    }
-    window.clearTimeout(this.disableInputBeforeRequestTimeoutId)
-    if (this.xRequestsInProgress === 0) {
-      this.enableInputsAfterResponse()
-    }
+    this.enableInputsAfterResponse(isXUpdate)
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePage',
@@ -640,14 +634,7 @@ class JembeClient {
     )
   }
   dispatchStartUpdatePageEvent(isXUpdate = true) {
-    if (isXUpdate) {
-      this.xRequestsInProgress += 1
-    }
-    if (this.xRequestsInProgress === 1) {
-      this.disableInputBeforeRequestTimeoutId = window.setTimeout(
-        () => {this.disableInputsBeforeRequest()}, 25
-      )
-    }
+    this.disableInputsBeforeRequest(isXUpdate)
     window.dispatchEvent(
       new CustomEvent(
         'jembeStartUpdatePage',
@@ -661,10 +648,12 @@ class JembeClient {
   }
   dispatchUpdatePageErrorEvent(response = null, error = null) {
     if (response === null && error.message !== "errorInJembeResponse") {
-      this.xRequestsInProgress -= 1
+      // this.xRequestsInProgress -= 1
+      this.enableInputsAfterResponse()
       console.info('Error x-jembe request', error)
     } else if (response !== null) {
-      this.xRequestsInProgress -= 1
+      // this.xRequestsInProgress -= 1
+      this.enableInputsAfterResponse()
       console.info('Error x-jembe response', response)
     } else if (response === null && error.message === "errorInJembeResponse") {
       return
@@ -682,7 +671,17 @@ class JembeClient {
       )
     )
   }
-  disableInputsBeforeRequest() {
+  disableInputsBeforeRequest(isXUpdate=true) {
+    if (isXUpdate) {
+      this.xRequestsInProgress += 1
+    }
+    if (this.xRequestsInProgress === 1) {
+      this.disableInputBeforeRequestTimeoutId = window.setTimeout(
+        () => {this._disableInputsBeforeRequest()}, 25
+      )
+    }
+  }
+  _disableInputsBeforeRequest() {
     // save currently focused element
     if (this.document.activeElement !== null) {
       this.xRequestActiveElement = this.document.activeElement
@@ -728,7 +727,14 @@ class JembeClient {
       }
     })
   }
-  enableInputsAfterResponse() {
+  enableInputsAfterResponse(isXUpdate = true) {
+    if (isXUpdate) {
+      this.xRequestsInProgress -= 1
+    }
+    window.clearTimeout(this.disableInputBeforeRequestTimeoutId)
+    if (this.xRequestsInProgress !== 0) {
+      return
+    }
     //enable disabled inputs (not updated by morph) 
     for (let f of this.xRequestDisabledElements) {
       f()
