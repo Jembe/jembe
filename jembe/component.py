@@ -676,6 +676,16 @@ class Component(metaclass=ComponentMeta):
                             _dump_supported_types(v, el_annotation) for v in value
                         )
                     )
+                if atype == dict or get_origin(atype) == dict:
+                    el_annotation = get_args(atype)[1]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else {
+                            k: _dump_supported_types(v, el_annotation)
+                            for k, v in value.items()
+                        }
+                    )
                 elif (
                     atype == JembeInitParamSupport
                     or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
@@ -729,7 +739,7 @@ class Component(metaclass=ComponentMeta):
         """
 
         def _load_supported_types(value, annotation):
-            """ returns loaded value or raise ValueError"""
+            """returns loaded value or raise ValueError"""
             # TODO add support for multiple annotation types Union[a,b,c] etc
 
             atype, is_optional = get_annotation_type(annotation)
@@ -743,8 +753,15 @@ class Component(metaclass=ComponentMeta):
                 elif atype == float:
                     return None if (is_optional and value is None) else float(value)
                 elif atype == dict or get_origin(atype) == dict:
-                    # TODO recursive dict
-                    return None if (is_optional and value is None) else dict(value)
+                    el_annotation = get_args(atype)[1]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else {
+                            k: _load_supported_types(v, el_annotation)
+                            for k, v in value.items()
+                        }
+                    )
                 elif atype == tuple or get_origin(atype) == tuple:
                     # TODO recursive tuple
                     return None if (is_optional and value is None) else tuple(value)
@@ -878,6 +895,8 @@ class Component(metaclass=ComponentMeta):
             **context,
         }
         template = template if template else self._config.template
+        if not isinstance(template, str):
+            template = list(template)
         return render_template(template, **context)
 
     def render_template_string(self, source, **context):
