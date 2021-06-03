@@ -753,15 +753,18 @@ class Component(metaclass=ComponentMeta):
                 elif atype == float:
                     return None if (is_optional and value is None) else float(value)
                 elif atype == dict or get_origin(atype) == dict:
-                    el_annotation = get_args(atype)[1]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else {
-                            k: _load_supported_types(v, el_annotation)
-                            for k, v in value.items()
-                        }
-                    )
+                    try:
+                        el_annotation = get_args(atype)[1]
+                        return (
+                            None
+                            if (is_optional and value is None)
+                            else {
+                                k: _load_supported_types(v, el_annotation)
+                                for k, v in value.items()
+                            }
+                        )
+                    except IndexError:
+                        return None if (is_optional and value is None) else dict(value)
                 elif atype == tuple or get_origin(atype) == tuple:
                     # TODO recursive tuple
                     return None if (is_optional and value is None) else tuple(value)
@@ -794,6 +797,8 @@ class Component(metaclass=ComponentMeta):
                         return value.load_init_param(value)
                     else:
                         return atype.load_init_param(value)
+                elif atype == Any or get_origin(atype) == Any:
+                    return None if (is_optional and value is None) else value
             except Exception as e:
                 raise ValueError(e)
 
