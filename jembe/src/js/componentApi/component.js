@@ -331,7 +331,7 @@ export default class Component {
         this.executeAndClearNextTickStack(rootEl)
     }
 
-    initializeElement(el, extraVars) {
+    initializeElement(el, extraVars, mutated=false) {
         // To support class attribute merging, we have to know what the element's
         // original class attribute looked like for reference.
         if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
@@ -344,8 +344,7 @@ export default class Component {
             }
             el.__jmb_listeners = undefined
         }
-        this.registerListeners(el, extraVars)
-        // shouldRegisterListeners && this.registerListeners(el, extraVars)
+        this.registerListeners(el, extraVars, mutated)
         this.resolveBoundAttributes(el, true, extraVars)
     }
 
@@ -404,11 +403,11 @@ export default class Component {
         this.resolveBoundAttributes(el, false, extraVars)
     }
 
-    registerListeners(el, extraVars) {
+    registerListeners(el, extraVars, mutated) {
         getXAttrs(el, this).forEach(({ type, value, modifiers, expression }) => {
             switch (type) {
                 case 'on':
-                    registerListener(this, el, value, modifiers, expression, extraVars)
+                    registerListener(this, el, value, modifiers, expression, extraVars, mutated)
                     break;
 
                 case 'model':
@@ -540,7 +539,7 @@ export default class Component {
                         //     return
                         // }
 
-                        this.initializeElement(node)
+                        this.initializeElement(node, () => {}, true)
                     })
                 }
             }

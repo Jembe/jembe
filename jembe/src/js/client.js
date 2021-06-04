@@ -490,8 +490,7 @@ class JembeClient {
       body: uploadFormData
     }).then(response => {
       if (!response.ok) {
-        // throw Error(response.statusText)
-        this.dispatchUpdatePageErrorEvent(response)
+        this.dispatchUpdatePageErrorEvent(response, null, false)
         throw Error("errorInJembeResponse")
       }
       return response.json()
@@ -513,9 +512,9 @@ class JembeClient {
       return json.fileUploadResponseId
     })
   }
-  executeCommands(updateLocation = true) {
+  executeCommands(disableInputs = true, updateLocation = true) {
     const url = this.xRequestUrl !== null ? this.xRequestUrl : window.location.href
-    this.dispatchStartUpdatePageEvent()
+    this.dispatchStartUpdatePageEvent(true, disableInputs)
     this.executeUpload().then(
       fileUploadResponseId => {
         const requestBody = this.getXRequestJson()
@@ -533,13 +532,16 @@ class JembeClient {
           credentials: "same-origin",
           redirect: "follow",
           referrer: "no-referrer",
-          // headers: fileUploadResponseId !== null ? { 'X-JEMBE': 'commands', 'X-JEMBE-RELATED-UPLOAD': fileUploadResponseId } : { 'X-JEMBE': 'commands' },
           headers: headers,
           body: requestBody
         }).then(response => {
           if (!response.ok) {
-            // throw Error(response.statusText)
-            this.dispatchUpdatePageErrorEvent(response)
+            if (disableInputs) {
+              this.xRequestsInProgress -= 1
+              this.enableInputsAfterResponse()
+            }
+            console.info('Error x-jembe response', response)
+            this.dispatchUpdatePageErrorEvent(response, null, disableInputs)
             throw Error("errorInJembeResponse")
           }
           return response.json()
@@ -548,16 +550,26 @@ class JembeClient {
         ).then(
           components => {
             this.updateDocument(components)
-            if (updateLocation) {
+            if (updateLocation && disableInputs) {
               this.updateLocation()
             }
-            this.dispatchUpdatePageEvent(true, components)
+            if (disableInputs) {
+              this.xRequestsInProgress -= 1
+              this.enableInputsAfterResponse()
+            }
+            this.dispatchUpdatePageEvent(true, disableInputs, components)
           }).catch(error => {
-            this.dispatchUpdatePageErrorEvent(null, error)
+            if (disableInputs) {
+              this.xRequestsInProgress -= 1
+              this.enableInputsAfterResponse()
+            }
+            console.info('Error x-jembe request', error)
+            this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
           })
       }
     ).catch(error => {
-      this.dispatchUpdatePageErrorEvent(null, error)
+      console.info('Error x-jembe request', error)
+      this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
     })
   }
   consolidateCommands() {
@@ -581,6 +593,7 @@ class JembeClient {
     //   and this components are not on ignore part of flow list, also define flow list    
   }
   updateLocation(replace = false) {
+    // TODO non blocking x request should not update location
     let topComponent = null
     let level = -1
     let historyState = []
@@ -607,7 +620,7 @@ class JembeClient {
         this.jembeClient.addInitialiseCommand(comp.execName, comp.state)
         this.jembeClient.addCallCommand(comp.execName, "display")
       }
-      this.jembeClient.executeCommands(false)
+      this.jembeClient.executeCommands(true, false)
     }
   }
   /**
@@ -619,53 +632,51 @@ class JembeClient {
     return new JMB(this, componentExecName)
   }
 
-  dispatchUpdatePageEvent(isXUpdate = true, components = {}) {
-    this.enableInputsAfterResponse(isXUpdate)
+  dispatchUpdatePageEvent(isXUpdate = true, inputsDisabled = true, components = {}) {
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePage',
         {
           detail: {
             isXUpdate: isXUpdate,
+            inputsDisabled: inputsDisabled,
             components: Object.fromEntries(
               Object.entries(components).map(
                 ([key, val]) => [key, val.dom]
-            ))
+              ))
           }
         }
       )
     )
   }
-  dispatchStartUpdatePageEvent(isXUpdate = true) {
-    this.disableInputsBeforeRequest(isXUpdate)
+  dispatchStartUpdatePageEvent(isXUpdate = true, disableInputs = true) {
+    if (disableInputs && isXUpdate) {
+      this.xRequestsInProgress += 1
+      if (this.xRequestsInProgress === 1) {
+        this.disableInputBeforeRequestTimeoutId = window.setTimeout(
+          () => { this.disableInputsBeforeRequest() }, 25
+        )
+      }
+    }
     window.dispatchEvent(
       new CustomEvent(
         'jembeStartUpdatePage',
         {
           detail: {
-            isXUpdate: isXUpdate
+            isXUpdate: isXUpdate,
+            inputsDisabled: disableInputs
           }
         }
       )
     )
   }
-  dispatchUpdatePageErrorEvent(response = null, error = null) {
-    if (response === null && error.message !== "errorInJembeResponse") {
-      // this.xRequestsInProgress -= 1
-      this.enableInputsAfterResponse()
-      console.info('Error x-jembe request', error)
-    } else if (response !== null) {
-      // this.xRequestsInProgress -= 1
-      this.enableInputsAfterResponse()
-      console.info('Error x-jembe response', response)
-    } else if (response === null && error.message === "errorInJembeResponse") {
-      return
-    }
+  dispatchUpdatePageErrorEvent(response = null, error = null, inputsDisabled=true) {
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePageError',
         {
           detail: {
+            inputsDisabled: inputsDisabled,
             networkError: error !== null,
             response: response,
             error: error
@@ -674,17 +685,7 @@ class JembeClient {
       )
     )
   }
-  disableInputsBeforeRequest(isXUpdate = true) {
-    if (isXUpdate) {
-      this.xRequestsInProgress += 1
-    }
-    if (this.xRequestsInProgress === 1) {
-      this.disableInputBeforeRequestTimeoutId = window.setTimeout(
-        () => { this._disableInputsBeforeRequest() }, 25
-      )
-    }
-  }
-  _disableInputsBeforeRequest() {
+  disableInputsBeforeRequest() {
     // save currently focused element
     if (this.document.activeElement !== null) {
       this.xRequestActiveElement = this.document.activeElement
@@ -730,10 +731,7 @@ class JembeClient {
       }
     })
   }
-  enableInputsAfterResponse(isXUpdate = true) {
-    if (isXUpdate) {
-      this.xRequestsInProgress -= 1
-    }
+  enableInputsAfterResponse() {
     window.clearTimeout(this.disableInputBeforeRequestTimeoutId)
     if (this.xRequestsInProgress !== 0) {
       return

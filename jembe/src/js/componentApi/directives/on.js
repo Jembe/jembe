@@ -1,6 +1,6 @@
 import { kebabCase, camelCase, debounce, isNumeric } from '../utils'
 
-export function registerListener(component, el, event, modifiers, expression, extraVars = () => {}) {
+export function registerListener(component, el, event, modifiers, expression, extraVars = () => { }, mutated=false) {
     const options = {
         passive: modifiers.includes('passive'),
     };
@@ -37,7 +37,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
             // Remove this global event handler if the element that declared it
             // has been removed. It's now stale.
             if (listenerTarget === window || listenerTarget === document) {
-                if (! document.body.contains(el)) {
+                if (!document.body.contains(el)) {
                     listenerTarget.removeEventListener(event, handler, options)
                     return
                 }
@@ -55,7 +55,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
             // If the .self modifier isn't present, or if it is present and
             // the target element matches the element we are registering the
             // event on, run the handler
-            if (! modifiers.includes('self') || e.target === el) {
+            if (!modifiers.includes('self') || e.target === el) {
                 const returnValue = runListenerHandler(component, expression, e, extraVars, el)
 
                 returnValue.then(value => {
@@ -74,31 +74,31 @@ export function registerListener(component, el, event, modifiers, expression, ex
     // if expression adds commands to jembeClient
     // then execute jembeClient comands and refresh page
     if (!modifiers.includes('defer')) {
-        handler = ((component,func) => {
+        handler = ((component, func) => {
             return e => {
                 component.$jmb.callsCommands = false
                 func(e)
                 if (component.$jmb.callsCommands === true) {
-                    component.$jmb.executeCommands()
+                    component.$jmb.executeCommands(!modifiers.includes('nonblocking'))
                 }
             }
         })(component, handler)
     }
 
     if (modifiers.includes('debounce')) {
-        let nextModifier = modifiers[modifiers.indexOf('debounce')+1] || 'invalid-wait'
+        let nextModifier = modifiers[modifiers.indexOf('debounce') + 1] || 'invalid-wait'
         let wait = isNumeric(nextModifier.split('ms')[0]) ? Number(nextModifier.split('ms')[0]) : 250
         handler = debounce(handler, wait, this)
     }
     const delayModifier = modifiers.find(m => m.startsWith('delay'))
     if (delayModifier !== undefined) {
         const delayId = delayModifier.split('-', 2)[1]
-        let delayTime = modifiers[modifiers.indexOf(delayModifier)+1]
-        delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2))  : 250
+        let delayTime = modifiers[modifiers.indexOf(delayModifier) + 1]
+        delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2)) : 250
         if (delayId === undefined) {
             handler = ((comp, func) => {
                 return (e) => {
-                    var timerId = window.setTimeout(function() {func(e)}, delayTime);
+                    var timerId = window.setTimeout(function () { func(e) }, delayTime);
                     comp.unnamedTimers.push(timerId)
 
                 }
@@ -113,7 +113,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
             if (delayTime > 0) {
                 handler = ((comp, func) => {
                     return (e) => {
-                        var timerId = window.setTimeout(function() {
+                        var timerId = window.setTimeout(function () {
                             func(e);
                             delete comp.namedTimers[delayId]
                         }, delayTime);
@@ -126,17 +126,19 @@ export function registerListener(component, el, event, modifiers, expression, ex
             } else {
                 //run emidiatly like on:ready
                 component.nextTickStack.push(() => {
-                    handler(new Event('ready', {target:el}))
+                    handler(new Event('ready', { target: el }))
                 })
                 return // dont register listener nor 
-           }
+            }
         }
     }
 
     if (event === 'ready') {
-        component.nextTickStack.push(() => {
-            handler(new Event('ready', {target:el}))
-        })
+        if (! mutated) {
+            component.nextTickStack.push(() => {
+                handler(new Event('ready', { target: el }))
+            })
+        }
     } else {
         // register listener so it can be removed when morphing dom
         if (el.__jmb_listeners === undefined) {
@@ -149,7 +151,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
 
 function runListenerHandler(component, expression, e, extraVars, self) {
     return component.evaluateCommandExpression(e.target, expression, () => {
-        return {...extraVars(), '$event': e, '$self': self}
+        return { ...extraVars(), '$event': e, '$self': self }
     })
 }
 
@@ -159,12 +161,12 @@ function isKeyEvent(event) {
 
 function isListeningForASpecificKeyThatHasntBeenPressed(e, modifiers) {
     let keyModifiers = modifiers.filter(i => {
-        return ! ['window', 'document', 'prevent', 'stop'].includes(i)
+        return !['window', 'document', 'prevent', 'stop'].includes(i)
     })
 
     if (keyModifiers.includes('debounce')) {
         let debounceIndex = keyModifiers.indexOf('debounce')
-        keyModifiers.splice(debounceIndex, isNumeric((keyModifiers[debounceIndex+1] || 'invalid-wait').split('ms')[0]) ? 2 : 1)
+        keyModifiers.splice(debounceIndex, isNumeric((keyModifiers[debounceIndex + 1] || 'invalid-wait').split('ms')[0]) ? 2 : 1)
     }
 
     // If no modifier is specified, we'll call it a press.
@@ -177,7 +179,7 @@ function isListeningForASpecificKeyThatHasntBeenPressed(e, modifiers) {
     const systemKeyModifiers = ['ctrl', 'shift', 'alt', 'meta', 'cmd', 'super']
     const selectedSystemKeyModifiers = systemKeyModifiers.filter(modifier => keyModifiers.includes(modifier))
 
-    keyModifiers = keyModifiers.filter(i => ! selectedSystemKeyModifiers.includes(i))
+    keyModifiers = keyModifiers.filter(i => !selectedSystemKeyModifiers.includes(i))
 
     if (selectedSystemKeyModifiers.length > 0) {
         const activelyPressedKeyModifiers = selectedSystemKeyModifiers.filter(modifier => {
