@@ -860,7 +860,7 @@ class CommandsQue:
             raise JembeError("Cann't add unmounted command to commands que")
 
         def _do_add_command(que, command, end):
-            """ Adds command with before and after command to stack"""
+            """Adds command with before and after command to stack"""
             before_emit_commands = command.get_before_emit_commands()
 
             if end:
@@ -1509,14 +1509,15 @@ class Processor:
     @cached_property
     def _is_x_jembe_request(self) -> bool:
         return bool(
-            self.request.headers.has_key(self.jembe.X_JEMBE)
+            self.jembe.X_JEMBE in self.request.headers
             and self.request.headers.get(self.jembe.X_JEMBE) != "upload"
         )
 
     @cached_property
     def _is_x_jembe_upload_followup_request(self) -> bool:
-        return self._is_x_jembe_request and self.request.headers.has_key(
-            self.jembe.X_RELATED_UPLOAD
+        return (
+            self._is_x_jembe_request
+            and self.jembe.X_RELATED_UPLOAD in self.request.headers
         )
 
     @cached_property
