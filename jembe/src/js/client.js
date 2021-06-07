@@ -491,6 +491,7 @@ class JembeClient {
     }).then(response => {
       if (!response.ok) {
         this.dispatchUpdatePageErrorEvent(response, null, false)
+        console.log("Error in x-jmebe upload response")
         throw Error("errorInJembeResponse")
       }
       return response.json()
@@ -558,18 +559,23 @@ class JembeClient {
               this.enableInputsAfterResponse()
             }
             this.dispatchUpdatePageEvent(true, disableInputs, components)
-          }).catch(error => {
+          }
+        ).catch(error => {
+          if (error.message != 'errorInJembeResponse') {
             if (disableInputs) {
               this.xRequestsInProgress -= 1
               this.enableInputsAfterResponse()
             }
             console.info('Error x-jembe request', error)
             this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
-          })
+          }
+        })
       }
     ).catch(error => {
-      console.info('Error x-jembe request', error)
-      this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
+      if (error.message != 'errorInJembeResponse') {
+        console.info('Error x-jembe request', error)
+        this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
+      }
     })
   }
   consolidateCommands() {
@@ -670,7 +676,7 @@ class JembeClient {
       )
     )
   }
-  dispatchUpdatePageErrorEvent(response = null, error = null, inputsDisabled=true) {
+  dispatchUpdatePageErrorEvent(response = null, error = null, inputsDisabled = true) {
     window.dispatchEvent(
       new CustomEvent(
         'jembeUpdatePageError',
