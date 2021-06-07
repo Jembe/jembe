@@ -719,12 +719,18 @@ class JembeClient {
         node.tagName.toLowerCase() === 'textarea'
       ) {
         node.setAttribute('jmb-node-initially-readonly', node.readOnly)
+        node.setAttribute('jmb-node-initially-disabled', node.disabled)
         if (!node.readOnly) {
           node.readOnly = true
+          node.disabled = true
           this.xRequestDisabledElements.push(() => {
             if (node.hasAttribute("jmb-node-initially-readonly")) {
               node.readOnly = node.getAttribute("jmb-node-initially-readonly") === "true"
               node.removeAttribute("jmb-node-initially-readonly")
+            }
+            if (node.hasAttribute("jmb-node-initially-disabled")) {
+              node.disabled = node.getAttribute("jmb-node-initially-disabled") === "true"
+              node.removeAttribute("jmb-node-initially-disabled")
             }
           })
         }
