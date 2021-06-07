@@ -92,7 +92,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
     }
     const delayModifier = modifiers.find(m => m.startsWith('delay'))
     if (delayModifier !== undefined) {
-        const delayId = delayModifier.split('-', 2)[1]
+        const delayId = delayModifier.split('-').slice(1).join('-')
         let delayTime = modifiers[modifiers.indexOf(delayModifier) + 1]
         delayTime = delayTime !== undefined && delayTime.endsWith('ms') ? parseInt(delayTime.substr(0, delayTime.length - 2)) : 250
         if (delayId === undefined) {
@@ -114,8 +114,9 @@ export function registerListener(component, el, event, modifiers, expression, ex
                 handler = ((comp, func) => {
                     return (e) => {
                         var timerId = window.setTimeout(function () {
-                            func(e);
                             delete comp.namedTimers[delayId]
+                            window.clearTimeout(timerId)
+                            func(e);
                         }, delayTime);
                         comp.namedTimers[delayId] = {
                             id: timerId,
