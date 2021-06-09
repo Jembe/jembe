@@ -1,19 +1,19 @@
 # Jembe Web Framework
 
-Jembe is Python Web Framework for building modern web applications, running on top of Flask and designed with following goals:
+Jembe is a Python Web Framework for building modern web applications, running on top of Flask and designed with the following goals:
 
-- Developer creates an App by combing custom, reusable, reactive and responsive UI components;
-- Developers is focused primarly on "business" logic and writes UI/Frontend logic only for very specific use cases;
+- Developer creates an App by combing custom, reusable, reactive, and responsive UI components;
+- Developers is focused primarily on "business" logic and writes UI/Frontend logic only for very specific use cases;
 - New UI Components are created by extending Python class, with simple API, and writing associated Jinja2 template; 
-- Complex UI interactions can be created without or with minimal use of javascript code by utilasing server side html rendering and partialy updating html in fronted;
-- There should be no reason to think off, consider or implement logic for:
-    - Handling http request-response cycle;
+- Complex UI interactions can be created without or with minimal use of javascript code by utilizing server-side HTML rendering and partial updating;
+- There should be no reason to think off, consider or implement the logic for:
+    - Handling HTTP request-response cycle;
     - URL Routing;
-    - Handling any "low level" web/http API;
+    - Handling any "low level" web/HTTP API;
 
 Official web site https://jembe.io
 
-## Quickly start with new project
+## Quickly start with a new project
 
 Requires **Python 3.8** or above:
 
@@ -29,10 +29,10 @@ $ . .venv/bin/activate
 # Install Jembe framework
 $ pip install jembe
 
-# Start new project with premade project template
+# Start a new project with the premade project template
 $ jembe startproject
 
-# Install developer dependencies in virtual enviroment
+# Install developer dependencies in virtual environment
 $ pip install -e .[dev]
 
 # Run application
@@ -41,16 +41,14 @@ $ flask run
 
 ## Add Jembe to an Existing Flask Project
 
-Jembe components cannnot currently be used inside regular flask route/view, instead whole
-HTML page must be created from Jembe components. This usualy means that one compoment will be 
-responsible for rendering HTML HEAD and BODY tag. Lets call this compoment PageComponent and all other
-Jembe components will be called and rendered inside this compoment to form web application.
+Jembe components can not currently be used inside regular flask route/view, instead of whole HTML page must be created from Jembe components. This usually means that one component will be responsible for rendering HTML HEAD and BODY tags. Let's call this component PageComponent and all other
+Jembe components will be called and rendered inside this component to form a web application.
 
-So to integrate Jembe Framework into existing flask project we must:
+So to integrate Jembe Framework into the existing flask project we must:
  
-### Registred and intialise Jembe as Flask extension;
+### Registred and initialise Jembe as Flask extension;
 ```python
-"""When flask is staticaly loaded"""
+"""When flask is statically loaded"""
 from jembe import Jembe
 
 app = Flask(__name__)
@@ -58,7 +56,7 @@ jmb = Jembe(app)
 ```
 
 ```python
-"""When flask is dynamicaly loaded"""
+"""When flask is dynamically loaded"""
 from jembe import Jembe
 
 jmb = Jembe()
