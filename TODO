@@ -8,6 +8,7 @@ Public Dev Lunch:
       ☐ template for "default" project (session, postgres, sqlalchemy)
       ☐ reusable components (pages, menues, notifications, messages, tables, forms etc.)
   Dev:
+    ☐ Component.Config() does not work with unamed attributes (*args in decoreted_init)
     ✔ Add csfr protection @done(21-04-22 09:33)
     Access Control:
       ✔ Send list of disabled actions to client (change actions list to dict[str,bool]) @done(21-05-07 15:09)
