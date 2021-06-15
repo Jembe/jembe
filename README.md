@@ -120,7 +120,7 @@ Default template for PageComponent registred as 'main' is 'main.html'
 <html>
 ```
 
-## How to use Jembe Components
+## Jembe Components Examples
 
 To test the following examples, add code to a new project created with `$ jembe startproject` command.
 
@@ -128,7 +128,7 @@ To test the following examples, add code to a new project created with `$ jembe 
 
 ### Hello World
 
-Hello World is a not very exciting minimal Jembe application.
+Not very exciting minimal Jembe application.
 
 ##### myproject/pages/hello_world.py
 ``` python
@@ -189,8 +189,8 @@ class HellowWorld(Component):
 
 ![Hello World](/doc/hello_world.gif)
 
-> - Both `script` tags are required only on top most component, aka PageComponent;
-> - Second `script` tag is required by projects created with `jembe startproject` command and it adds CSRF protection Jembe AJAX requests for page update;
+> - Both `script` tags are required only on top most component, aka `@jmb.page(..)` Component;
+> - Second `script` tag is required by `jembe startproject` template project to add CSRF protection Jembe AJAX requests;
 
 
 ### Counter
@@ -230,7 +230,7 @@ by the Free Software Foundation, either version 3 of the License, or
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
+GNU Lesser General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
