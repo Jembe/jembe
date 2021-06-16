@@ -76,7 +76,7 @@ def create_app(config):
     jmb.init_app(app)
 ```    
 
-#### Register Top Level PageComponents to Jembe Instance
+#### Register Top Level @jmb.page Components to Jembe Instance
 
 ```python
 """Using 'page' decorator"""
@@ -102,9 +102,9 @@ def create_app(config):
     jmb.add_page("main", PageComponent)
 ```
 
-#### Add necessary javascript to PageComponent HTML/Jinja2 template
+#### Add necessary javascript to @jmb.page Component HTML/Jinja2 template
 
-Default template for PageComponent registred as 'main' is 'main.html' 
+Default template for @jmba.page Component registred as 'main' is 'main.html' 
 
 ```html
 <!-- templates/main.html -->
@@ -121,13 +121,13 @@ Default template for PageComponent registred as 'main' is 'main.html'
 
 ## Code Examples
 
-To run examples, add code into a new project created with `$ jembe startproject` command.
+To run examples, add code examples into a new project created with `$ jembe startproject` command.
 
 > Following examples assumes that the Jembe project is named **'myproject'**.
 
-### Hello World
+### Hello World Example
 
-Example on creating simple static Jembe Component.
+How to create simple static Jembe Component.
 
 ##### myproject/pages/hello_world.py
 ``` python
@@ -155,9 +155,9 @@ class HellowWorld(Component):
 
 ### Making Hello World Dynamic
 
-Example on:
-- using Component **state** variable to represent the current state of Component;
-- updating Component **state** from user input.
+How to:
+- represent current state of the Component with **state** variable;
+- update Component **state** from user input.
 
 Notice that the input field doesn't lose focus when the page is updated.
 
@@ -181,7 +181,7 @@ class HellowWorld(Component):
 
     <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
     <script defer>
-    {# Adds CSRF protection Jembe AJAX requests #}
+    {# Adds CSRF protection to Jembe AJAX requests #}
     window.addEventListener('DOMContentLoaded', function(event){
         window.jembeClient.addXRequestHeaderGenerator(function () {
             return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
@@ -194,15 +194,15 @@ class HellowWorld(Component):
 
 ![Hello World](/doc/hello_world.gif)
 
-> - Both `script` tags are required only on top most component, aka `@jmb.page(..)` Component;
+> - `script` tags are required only on top most component, aka `@jmb.page(..)` Component;
 > - Second `script` tag is required by `jembe startproject` template to add CSRF protection;
 
 
-### Counter
+### Counter Example
 
-Example on:
-- executing Component **actions** by a user 
-- building page by nesting multiple components. 
+How to:
+- execute Component **actions** by a user;
+- nest components to create complex pages.
 
 
 ##### myproject/pages/counter.py
@@ -254,7 +254,7 @@ class CounterPage(Component):
 
     <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
     <script defer>
-    {# Adds CSRF protection Jembe AJAX requests #}
+    {# Adds CSRF protection to Jembe AJAX requests #}
     window.addEventListener('DOMContentLoaded', function(event){
         window.jembeClient.addXRequestHeaderGenerator(function () {
             return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
@@ -269,10 +269,10 @@ class CounterPage(Component):
 
 > Don't forget to add `from .counter import CounterPage` in `myproject/pages/__init__.py` so that Jembe initializes 'counter' page.
 
-### Multiple Counters
+### Multiple Counters Example
 
-Example on:
-- using events and listeners to communicate between components.
+How to:
+- communicate between components using events and listeners.
 
 ##### myproject/pages/multi_counter.py
 ``` python
@@ -293,6 +293,7 @@ class Counter(Component):
     def decrease(self):
         self.state.count -= 1
         self.emit("updateSum", value=-1)
+
 
 class CounterSum(Component):
     def __init__(self, sum:int = 0):
@@ -343,7 +344,7 @@ class MultiCountPage(Component):
 
     <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
     <script defer>
-    {# Adds CSRF protection Jembe AJAX requests #}
+    {# Adds CSRF protection to Jembe AJAX requests #}
     window.addEventListener('DOMContentLoaded', function(event){
         window.jembeClient.addXRequestHeaderGenerator(function () {
             return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
