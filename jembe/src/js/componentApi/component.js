@@ -217,7 +217,7 @@ export default class Component {
         }
         const treeIsArray = Array.isArray(tree)
         for (const [name, value] of Object.entries(tree)) {
-            if (!((level === 0 && name.startsWith('$')) || (treeIsArray && name === 'length')) && typeof value === "object") {
+            if (!((level === 0 && name.startsWith('$')) || (treeIsArray && name === 'length')) && typeof value === "object" && value !== null) {
                 const subpath = this.findTargetPathInData(value, target, name, level + 1)
                 if (subpath !== undefined) {
                     return key !== "" ? `${key}.${subpath}` : subpath
