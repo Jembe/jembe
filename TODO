@@ -42,6 +42,7 @@ Public Dev Lunch:
         /**/ = 
         /**/c1.k1/**/
     ☐ Perseve component state vriable in local storage to enable restoring search and pagination when returning to list, and to enable nested forms(??)
+    ☐ Component should be able to __init__ without super().__init__()
 
 Archive:
   ✔ Error handling and Restricted access @done(20-09-21 10:55) @project(Public Dev Lunch)
