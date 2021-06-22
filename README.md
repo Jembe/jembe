@@ -367,6 +367,7 @@ When we create application with Jembe Components we  can anticipiate that lots o
 
 In order to improve development expirence we can use Flask Application Factory pattern to organise our code.
 
+### Use Flask Application Factory With Pages "Autodiscovery"
 
 ### Use Jembe Application Template
 
