@@ -14,15 +14,12 @@ Jembe is a Python Web Framework for developing modern web applications, build on
 
 Official web site https://jembe.io
 
-## Install Jembe Framework
+## Quickstart 
 
-``` bash
-$ pip install jembe
-```
+### Install Jembe Framework 
 
-### Starting a new project with a project template
+> Jembe requires **Python 3.8** or above.
 
-> Requires **Python 3.8** or above.
 
 ``` bash
 # Create project directory
@@ -33,7 +30,7 @@ $ cd myproject
 $ python -m venv .venv
 $ . .venv/bin/activate 
 
-# Install Jembe framework
+# Install Jembe framework in newly created vritual enviroment
 $ pip install jembe
 
 # Start a new project with the premade project template
@@ -45,6 +42,333 @@ $ pip install -e .[dev]
 # Run application
 $ flask run
 ```
+
+With broswer open http://localhost:5000 to view newly created jembe application. 
+
+> Following examples assumes that the Jembe project is named **'myproject'** and it's created with `$ jembe startproject` command.
+
+### Hello World Example
+
+Create a simple Component to render a static HTML page.
+
+##### myproject/pages/hello_world.py
+``` python
+from jembe import Component
+from myproject.app import jmb
+
+@jmb.page('hello')
+class HellowWorld(Component):
+    pass
+```
+
+##### myproject/templates/hello.html
+``` jinja
+<html>
+<body>
+    <h1>Hello World!</h1>
+    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+</body>
+</html>
+```
+
+In `myproject/pages/__init__.py` add `from .hello_world import HelloWorld`.
+
+Visit `http://localhost:5000/hello`.
+
+
+### Making Hello World Dynamic
+
+- Use Component **state variable** to represent the current state of the Component.
+- Allow a user to update Component **state** by interacting with HTML input field.
+
+
+##### myproject/pages/hello_world.py
+``` python
+from jembe import Component
+from myproject.app import jmb
+
+@jmb.page('hello')
+class HellowWorld(Component):
+    def __init__(self, name: str = "World"):
+        super().__init__()
+```
+
+##### myproject/templates/hello.html
+``` jinja
+<html>
+<body>
+    <h1>Hello {{name}}!</h1>
+    <input jmb-on:keydown.debounce="name = $self.value" value="{{name}}">
+
+    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+    <script defer>
+    {# Adds CSRF protection to Jembe AJAX requests #}
+    window.addEventListener('DOMContentLoaded', function(event){
+        window.jembeClient.addXRequestHeaderGenerator(function () {
+            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
+        })
+    })
+    </script>
+</body>
+</html>
+```
+
+![Hello World](/doc/hello_world.gif)
+
+Notice that the input field doesn't lose focus when the page is updated.
+
+> - First `script` tag is required only on Root/Page component, aka `@jmb.page(..)` Component;
+> - Second `script` tag is required by `jembe startproject` template to add CSRF protection, and it is added only to Root/Page component;
+
+
+### Counter Example
+
+- Defines component **actions**.
+- Execute **actions** when an user press button inside component HTML.
+- Creates complex pages by nesting multiple components.
+
+
+##### myproject/pages/counter.py
+``` python
+from jembe import Component, action, config
+from myproject.app import jmb
+
+
+class Counter(Component):
+    def __init__(self, count:int = 0):
+        super().__init__()
+
+    @action
+    def increase(self):
+        self.state.count += 1
+
+    @action
+    def decrease(self):
+        self.state.count -= 1
+
+
+@jmb.page(
+    "counter",
+    Component.Config(
+        components={
+            "counter": Counter
+        }
+    )
+)
+class CounterPage(Component):
+    pass
+```
+
+In `myproject/pages/__init__.py` add `from .counter import CounterPage`.
+
+##### myproject/templates/counter/counter.html
+``` jinja
+<h2>Counter</h2>
+<div>
+    Value: {{count}}
+    <button jmb-on:click="decrease()" type="button">-</button>
+    <button jmb-on:click="increase()" type="button">+</button>
+</div>
+```
+
+##### myproject/templates/counter.html
+``` jinja
+<html>
+<body>
+    {{component('counter')}}
+
+    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+    <script defer>
+    {# Adds CSRF protection to Jembe AJAX requests #}
+    window.addEventListener('DOMContentLoaded', function(event){
+        window.jembeClient.addXRequestHeaderGenerator(function () {
+            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
+        })
+    })
+    </script>
+</body>
+</html>
+```
+
+![Counter Demo](/doc/counter.gif)
+
+When increasing/decreasing counter, Jembe only renderers and updated Counter Component HTML, the rest of the HTML on the page is not changed.
+
+
+### Multiple Counters Example
+
+- Changes component configuration, instructing Jembe that URL should not be changed when the component is displayed on the page;
+- Communicate between components using events and listeners.
+- Use multiple instances of the same component on a page.
+
+##### myproject/pages/multi_counter.py
+``` python
+from jembe import Component, Event, action, config, listener
+from myproject.app import jmb
+
+@config(Component.Config(changes_url=False))
+class Counter(Component):
+    def __init__(self, count:int = 0):
+        super().__init__()
+
+    @action
+    def increase(self):
+        self.state.count += 1
+        self.emit("updateSum", value=1)
+
+    @action
+    def decrease(self):
+        self.state.count -= 1
+        self.emit("updateSum", value=-1)
+
+
+@config(Component.Config(changes_url=False))
+class CounterSum(Component):
+    def __init__(self, sum:int = 0):
+        super().__init__()
+
+    @listener(event="updateSum")
+    def on_update_sum(self, event:"Event"):
+        self.state.sum += event.params["value"]
+
+
+@jmb.page(
+    'multicount',
+    Component.Config(
+        components={
+            "counter": Counter,
+            "sum": CounterSum,
+        }
+    )
+)
+class MultiCountPage(Component):
+    pass
+```
+
+In `myproject/pages/__init__.py` add `from .multi_counter import MultiCountPage`.
+
+##### myproject/templates/multicount/counter.html
+``` jinja
+<div>
+    Counter {{key}}: {{count}}
+    <button jmb-on:click="decrease()" type="button">-</button>
+    <button jmb-on:click="increase()" type="button">+</button>
+</div>
+```
+
+##### myproject/templates/multicount/sum.html
+``` jinja
+<div>
+    <strong>Total: {{sum}}</strong>
+</div>
+```
+
+##### myproject/templates/multicount.html
+``` jinja
+<html>
+<body>
+    {{component('counter').key('a')}}
+    {{component('counter').key('b')}}
+    {{component('counter').key('c')}}
+    {{component('sum')}}
+
+    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+    <script defer>
+    {# Adds CSRF protection to Jembe AJAX requests #}
+    window.addEventListener('DOMContentLoaded', function(event){
+        window.jembeClient.addXRequestHeaderGenerator(function () {
+            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
+        })
+    })
+    </script>
+</body>
+</html>
+```
+
+![Multi Counter Demo](/doc/multicounter.gif)
+
+When the user changes the value of one Counter Component, only that Counter and CounterSum Component HTML are redisplayed and updated.
+
+
+## Installation and Configuration
+
+Jembe is installed into python environment with pip command:
+
+``` bash
+$ pip install jembe
+```
+
+> When developing or deploying python projects it is recomended to use diferent python virtual enviroment for every project.
+>
+> ```bash 
+> # create new virtual enviroment
+> $ python -m venv .venv
+> # activate virtual enviroment
+> $ . .venv/bin/activate
+> # install jembe into active virtual enviroment
+> (.venv) $ pip install jembe
+> ```
+
+To create Web Application with Jembe you must:
+- create Flask Application and initialize Jembe as a regular Flask extension;
+- registrer Root/Page Components to Jembe extension instance;
+- add `script` tag to Root/Page Components HTML template.
+
+### A Minimal Jembe Application
+
+``` python
+from flask import Flask, redirect
+from jembe import Component, page_url
+
+app = Flask(__name__)
+jmb = Jembe(app)
+
+
+@jmb.page("main")
+class MainPage(Component):
+    def display():
+        return self.render_template_string("""
+<html>
+<body>
+    <h1>Welcome from Jembe</h1>
+    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}" defer></script>
+</body>
+</html>
+        """)
+
+
+@app.route("/")
+def index():
+    return redirect(page_url("/main"))
+```
+What the code do?
+
+1. First we imported **Flask** class and **Component** classs together with **redirect** and **page_url** functions.
+2. Next we create an instance of Flask class, this instance will be our application. The first argument is the name of the application's module or package, it's needed for Flask to knows where to look for resources such as templates and static files.
+3. We then create an instance of Jembe class, this instance will initialise and manage Jembe Components. The first argument is the instance of associated Flask application.
+4. Then we use **page** decorator to register MainPage class to Jembe instance.
+    1. Registring page to Jembe instance tells Jembe that this component is part of our web application and what URL should display it.
+    2. Component **display** method returns HTML that we want to display in user's browser. To create HTML we used inline rendering of Jinja2 template. We could also use regular string if we wanted.
+    3. Because we registred this component as page it's HTML contains `script` tag to include JavaScript. 
+5. Lastly we use **route()** decorator to tell Flask what URL should triger our **index** function that will redirect browser to our Jembe Page Componnet "main".
+
+To run this application use:
+
+``` bash
+$ export FLASK_APP=minimal
+$ flask run
+ * Running on http://127.0.0.1:5000/
+```
+
+
+### Use Flask Application Factory 
+
+When we create application with Jembe Components we  can anticipiate that lots of components will used. We can imporove development expirence by using Flask Application Factory pattern to create our application.
+
+
+### Use Jembe Application Template
+
+
 
 ### Adding Jembe to an Existing Flask Project
 
@@ -118,248 +442,6 @@ Default template for @jmba.page Component registred as 'main' is 'main.html'
 </body>
 <html>
 ```
-
-## Code Examples
-
-To run examples, add code examples into a new project created with `$ jembe startproject` command.
-
-> Following examples assumes that the Jembe project is named **'myproject'**.
-
-### Hello World Example
-
-How to create simple static Jembe Component.
-
-##### myproject/pages/hello_world.py
-``` python
-from jembe import Component
-from myproject.app import jmb
-
-@jmb.page('hello')
-class HellowWorld(Component):
-    pass
-```
-
-##### myproject/templates/hello.html
-``` jinja
-<html>
-<body>
-    <h1>Hello World!</h1>
-    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
-</body>
-</html>
-```
-
-> Don't forget to add `from .hello_world import HelloWorld` in `myproject/pages/__init__.py` so that Jembe initializes 'hello' page.
-
-> Visit `http://localhost:5000/hello`.
-
-### Making Hello World Dynamic
-
-How to:
-- represent current state of the Component with **state** variable;
-- update Component **state** from user input.
-
-Notice that the input field doesn't lose focus when the page is updated.
-
-##### myproject/pages/hello_world.py
-``` python
-from jembe import Component
-from myproject.app import jmb
-
-@jmb.page('hello')
-class HellowWorld(Component):
-    def __init__(self, name: str = "World"):
-        super().__init__()
-```
-
-##### myproject/templates/hello.html
-``` jinja
-<html>
-<body>
-    <h1>Hello {{name}}!</h1>
-    <input jmb-on:keydown.debounce="name = $self.value" value="{{name}}">
-
-    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
-    <script defer>
-    {# Adds CSRF protection to Jembe AJAX requests #}
-    window.addEventListener('DOMContentLoaded', function(event){
-        window.jembeClient.addXRequestHeaderGenerator(function () {
-            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
-        })
-    })
-    </script>
-</body>
-</html>
-```
-
-![Hello World](/doc/hello_world.gif)
-
-> - `script` tags are required only on top most component, aka `@jmb.page(..)` Component;
-> - Second `script` tag is required by `jembe startproject` template to add CSRF protection;
-
-
-### Counter Example
-
-How to:
-- execute Component **actions** by a user;
-- nest components to create complex pages.
-
-
-##### myproject/pages/counter.py
-``` python
-from jembe import Component, action, config
-from myproject.app import jmb
-
-
-class Counter(Component):
-    def __init__(self, count:int = 0):
-        super().__init__()
-
-    @action
-    def increase(self):
-        self.state.count += 1
-
-    @action
-    def decrease(self):
-        self.state.count -= 1
-
-
-@jmb.page(
-    'counter',
-    Component.Config(
-        components={
-            "counter": Counter
-        }
-    )
-)
-class CounterPage(Component):
-    pass
-```
-
-##### myproject/templates/counter/counter.html
-``` jinja
-<h2>Counter</h2>
-<div>
-    Value: {{count}}
-    <button jmb-on:click="decrease()" type="button">-</button>
-    <button jmb-on:click="increase()" type="button">+</button>
-</div>
-```
-
-##### myproject/templates/counter.html
-``` jinja
-<html>
-<body>
-    {{component('counter')}}
-
-    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
-    <script defer>
-    {# Adds CSRF protection to Jembe AJAX requests #}
-    window.addEventListener('DOMContentLoaded', function(event){
-        window.jembeClient.addXRequestHeaderGenerator(function () {
-            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
-        })
-    })
-    </script>
-</body>
-</html>
-```
-
-![Counter Demo](/doc/counter.gif)
-
-> Don't forget to add `from .counter import CounterPage` in `myproject/pages/__init__.py` so that Jembe initializes 'counter' page.
-
-### Multiple Counters Example
-
-How to:
-- communicate between components using events and listeners.
-
-##### myproject/pages/multi_counter.py
-``` python
-from jembe import Component, action, config, listener
-from myproject.app import jmb
-
-
-class Counter(Component):
-    def __init__(self, count:int = 0):
-        super().__init__()
-
-    @action
-    def increase(self):
-        self.state.count += 1
-        self.emit("updateSum", value=1)
-
-    @action
-    def decrease(self):
-        self.state.count -= 1
-        self.emit("updateSum", value=-1)
-
-
-class CounterSum(Component):
-    def __init__(self, sum:int = 0):
-        super().__init__()
-
-    @listener(event="updateSum")
-    def on_update_sum(self, event:"Event"):
-        self.state.sum += event.params["value"]
-
-
-@jmb.page(
-    'multicount',
-    Component.Config(
-        components={
-            "counter": (Counter, Counter.Config(changes_url=False)),
-            "sum": (CounterSum, CounterSum.Config(changes_url=False)),
-        }
-    )
-)
-class MultiCountPage(Component):
-    pass
-```
-
-##### myproject/templates/multicount/counter.html
-``` jinja
-<div>
-    Counter {{key}}: {{count}}
-    <button jmb-on:click="decrease()" type="button">-</button>
-    <button jmb-on:click="increase()" type="button">+</button>
-</div>
-```
-
-##### myproject/templates/multicount/sum.html
-``` jinja
-<div>
-    <strong>Total: {{sum}}</strong>
-</div>
-```
-
-##### myproject/templates/multicount.html
-``` jinja
-<html>
-<body>
-    {{component('counter').key('a')}}
-    {{component('counter').key('b')}}
-    {{component('counter').key('c')}}
-    {{component('sum')}}
-
-    <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
-    <script defer>
-    {# Adds CSRF protection to Jembe AJAX requests #}
-    window.addEventListener('DOMContentLoaded', function(event){
-        window.jembeClient.addXRequestHeaderGenerator(function () {
-            return {'X-CSRFToken': window.jembeClient.getCookie("_csrf_token")};
-        })
-    })
-    </script>
-</body>
-</html>
-```
-
-![Multi Counter Demo](/doc/multicounter.gif)
-
-> Don't forget to add `from .multi_counter import MultiCounterPage` in `myproject/pages/__init__.py` so that Jembe initializes 'multicount' page.
-
-## Jembe Installation and Configuration
 
 ## Jembe Component Essentials
 
