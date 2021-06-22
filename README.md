@@ -363,7 +363,9 @@ $ flask run
 
 ### Use Flask Application Factory 
 
-When we create application with Jembe Components we  can anticipiate that lots of components will used. We can imporove development expirence by using Flask Application Factory pattern to create our application.
+When we create application with Jembe Components we  can anticipiate that lots of components will be created and used. 
+
+In order to improve development expirence we can use Flask Application Factory pattern to organise our code.
 
 
 ### Use Jembe Application Template
