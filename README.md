@@ -341,7 +341,7 @@ class MainPage(Component):
 def index():
     return redirect(page_url("/main"))
 ```
-What the code do?
+What does the code do?
 
 1. First we imported **Flask** class and **Component** classs together with **redirect** and **page_url** functions.
 2. Next we create an instance of Flask class, this instance will be our application. The first argument is the name of the application's module or package, it's needed for Flask to knows where to look for resources such as templates and static files.
