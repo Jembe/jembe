@@ -67,8 +67,7 @@ myproject/templates/hello.html
     </body>
     </html>
 
-In ``myproject/pages/__init__.py`` add
-``from .hello_world import HelloWorld``.
+In ``myproject/pages/__init__.py`` add ``from .hello_world import HelloWorld``.
 
 Visit ``http://localhost:5000/hello``.
 
@@ -115,7 +114,7 @@ myproject/templates/hello.html
     </body>
     </html>
 
-.. figure:: /doc/hello_world.gif
+.. figure:: /img/hello_world.gif
    :alt: Hello World
 
    Hello World
@@ -203,7 +202,7 @@ myproject/templates/counter.html
     </body>
     </html>
 
-.. figure:: /doc/counter.gif
+.. figure:: /img/counter.gif
    :alt: Counter Demo
 
    Counter Demo
@@ -311,7 +310,7 @@ myproject/templates/multicount.html
     </body>
     </html>
 
-.. figure:: /doc/multicounter.gif
+.. figure:: /img/multicounter.gif
    :alt: Multi Counter Demo
 
    Multi Counter Demo
