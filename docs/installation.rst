@@ -1,28 +1,53 @@
 Installation and Configuration
 ------------------------------
 
-Jembe is installed into python environment with pip command:
 
-.. code:: bash
+Installation
+============
+
+The Latest Jembe version from pypi.org is installed using `pip` command:
+
+.. code-block:: bash
 
     $ pip install jembe
 
-    When developing or deploying python projects it is recomended to use
-    diferent python virtual enviroment for every project.
+To install Jembe in new Python virtual environments do:
 
-    .. code:: bash
+.. code-block:: bash
 
-        # create new virtual enviroment
-        $ python -m venv .venv
-        # activate virtual enviroment
-        $ . .venv/bin/activate
-        # install jembe into active virtual enviroment
-        (.venv) $ pip install jembe
+    # Create new virtual enviroment
+    $ python -m venv .venv
 
-To create Web Application with Jembe you must: - create Flask
-Application and initialize Jembe as a regular Flask extension; -
-registrer Root/Page Components to Jembe extension instance; - add
-``script`` tag to Root/Page Components HTML template.
+    # Activate virtual enviroment
+    $ . .venv/bin/activate
+
+    # Install Jembe into active virtual environment
+    (.venv) $ pip install jembe
+
+
+Usage and Configuration
+=======================
+
+To use Jembe in your Web Application you must:
+
+1. Create Flask Application and initialize Jembe as a regular Flask extension; 
+2. Use Jembe Components to build your web app;
+3. Register your Page Components to Jembe extension instance;  
+4. Add ``script`` tag to registred Page Components HTML templates.
+
+Tasks 1, 3, and 4 from above can be accomplished:
+
+- with ``jembe startproject`` command using a predefined project template, or;
+- manually adding Jembe extension to the existing Flask application.
+
+.. note::
+    It is recommended to use ``jembe startproject`` when creating new projects if you are new to Jembe or Flask.
+
+    You can organize your Jembe and Flask code as you want and use Jembe as any other Flask extension since Jembe does not assume nor favor any specific Flask application layout.
+
+
+
+
 
 A Minimal Jembe Application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,6 +111,13 @@ To run this application use:
     $ export FLASK_APP=minimal
     $ flask run
      * Running on http://127.0.0.1:5000/
+
+Use Predefined Project Template with ``jembe startproject``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Integrate Manually Into Existing Flask Application
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use Flask Application Factory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

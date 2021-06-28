@@ -7,8 +7,9 @@ Install Jembe
 .. important::
     Jembe requires **Python 3.8** or above.
 
+Install Jembe using `pip`, and use premade project template to create and run new project.
 
-.. code:: bash
+.. code-block:: bash
 
     # Create project directory
     $ mkdir myproject
@@ -33,20 +34,23 @@ Install Jembe
 With broswer open http://localhost:5000 to view newly created jembe
 application.
 
-.. note::
-    Following examples assumes that the Jembe project is named
-    **'myproject'** and it's created with ``$ jembe startproject``
-    command.
+
+Examples
+~~~~~~~~
+
+Following examples assumes that the Jembe project is named
+**'myproject'** and it's created with ``$ jembe startproject``
+command.
+
 
 Hello World Example
-~~~~~~~~~~~~~~~~~~~
+===================
 
 Create a simple Component to render a static HTML page.
 
-myproject/pages/hello\_world.py
-'''''''''''''''''''''''''''''''
 
-.. code:: python
+.. code-block:: python
+    :caption: myproject/pages/hello_world.py
 
     from jembe import Component
     from myproject.app import jmb
@@ -55,10 +59,14 @@ myproject/pages/hello\_world.py
     class HellowWorld(Component):
         pass
 
-myproject/templates/hello.html
-''''''''''''''''''''''''''''''
+.. code-block:: python
+    :caption: myproject/pages/__init__.py
 
-.. code:: jinja
+    # add at the end of the file
+    from .hello_world import HelloWorld
+
+.. code-block:: jinja
+    :caption: myproject/templates/hello.html
 
     <html>
     <body>
@@ -67,22 +75,18 @@ myproject/templates/hello.html
     </body>
     </html>
 
-In ``myproject/pages/__init__.py`` add ``from .hello_world import HelloWorld``.
 
 Visit ``http://localhost:5000/hello``.
 
 Making Hello World Dynamic
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+==========================
 
--  Use Component **state variable** to represent the current state of
-   the Component.
--  Allow a user to update Component **state** by interacting with HTML
-   input field.
+-  Use Component **state variable** to represent the current state of Component.
+-  Allow a user to update Component **state** by interacting with HTML input field.
 
-myproject/pages/hello\_world.py
-'''''''''''''''''''''''''''''''
 
-.. code:: python
+.. code-block:: python
+    :caption: myproject/pages/hello_world.py
 
     from jembe import Component
     from myproject.app import jmb
@@ -92,10 +96,14 @@ myproject/pages/hello\_world.py
         def __init__(self, name: str = "World"):
             super().__init__()
 
-myproject/templates/hello.html
-''''''''''''''''''''''''''''''
+.. code-block:: python
+    :caption: myproject/pages/__init__.py
 
-.. code:: jinja
+    # add at the end of the file
+    from .hello_world import HelloWorld
+
+.. code-block:: jinja
+    :caption: myproject/templates/hello.html
 
     <html>
     <body>
@@ -117,26 +125,22 @@ myproject/templates/hello.html
 .. figure:: /img/hello_world.gif
    :alt: Hello World
 
-   Hello World
 Notice that the input field doesn't lose focus when the page is updated.
 
-    -  First ``script`` tag is required only on Root/Page component, aka
-       ``@jmb.page(..)`` Component;
-    -  Second ``script`` tag is required by ``jembe startproject``
-       template to add CSRF protection, and it is added only to
-       Root/Page component;
+.. note::
+    -  First ``script`` tag is required only for Page Component, aka ``@jmb.page(..)``;
+    -  Second ``script`` tag is required by ``jembe startproject`` template to add CSRF protection, and it is added only to Page Component;
 
 Counter Example
-~~~~~~~~~~~~~~~
+===============
 
 -  Defines component **actions**.
 -  Execute **actions** when an user press button inside component HTML.
 -  Creates complex pages by nesting multiple components.
 
-myproject/pages/counter.py
-''''''''''''''''''''''''''
 
-.. code:: python
+.. code-block:: python
+    :caption: myproject/pages/counter.py
 
     from jembe import Component, action, config
     from myproject.app import jmb
@@ -166,13 +170,15 @@ myproject/pages/counter.py
     class CounterPage(Component):
         pass
 
-In ``myproject/pages/__init__.py`` add
-``from .counter import CounterPage``.
+.. code-block:: python
+    :caption: myproject/pages/__init__.py
 
-myproject/templates/counter/counter.html
-''''''''''''''''''''''''''''''''''''''''
+    # add at the end of the file
+    from .counter import CounterPage
 
-.. code:: jinja
+
+.. code-block:: jinja
+    :caption: myproject/templates/counter/counter.html
 
     <h2>Counter</h2>
     <div>
@@ -181,10 +187,9 @@ myproject/templates/counter/counter.html
         <button jmb-on:click="increase()" type="button">+</button>
     </div>
 
-myproject/templates/counter.html
-''''''''''''''''''''''''''''''''
 
-.. code:: jinja
+.. code-block:: jinja
+    :caption: myproject/templates/counter.html
 
     <html>
     <body>
@@ -205,22 +210,19 @@ myproject/templates/counter.html
 .. figure:: /img/counter.gif
    :alt: Counter Demo
 
-   Counter Demo
-When increasing/decreasing counter, Jembe only renderers and updated
-Counter Component HTML, the rest of the HTML on the page is not changed.
+When increasing/decreasing counter, Counter Component HTML is rendered and updated, the rest of the HTML on the page is not changed.
 
 Multiple Counters Example
-~~~~~~~~~~~~~~~~~~~~~~~~~
+=========================
 
 -  Changes component configuration, instructing Jembe that URL should
    not be changed when the component is displayed on the page;
 -  Communicate between components using events and listeners.
 -  Use multiple instances of the same component on a page.
 
-myproject/pages/multi\_counter.py
-'''''''''''''''''''''''''''''''''
 
-.. code:: python
+.. code-block:: python
+    :caption: myproject/pages/multi\_counter.py
 
     from jembe import Component, Event, action, config, listener
     from myproject.app import jmb
@@ -263,13 +265,15 @@ myproject/pages/multi\_counter.py
     class MultiCountPage(Component):
         pass
 
-In ``myproject/pages/__init__.py`` add
-``from .multi_counter import MultiCountPage``.
 
-myproject/templates/multicount/counter.html
-'''''''''''''''''''''''''''''''''''''''''''
+.. code-block:: python
+    :caption: myproject/pages/__init__.py
 
-.. code:: jinja
+    # add at the end of the file
+    from .multi_counter import MultiCountPage
+
+.. code-block:: jinja
+    :caption: myproject/templates/multicount/counter.html
 
     <div>
         Counter {{key}}: {{count}}
@@ -277,19 +281,17 @@ myproject/templates/multicount/counter.html
         <button jmb-on:click="increase()" type="button">+</button>
     </div>
 
-myproject/templates/multicount/sum.html
-'''''''''''''''''''''''''''''''''''''''
 
-.. code:: jinja
+.. code-block:: jinja
+    :caption: myproject/templates/multicount/sum.html
 
     <div>
         <strong>Total: {{sum}}</strong>
     </div>
 
-myproject/templates/multicount.html
-'''''''''''''''''''''''''''''''''''
 
-.. code:: jinja
+.. code-block:: jinja
+    :caption: myproject/templates/multicount.html
 
     <html>
     <body>
@@ -313,6 +315,5 @@ myproject/templates/multicount.html
 .. figure:: /img/multicounter.gif
    :alt: Multi Counter Demo
 
-   Multi Counter Demo
 When the user changes the value of one Counter Component, only that
 Counter and CounterSum Component HTML are redisplayed and updated.
