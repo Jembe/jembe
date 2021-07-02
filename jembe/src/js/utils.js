@@ -18,7 +18,9 @@ function walkComponentDom(el, callback, callbackOnNewComponent, myExecName) {
   }
   let componentExecName = elIsNewComponent(el)
   if (componentExecName !== null && componentExecName !== myExecName) {
-    callbackOnNewComponent(el, componentExecName)
+    if (callbackOnNewComponent !== undefined && callbackOnNewComponent !== null) {
+      callbackOnNewComponent(el, componentExecName)
+    }
   } else {
     if (callback !== undefined) {
       callback(el)

@@ -538,7 +538,6 @@ export default class Component {
                         //     node.__jmb = new Component(node)
                         //     return
                         // }
-
                         this.initializeElement(node, () => {}, true)
                     })
                 }
