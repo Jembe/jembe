@@ -766,8 +766,14 @@ class Component(metaclass=ComponentMeta):
                     except IndexError:
                         return None if (is_optional and value is None) else dict(value)
                 elif atype == tuple or get_origin(atype) == tuple:
-                    # TODO recursive tuple
-                    return None if (is_optional and value is None) else tuple(value)
+                    el_annotation = get_args(atype)[0]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else tuple(
+                            _load_supported_types(v, el_annotation) for v in value
+                        )
+                    )
                 elif atype == list or get_origin(atype) == list:
                     el_annotation = get_args(atype)[0]
                     return (
