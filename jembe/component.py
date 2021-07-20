@@ -136,17 +136,20 @@ class ComponentReference:
                         caller_exec_name,
                         pname,
                         {},
-                        merge_existing_params,
+                        # merge_existing_params,
                     )
                 else:
                     cr = cr.component(pname)
-            cr = (
-                cr.component(name_split[-1], **kwargs)
-                if cr is not None
-                else cls(
+            if cr is not None:
+                cr = (
+                    cr.component(name_split[-1], **kwargs)
+                    if merge_existing_params
+                    else cr.component_reset(name_split[-1], **kwargs)
+                )
+            else:
+                cr = cls(
                     caller_exec_name, name_split[-1], kwargs, merge_existing_params
                 )
-            )
         else:
             cr = cls(caller_exec_name, name, kwargs, merge_existing_params)
         return cr
