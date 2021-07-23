@@ -193,6 +193,7 @@ Counter Example
 
     <html>
     <body>
+        <!-- adds "counter" component to page -->
         {{component('counter')}}
 
         <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
@@ -217,7 +218,7 @@ Multiple Counters Example
 
 -  Changes component configuration, instructing Jembe that URL should
    not be changed when the component is displayed on the page;
--  Communicate between components using events and listeners.
+-  Communicate between components using **events** and **listeners**.
 -  Use multiple instances of the same component on a page.
 
 

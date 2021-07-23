@@ -1,9 +1,10 @@
-Installation and Configuration
-------------------------------
-
-
 Installation
-============
+------------
+
+.. _installation:
+
+Install Jembe
+=============
 
 The Latest Jembe version from pypi.org is installed using `pip` command:
 
@@ -21,45 +22,22 @@ To install Jembe in new Python virtual environments do:
     # Activate virtual enviroment
     $ . .venv/bin/activate
 
-    # Install Jembe into active virtual environment
+    # Install Jembe into an active virtual environment
     (.venv) $ pip install jembe
 
+Minimal Application
+===================
 
-Usage and Configuration
-=======================
+Bellow is minimal one file "Hello World" example.
 
-To use Jembe in your Web Application you must:
-
-1. Create Flask Application and initialize Jembe as a regular Flask extension; 
-2. Use Jembe Components to build your web app;
-3. Register your Page Components to Jembe extension instance;  
-4. Add ``script`` tag to registred Page Components HTML templates.
-
-Tasks 1, 3, and 4 from above can be accomplished:
-
-- with ``jembe startproject`` command using a predefined project template, or;
-- manually adding Jembe extension to the existing Flask application.
-
-.. note::
-    It is recommended to use ``jembe startproject`` when creating new projects if you are new to Jembe or Flask.
-
-    You can organize your Jembe and Flask code as you want and use Jembe as any other Flask extension since Jembe does not assume nor favor any specific Flask application layout.
-
-
-
-
-
-A Minimal Jembe Application
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code:: python
+.. code-block:: python
+    :linenos:
 
     from flask import Flask, redirect
     from jembe import Component, page_url
 
     app = Flask(__name__)
     jmb = Jembe(app)
-
 
     @jmb.page("main")
     class MainPage(Component):
@@ -76,6 +54,7 @@ A Minimal Jembe Application
 
     @app.route("/")
     def index():
+        """Redirect request for root url to 'main' Jembe page"""
         return redirect(page_url("/main"))
 
 What does the code do?
@@ -96,13 +75,12 @@ What does the code do?
       is part of our web application and what URL should display it.
    2. Component **display** method returns HTML that we want to display
       in user's browser. To create HTML we used inline rendering of
-      Jinja2 template. We could also use regular string if we wanted.
-   3. Because we registred this component as page it's HTML contains
-      ``script`` tag to include JavaScript.
+      Jinja2 template. We could also use regular string if we wanted to.
+   3. Because we registred this component as page it's HTML must contains
+      ``script`` tag to include Jembe JavaScript.
 
 5. Lastly we use **route()** decorator to tell Flask what URL should
-   triger our **index** function that will redirect browser to our Jembe
-   Page Componnet "main".
+   redirect browser to our "main" Jembe Page Component.
 
 To run this application use:
 
@@ -112,42 +90,55 @@ To run this application use:
     $ flask run
      * Running on http://127.0.0.1:5000/
 
-Use Predefined Project Template with ``jembe startproject``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. note::
+    'Hello World' example above does not use any of the Jembe Components advantages, it just demonstrates how to write a minimal Jembe application.
+    
+
+Start a New Project
+===================
+
+To create Web Application that uses Jembe components you must:
+
+1. Create Flask Application and initialize Jembe as a regular Flask extension; 
+2. Create and register your Jembe Page Components to Jembe extension instance;  
+3. Add ``script`` HTML tag to load "jembe javascript" only in Page Components HTML.
+
+The tasks above can be accomplished:
+
+- using ``jembe startproject`` command to create new web application or;
+- manually adding Jembe extension to the existing Flask application.
+
+.. note::
+    Add Jembe extension manually only if it's absolutely necessary, otherwise use ``jembe startproject`` to create new applications.
 
 
-Integrate Manually Into Existing Flask Application
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use Flask Application Factory
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When we create application with Jembe Components we can anticipiate that
-lots of components will be created and used.
+Use ``jembe startproject`` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In order to improve development expirence we can use Flask Application
-Factory pattern to organise our code.
+.. note:: 
+    To use ``jembe startproject`` command, you must first install ``jembe`` package
+    in your Python virtual environment as explained in the :ref:`installation` chapter.
 
-Use Flask Application Factory With Pages "Autodiscovery"
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**TODO** 
 
-Use Jembe Application Template
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- write how to start project
+- explain project structure
 
-Adding Jembe to an Existing Flask Project
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Adding Jembe Components in the regular Flask view is not currently
-    supported. Entire HTML pages should be build from Jembe Components.
 
-    One Component should be responsible for rendering HTML HEAD and BODY
-    tags, and all other Components are rendered inside this Component to
-    form a web application.
+Add to an Existing Project
+==========================
+
+.. note::
+    Adding Jembe Components in the regular Flask view is not currently supported. Entire HTML pages should be built with Jembe Components.
+
 
 To integrate Jembe into an existing Flask project we must:
 
 Registred and initialize Jembe as Flask extension;
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
@@ -170,7 +161,7 @@ Registred and initialize Jembe as Flask extension;
         jmb.init_app(app)
 
 Register Top Level @jmb.page Components to Jembe Instance
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
@@ -198,7 +189,7 @@ Register Top Level @jmb.page Components to Jembe Instance
         jmb.add_page("main", PageComponent)
 
 Add necessary javascript to @jmb.page Component HTML/Jinja2 template
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Default template for @jmba.page Component registred as 'main' is
 'main.html'
