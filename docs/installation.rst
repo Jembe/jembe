@@ -6,13 +6,13 @@ Installation
 Install Jembe
 =============
 
-The Latest Jembe version from pypi.org is installed using `pip` command:
+Install the latest version of Jembe from pypi.org using `pip` command:
 
 .. code-block:: bash
 
     $ pip install jembe
 
-To install Jembe in new Python virtual environments do:
+It's recommended to install Jembe in a separate Python virtual environment:
 
 .. code-block:: bash
 
@@ -25,12 +25,13 @@ To install Jembe in new Python virtual environments do:
     # Install Jembe into an active virtual environment
     (.venv) $ pip install jembe
 
-Minimal Application
-===================
+Minimal Jembe Application
+=========================
 
 Bellow is minimal one file "Hello World" example.
 
 .. code-block:: python
+    :caption: helloworld.py
     :linenos:
 
     from flask import Flask, redirect
@@ -59,34 +60,42 @@ Bellow is minimal one file "Hello World" example.
 
 What does the code do?
 
-1. First we imported **Flask** class and **Component** classs together
-   with **redirect** and **page\_url** functions.
-2. Next we create an instance of Flask class, this instance will be our
+1. First we imported **Flask** and Jembe **Component** classes, together with 
+   **redirect** and **page\_url** functions.
+2. Next we create an instance of Flask class. This instance will be our
    application. The first argument is the name of the application's
    module or package, it's needed for Flask to knows where to look for
    resources such as templates and static files.
-3. We then create an instance of Jembe class, this instance will
-   initialise and manage Jembe Components. The first argument is the
-   instance of associated Flask application.
-4. Then we use **page** decorator to register MainPage class to Jembe
+3. Then we create an instance of Jembe class, this instance will
+   initialise and manage Jembe Components. The first argument of Jembe instance is 
+   the instance of the Flask application.
+
+   Jembe instance uses Flask for handling HTTP request/response cycle,
+   loading templates and resources etc..
+
+4. Using **page** decorator we register MainPage Component to Jembe
    instance.
 
-   1. Registring page to Jembe instance tells Jembe that this component
-      is part of our web application and what URL should display it.
-   2. Component **display** method returns HTML that we want to display
-      in user's browser. To create HTML we used inline rendering of
-      Jinja2 template. We could also use regular string if we wanted to.
-   3. Because we registred this component as page it's HTML must contains
+   1. Registring Component with page decorator tells Jembe that this component
+      is part of our web application.
+   2. First parameter of page decorator is component name that is used to generate URL for that
+      component and to uniquly idnetify this component inside Jembe application.
+   3. **display** method returns HTML that we want to display
+      in user's browser. 
+      
+      To create HTML we used inline rendering of
+      Jinja2 template. We could also use regular string if we wanted to or load Jinja2 template.
+
+   4. Because we registred this component as page it's HTML must contains
       ``script`` tag to include Jembe JavaScript.
 
-5. Lastly we use **route()** decorator to tell Flask what URL should
-   redirect browser to our "main" Jembe Page Component.
+5. Lastly we use Flask **route()** decorator to redirect browser to our "main" page.
 
 To run this application use:
 
 .. code:: bash
 
-    $ export FLASK_APP=minimal
+    $ export FLASK_APP=helloworld
     $ flask run
      * Running on http://127.0.0.1:5000/
 
@@ -94,8 +103,105 @@ To run this application use:
     'Hello World' example above does not use any of the Jembe Components advantages, it just demonstrates how to write a minimal Jembe application.
     
 
-Start a New Project
-===================
+Starting a New Project with ``jembe startproject``
+==================================================
+
+New project that uses Jembe components can be craeted in two ways:
+
+1. Using project templates with ``jembe startproject`` command, or;
+2. Manually by adding Jembe extension to a new or existing Flask project.
+
+
+
+.. note::
+    Add Jembe extension manually only if it's absolutely necessary 
+    otherwise use ``jembe startproject`` to create new applications.
+
+
+Use ``jembe startproject`` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note:: 
+    To use ``jembe startproject`` command, you must first install ``jembe`` package
+    in your Python virtual environment as explained in the :ref:`installation` chapter.
+
+.. code:: bash
+
+    # Starting a new project 
+    $ jembe startproject
+
+    # ... Follow instruction and chose basic settings of your new project
+
+    # Install developer dependencies in a virtual environment
+    $ pip install -e .[dev]
+
+    # Run application
+    $ flask run
+
+
+New Project Folder Structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code::
+
+    myproject                       # project root directory
+    ├── data                        # for saving all application data
+    ├── instance                    # flask instance folder
+    │   └── config.py               # application configuration
+    ├── myproject                   # application source code in 
+    │   │                             separate package 
+    │   ├── __init__.py             # initialise Flask application
+    │   ├── app.py                  # initialise all Flask extensions
+    │   │                             including Jembe
+    │   ├── commands.py             # place for custom Flask 
+    │   │                             cli commands
+    │   ├── pages                   # place for Jembe Components
+    │   │   ├── __init__.py         # Jembe Component decorated with
+    │   │                             @page must be imported here
+    │   │   ├── _counter.py         
+    │   │   └── main.py
+    │   ├── static                  # application static resources
+    │   │   └── css
+    │   │       └── myproject.css   
+    │   ├── templates               # Jinja2 templates for Jembe 
+    │   │                             components
+    │   │   ├── main
+    │   │   │   └── counter.html
+    │   │   └── main.html
+    │   └── views
+    │       └── __init__.py         # Flask view for redirecting 
+    │   │                             requsets from root URL root 
+    │   │                             to "/main" Jembe component
+    ├── pyproject.toml              # configures usage of setuptools
+    │   │                             for packaging
+    ├── README.md
+    ├── LICENSE
+    ├── setup.cfg                   # setuptools configuration
+    ├── setup.py                    # script to run setuptools
+    └── tests                       # place for tests
+        └── conftest.py             # pytest configuration
+
+You can organize your code as you want, the structure above is our recommendation for Jembe projects.
+
+Main benefit of this project structure are:
+
+1. Easy packaging and publishing on private or public repository;
+2. Easy installation in production:
+
+   1. ``pip install myproject``;
+   2. create ``config.py`` for production and put it in ``instance`` folder;
+   3. create ``data`` directory;
+
+3. Easy production update with ``pip install --update myproject``;
+4. Easy creation of development enviroment with ``pip install .[dev]`` 
+
+Main drawbacks are:
+
+1. Dependencies in setup.cfg must be manually maintained;
+2. Whole application is in one package, which is not ideal for realy large applications that must be divided into multiple packages.
+
+Add Jembe to an Existing Project
+================================
 
 To create Web Application that uses Jembe components you must:
 
@@ -107,29 +213,6 @@ The tasks above can be accomplished:
 
 - using ``jembe startproject`` command to create new web application or;
 - manually adding Jembe extension to the existing Flask application.
-
-.. note::
-    Add Jembe extension manually only if it's absolutely necessary, otherwise use ``jembe startproject`` to create new applications.
-
-
-
-
-Use ``jembe startproject`` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. note:: 
-    To use ``jembe startproject`` command, you must first install ``jembe`` package
-    in your Python virtual environment as explained in the :ref:`installation` chapter.
-
-**TODO** 
-
-- write how to start project
-- explain project structure
-
-
-
-Add to an Existing Project
-==========================
 
 .. note::
     Adding Jembe Components in the regular Flask view is not currently supported. Entire HTML pages should be built with Jembe Components.
