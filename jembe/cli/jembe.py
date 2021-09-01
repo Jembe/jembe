@@ -16,7 +16,7 @@ def jembe():
     "--template",
     help="Project temlate",
     prompt="Choose Project Template",
-    type=click.Choice(["basic", "standard"], case_sensitive=False),
+    type=click.Choice(["basic", "jembeui"], case_sensitive=False),
     required=True,
     default="basic",
 )
@@ -45,6 +45,9 @@ def startproject(template, name, description):
     echo()
     echo("New project is suceessfully created in current directory!", color=True)
     echo()
+    if template == "jembeui":
+        echo("TODO: Add instructin to install jembeui package", color=True)
+        echo()
     echo("To install required development dependencies execute:")
     secho("\t$ pip install -e .[dev]", bold=True)
     echo()

@@ -147,20 +147,21 @@ def extract_project_template(name: str, ctx: dict):
         for name in dirs:
             # run dir name throught jinja2 template
             dname = Template(name).render(ctx)
-
-            try:
-                os.mkdir(os.path.join(dest, rel_root, dname))
-            except FileExistsError:
-                pass
+            if dname:
+                try:
+                    os.mkdir(os.path.join(dest, rel_root, dname))
+                except FileExistsError:
+                    pass
         for name in files:
             # run file name throught jinja2 template
             dname = Template(name).render(ctx)
             # remove .jpt file extension,
             dname = dname[:-4] if dname.endswith(".jpt") else dname
 
-            # run files thought jinja2 template with ctx
-            st = env.get_template(
-                os.path.relpath(os.path.join(root, name), template_dir)
-            )
-            with open(os.path.join(dest, rel_root, dname), "w") as df:
-                df.write(st.render(ctx))
+            if dname:
+                # run files thought jinja2 template with ctx
+                st = env.get_template(
+                    os.path.relpath(os.path.join(root, name), template_dir)
+                )
+                with open(os.path.join(dest, rel_root, dname), "w") as df:
+                    df.write(st.render(ctx))
