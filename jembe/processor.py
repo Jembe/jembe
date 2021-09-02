@@ -1016,7 +1016,7 @@ class Processor:
     def __create_commands(self, component_full_name: str):
         if self._is_x_jembe_request:
             # x-jembe ajax request
-            data = json.loads(self.request.data)
+            data = json.loads(self.request.data.decode("utf-8"))
             # init components from data["components"]
             to_be_initialised = []
             for component_data in data["components"]:
@@ -1075,12 +1075,15 @@ class Processor:
             if cconfig.name is None:
                 raise JembeError()
 
-            key = self.request.view_args[cconfig._key_url_param.identifier].lstrip(".")
+            request_view_args = (
+                self.request.view_args if self.request.view_args is not None else dict()
+            )
+            key = request_view_args[cconfig._key_url_param.identifier].lstrip(".")
             exec_name = Component._build_exec_name(cconfig.name, key, parent_exec_name)
             parent_exec_name = exec_name
             if exec_name not in to_be_initialised:
                 init_params = {
-                    up.name: self.request.view_args[up.identifier]
+                    up.name: request_view_args[up.identifier]
                     for up in cconfig._url_params
                 }
                 if (

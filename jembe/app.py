@@ -2,7 +2,6 @@ from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
 from os import path
 from .defaults import (
     DEFAULT_JEMBE_MEDIA_FOLDER,
-    DEFAULT_TEMP_STORAGE_UPLOAD_FOLDER,
     PRIVATE_STORAGE_NAME,
     PUBLIC_STORAGE_NAME,
     TEMP_STORAGE_NAME,
@@ -10,7 +9,7 @@ from .defaults import (
 from flask import Blueprint, request
 from .processor import Processor
 from .exceptions import JembeError
-from flask import g
+from flask import g, current_app
 from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
 
@@ -21,7 +20,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from .files import Storage
 
 
-jembe: "Jembe"
+class _JembeState:
+    def __init__(self, jembe: "Jembe") -> None:
+        self.jembe = jembe
 
 
 class Jembe:
@@ -68,12 +69,15 @@ class Jembe:
         This callback is used to initialize an applicaiton for the use
         with Jembe components.
         """
-        global jembe
-        jembe = self
         # app.teardown_appcontext(self.teardown)
         # app.context_processor(self.template_processor)
 
         self.__flask = app
+        if "jembe" in self.__flask.extensions:
+            raise JembeError(
+                "Only one Jembe extension can be initialise for a Flask instance."
+            )
+        self.__flask.extensions["jembe"] = _JembeState(self)
 
         # Init storages
         self._init_storages(storages)
@@ -129,9 +133,13 @@ class Jembe:
     ):
 
         component_ref: ComponentRef = (
-            component,
-            component_config,
-        ) if component_config else component
+            (
+                component,
+                component_config,
+            )
+            if component_config
+            else component
+        )
 
         if self.flask is not None:
             self._register_page(name, component_ref)
@@ -139,7 +147,9 @@ class Jembe:
             self._unregistred_pages[name] = component_ref
 
     def page(
-        self, name: str, component_config: Optional["ComponentConfig"] = None,
+        self,
+        name: str,
+        component_config: Optional["ComponentConfig"] = None,
     ):
         """
         A decorator that is used to register a jembe page commponent.
@@ -169,9 +179,11 @@ class Jembe:
             component_name, curent_ref, parent_config = component_refs.pop(0)
             if isinstance(curent_ref, tuple):
                 # create config with custom params
-                component_class: Type["Component"] = curent_ref[0] if not isinstance(
-                    curent_ref[0], str
-                ) else import_by_name(curent_ref[0])
+                component_class: Type["Component"] = (
+                    curent_ref[0]
+                    if not isinstance(curent_ref[0], str)
+                    else import_by_name(curent_ref[0])
+                )
                 curent_ref_params = (
                     curent_ref[1]
                     if isinstance(curent_ref[1], dict)
@@ -271,11 +283,13 @@ class Jembe:
 
 def get_processor():
     if "jmb_processor" not in g:
-        global jembe
         if not (request.endpoint and request.blueprint):
             raise JembeError("Request {} can't be handled by jembe processor")
         component_full_name = request.endpoint[len(request.blueprint) + 1 :]
-        return Processor(jembe, component_full_name, request)
+        jembe_state = current_app.extensions.get("jembe", None)
+        if jembe_state is None:
+            raise JembeError("Jembe extension is not initialised")
+        return Processor(jembe_state.jembe, component_full_name, request)
     return g.jmb_processor
 
 
