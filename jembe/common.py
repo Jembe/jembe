@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
+import re
 from abc import ABC, abstractmethod
 import inspect
 from importlib import import_module
-from flask import Response
+from flask import Response, json
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component import Component, ComponentConfig
@@ -74,6 +75,17 @@ def import_by_name(object_name: str) -> Any:
 
 
 def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
+    try:
+        return _convert_to_annotated_type(value, param.annotation)
+    except ValueError as v:
+        raise v
+    except Exception as e:
+        raise ValueError(
+            "Cant convert url query param {}={}: {}".format(param.name, value, e)
+        )
+
+
+def _convert_to_annotated_type(value: Any, annotation):
     def get_type(annotation):
         if get_origin(annotation) is Union and type(None) in get_args(annotation):
             # is_optional
@@ -81,19 +93,46 @@ def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
         else:
             return annotation
 
-    converted_type = get_type(param.annotation)
-    try:
-        if converted_type == int:
-            return int(value)
-        elif converted_type == str:
-            return str(value)
-        elif converted_type == bool:
-            return value.upper() == "TRUE"
-        elif converted_type == float:
-            return float(value)
-    except Exception as e:
-        raise ValueError(
-            "Cant convert url query param {}={}: {}".format(param.name, value, e)
+    converted_type = get_type(annotation)
+    if converted_type == int:
+        return int(value)
+    elif converted_type == str:
+        return str(value)
+    elif converted_type == bool:
+        return value.upper() == "TRUE"
+    elif converted_type == float:
+        return float(value)
+    elif converted_type == dict or get_origin(converted_type) == dict:
+        decoded_value = (
+            json.loads(re.sub("(?<!\\\\)'", '"', value))
+            if isinstance(value, str)
+            else value
+        )
+        try:
+            el_annotation = get_args(converted_type)[1]
+            return {
+                k: _convert_to_annotated_type(v, el_annotation)
+                for k, v in decoded_value.items()
+            }
+        except IndexError:
+            return dict(decoded_value)
+    elif converted_type == list or get_origin(converted_type) == list:
+        decoded_value = (
+            json.loads(re.sub("(?<!\\\\)'", '"', value))
+            if isinstance(value, str)
+            else value
+        )
+        el_annotation = get_args(converted_type)[1]
+        return list(_convert_to_annotated_type(v, el_annotation) for v in decoded_value)
+    elif converted_type == tuple or get_origin(converted_type) == tuple:
+        decoded_value = (
+            json.loads(re.sub("(?<!\\\\)'", '"', value))
+            if isinstance(value, str)
+            else value
+        )
+        el_annotation = get_args(converted_type)[1]
+        return tuple(
+            _convert_to_annotated_type(v, el_annotation) for v in decoded_value
         )
 
     raise ValueError(
@@ -102,7 +141,7 @@ def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
 
 
 def get_annotation_type(annotation):
-    """ returns tuple(annotation_type, is_optional)"""
+    """returns tuple(annotation_type, is_optional)"""
 
     def _geta(annotation):
         if inspect.isfunction(annotation):

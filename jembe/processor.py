@@ -1106,7 +1106,16 @@ class Processor:
                                         state_param_name
                                     ],
                                 )
-                            except ValueError:
+                            except ValueError as ve:
+                                current_app.logger.warning(
+                                    "{}: {} {}".format(
+                                        ve,
+                                        exec_name,
+                                        cconfig.component_class._jembe_init_signature.parameters[
+                                            state_param_name
+                                        ],
+                                    )
+                                )
                                 pass
 
                 self.add_command(
