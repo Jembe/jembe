@@ -477,7 +477,7 @@ test("test on refresh delay clears all timers", () => {
   buildDocument(`
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":{}}'>
       <body>
-        <div id="one" jmb-on:ready.delay.50ms.defer="document.test='one'"></div>
+        <div id="one" jmb-on:ready.delay-t1.500ms.defer="document.test='one'"></div>
       </body>
     </html>
   `)
@@ -491,18 +491,18 @@ test("test on refresh delay clears all timers", () => {
       "dom": `
     <html jmb-name="/test" jmb-data='{"changesUrl":true,"state":{},"url":"/test","actions":{}}'>
       <body>
-        <div id="one" jmb-on:ready.delay.30ms.defer="document.test='two'"></div>
+        <div id="one" jmb-on:ready.delay-t1.300ms.defer="document.test='two'"></div>
       </body>
     </html>
     `},
   ]
   window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
   expect(setTimeout).toHaveBeenCalledTimes(2)
-  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 50)
-  expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 30)
-  jest.advanceTimersByTime(30)
+  expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 500)
+  // expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 300)
+  jest.advanceTimersByTime(300)
   expect(document.test).toBe('two')
-  jest.advanceTimersByTime(50)
+  jest.advanceTimersByTime(500)
   expect(document.test).toBe('two')
 
 })

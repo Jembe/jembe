@@ -827,7 +827,7 @@ class InitialiseCommand(Command):
 
 
 class ComponentRender(NamedTuple):
-    """represents rendered coponent html with additional parametars"""
+    """Represents html rendered by component with additional parametars"""
 
     fresh: bool
     state_jsondict: Dict[str, Any]

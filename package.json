@@ -13,11 +13,10 @@
     "babel-core": "^6.26.3",
     "babel-plugin-transform-runtime": "^6.23.0",
     "jest": "^26.6.2",
-    "parcel": "^1.12.4",
-    "path-browserify": "^1.0.1",
     "morphdom": "^2.6.1",
-    "observable-membrane": "^1.0.1"
+    "observable-membrane": "^1.0.1",
+    "parcel": "^1.12.4",
+    "path-browserify": "^1.0.1"
   },
-  "dependencies": {
-  }
+  "dependencies": {}
 }
