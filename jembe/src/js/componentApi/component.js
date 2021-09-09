@@ -2,8 +2,8 @@
  * Havily modified alpine.js 2.8.1 to:
  *  - user 'jmb-' instead 'x-' as prefix
  *  - jembe component becomes alpine component
- *  - jembe compoenent state params and actions becomes alpine x-data params and actions
- *  - when jembe state params are changed or action is called in x-data,
+ *  - jembe component state params and actions becomes alpine jmb-data params and actions
+ *  - when jembe state params are changed or action is called in jmb-data,
  *     call appropriate function on jembeclient
  *  - support local variables accessible only in alpine componetn with jmb-local,
  *    jmb-init, jmb-update directives
@@ -65,6 +65,11 @@ export default class Component {
         if (originalComponent !== undefined) {
             this.originalComponentNamedTimers = originalComponent.namedTimers
         }
+        var self = this
+        this.$updateDom = debounce(function () {
+            self.updateElements(self.$el)
+        }, 0)
+
 
         this.state = JSON.parse(JSON.stringify(state));
         this.actions = actions
@@ -83,7 +88,7 @@ export default class Component {
         const updateExpression = (updateAttr === '' || updateAttr === null) ? '{}' : updateAttr
         let dataExtras = {
             $el: this.$el,
-            $jmb: this.$jmb
+            $jmb: this.$jmb,
         }
 
         let canonicalComponentElementReference = this.$el
@@ -137,6 +142,7 @@ export default class Component {
         this.unobservedData.$el = this.$el
         this.unobservedData.$refs = this.getRefsProxy()
         this.unobservedData.$jmb = this.$jmb
+        this.unobservedData.$updateDom = this.$updateDom
 
         this.nextTickStack = []
         this.unobservedData.$nextTick = (callback) => {
@@ -331,7 +337,7 @@ export default class Component {
         this.executeAndClearNextTickStack(rootEl)
     }
 
-    initializeElement(el, extraVars, mutated=false) {
+    initializeElement(el, extraVars, mutated = false) {
         // To support class attribute merging, we have to know what the element's
         // original class attribute looked like for reference.
         if (el.hasAttribute('class') && getXAttrs(el, this).length > 0) {
@@ -343,6 +349,10 @@ export default class Component {
                 ltarget.removeEventListener(event, handler, options)
             }
             el.__jmb_listeners = undefined
+        }
+        // remove scope when not needed
+        if (el.__jmb_scope !== undefined && !el.hasAttribute('jmb-scope')) {
+            el.__jmb_scope = undefined
         }
         this.registerListeners(el, extraVars, mutated)
         this.resolveBoundAttributes(el, true, extraVars)
@@ -467,6 +477,12 @@ export default class Component {
                 case 'cloak':
                     el.removeAttribute('jmb-cloak')
                     break;
+                case 'scope':
+                    if (el.__jmb_scope === undefined) {
+                        el.__jmb_scope = {}
+                    }
+                    el.__jmb_scope = { ...this.evaluateReturnExpression(el, expression, extraVars), ...el.__jmb_scope }
+                    break;
 
                 default:
                     break;
@@ -475,16 +491,26 @@ export default class Component {
     }
 
     evaluateReturnExpression(el, expression, extraVars = () => { }) {
+        let self = this
+        let extVars = extraVars()
+        let self_el = extVars !== undefined && extVars.$self !== undefined ? extVars.$self : el
         return saferEval(el, expression, this.$data, {
-            ...extraVars(),
+            $self: el,
+            ...extVars,
             $dispatch: this.getDispatchFunction(el),
+            $scope: () => { return self.getScopeVars(self_el) }
         })
     }
 
     evaluateCommandExpression(el, expression, extraVars = () => { }) {
+        let self = this
+        let extVars = extraVars()
+        let self_el = extVars !== undefined && extVars.$self !== undefined ? extVars.$self : el
         return saferEvalNoReturn(el, expression, this.$data, {
-            ...extraVars(),
+            $self: el,
+            ...extVars,
             $dispatch: this.getDispatchFunction(el),
+            $scope: () => { return self.getScopeVars(self_el) }
         })
     }
 
@@ -538,7 +564,7 @@ export default class Component {
                         //     node.__jmb = new Component(node)
                         //     return
                         // }
-                        this.initializeElement(node, () => {}, true)
+                        this.initializeElement(node, () => { }, true)
                     })
                 }
             }
@@ -587,5 +613,30 @@ export default class Component {
                 return ref
             }
         })
+    }
+    getScopeVars(el) {
+        let self = this
+        if (el === window) {
+            return {}
+        }
+        let scope_el = null
+        if (el.hasAttribute('jmb-scope')) {
+            scope_el = el
+        } else {
+            let cs = el.closest('[jmb-scope]')
+            if (cs !== null) {
+                let jc = cs.closest('[jmb-name]')
+                if (jc !== null && jc.getAttribute('jmb-name') === self.execName) {
+                    scope_el = cs
+                }
+            }
+        }
+        if (scope_el !== null) {
+            let { membrane, data } = wrap(scope_el.__jmb_scope, (target, key) => {
+                self.$updateDom()
+            })
+            return data
+        }
+        return {}
     }
 }

@@ -707,3 +707,18 @@ test("$jmb.component chain", () => {
     }
   ))
 })
+test("$updateDom() call", () => {
+  buildDocument(`
+    <html jmb-name="/tasks" jmb-data='{"changesUrl":true,"state":{"a":0},"url":"/tasks","actions":{}}'>
+      <body jmb-on:jembe-test.camel.window.defer="a = a+1; $updateDom()">
+          <div id="testA" jmb-text="a"></div>
+          <button id="buttonA" jmb-on:click.defer="a=a+1; $updateDom()">Increase A</button>
+      </body>
+    </html>
+  `)
+  document.querySelector('#buttonA').click()
+  // window.dispatchEvent(new CustomEvent('jembeTest',{}))
+  expect(window.jembeClient.components['/tasks'].api.$data.a).toBe(1)
+  //test: except(
+
+  })
