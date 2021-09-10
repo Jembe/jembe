@@ -350,8 +350,8 @@ export default class Component {
             }
             el.__jmb_listeners = undefined
         }
-        // remove scope when not needed
-        if (el.__jmb_scope !== undefined && !el.hasAttribute('jmb-scope')) {
+        // remove scopes
+        if (el.__jmb_scope !== undefined && (!el.hasAttribute('jmb-scope') || el.getAttribute('jmb-scope') !== "")) {
             el.__jmb_scope = undefined
         }
         this.registerListeners(el, extraVars, mutated)
@@ -479,9 +479,8 @@ export default class Component {
                     break;
                 case 'scope':
                     if (el.__jmb_scope === undefined) {
-                        el.__jmb_scope = {}
+                        el.__jmb_scope = this.evaluateReturnExpression(el, expression, extraVars)
                     }
-                    el.__jmb_scope = { ...this.evaluateReturnExpression(el, expression, extraVars), ...el.__jmb_scope }
                     break;
 
                 default:
