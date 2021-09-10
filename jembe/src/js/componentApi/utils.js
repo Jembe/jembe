@@ -129,7 +129,7 @@ export function saferEvalNoReturn(el, expression, dataContext, additionalHelperV
     }, { el, expression })
 }
 
-const xAttrRE = /^jmb-(on|bind|data|text|html|model|if|for|show|cloak|transition|ref|spread|scope)\b/
+const xAttrRE = /^jmb-(on|bind|data|text|html|model|if|for|show|cloak|transition|ref|spread)\b/
 
 export function isXAttr(attr) {
     const name = replaceAtAndColonWithStandardSyntax(attr.name)

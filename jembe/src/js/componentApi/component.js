@@ -44,6 +44,8 @@ export default class Component {
         this.unnamedTimers = []
         this.namedTimers = {}
         this.originalComponentNamedTimers = {}
+
+        this.elWithScopes = []
     }
     /**
      * @param {Component} originalComponent 
@@ -212,6 +214,11 @@ export default class Component {
         for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
             window.clearTimeout(timerInfo.id)
         }
+        // remove scopes
+        for (const scope_el of this.elWithScopes) {
+            scope_el.__jmb_scope = undefined
+        }
+        this.elWithScopes = []
     }
     getUnobservedData() {
         return unwrap(this.membrane, this.$data)
@@ -350,10 +357,6 @@ export default class Component {
             }
             el.__jmb_listeners = undefined
         }
-        // remove scopes
-        if (el.__jmb_scope !== undefined && (!el.hasAttribute('jmb-scope') || el.getAttribute('jmb-scope') !== "")) {
-            el.__jmb_scope = undefined
-        }
         this.registerListeners(el, extraVars, mutated)
         this.resolveBoundAttributes(el, true, extraVars)
     }
@@ -476,11 +479,6 @@ export default class Component {
 
                 case 'cloak':
                     el.removeAttribute('jmb-cloak')
-                    break;
-                case 'scope':
-                    if (el.__jmb_scope === undefined) {
-                        el.__jmb_scope = this.evaluateReturnExpression(el, expression, extraVars)
-                    }
                     break;
 
                 default:
@@ -631,6 +629,10 @@ export default class Component {
             }
         }
         if (scope_el !== null) {
+            if (scope_el.__jmb_scope === undefined) {
+                    scope_el.__jmb_scope = this.evaluateReturnExpression(scope_el, scope_el.getAttribute('jmb-scope'))
+                    this.elWithScopes.push(scope_el)
+            }
             let { membrane, data } = wrap(scope_el.__jmb_scope, (target, key) => {
                 self.$updateDom()
             })
