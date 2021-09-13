@@ -1,4 +1,4 @@
-from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict
+from typing import Sequence, TYPE_CHECKING, Optional, Tuple, Type, List, Dict, Any
 from os import path
 from .defaults import (
     DEFAULT_JEMBE_MEDIA_FOLDER,
@@ -46,6 +46,7 @@ class Jembe:
         self._unregistred_pages: Dict[str, ComponentRef] = {}
 
         self._storages: Dict[str, "Storage"]
+        self.extensions: Dict[str, Any] = dict()
 
         from .jembe_page import JembePage
 
@@ -291,6 +292,12 @@ def get_processor():
             raise JembeError("Jembe extension is not initialised")
         return Processor(jembe_state.jembe, component_full_name, request)
     return g.jmb_processor
+
+def get_jembe()-> "Jembe":
+    jembe_state = current_app.extensions.get("jembe", None)
+    if jembe_state is None:
+        raise JembeError("Jembe extension is not initialised")
+    return jembe_state.jembe
 
 
 def get_storage(storage_name: str) -> "Storage":

@@ -1,5 +1,6 @@
 from .app import (
     Jembe,
+    get_jembe,
     get_storage,
     get_storages,
     get_private_storage,
@@ -26,6 +27,7 @@ from .utils import page_url, run_only_once
 
 __all__ = (
     "Jembe",
+    "get_jembe",
     "get_storage",
     "get_storages",
     "get_private_storage",
