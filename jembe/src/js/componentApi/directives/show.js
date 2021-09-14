@@ -16,7 +16,6 @@ export function handleShowDirective(component, el, value, modifiers, initialUpda
         el.__jmb_is_shown = true
     }
 
-    console.log(el, value)
     if (initialUpdate === true) {
         if (value) {
             show()
