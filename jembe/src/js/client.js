@@ -662,7 +662,7 @@ class JembeClient {
       this.xRequestsInProgress += 1
       if (this.xRequestsInProgress === 1) {
         this.disableInputBeforeRequestTimeoutId = window.setTimeout(
-          () => { this.disableInputsBeforeRequest() }, 25
+          () => { this.disableInputsBeforeRequest() }, 50
         )
       }
     }
