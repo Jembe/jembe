@@ -132,7 +132,6 @@ class Jembe:
         component: Type["Component"],
         component_config: Optional["ComponentConfig"] = None,
     ):
-
         component_ref: ComponentRef = (
             (
                 component,
@@ -293,7 +292,8 @@ def get_processor():
         return Processor(jembe_state.jembe, component_full_name, request)
     return g.jmb_processor
 
-def get_jembe()-> "Jembe":
+
+def get_jembe() -> "Jembe":
     jembe_state = current_app.extensions.get("jembe", None)
     if jembe_state is None:
         raise JembeError("Jembe extension is not initialised")
