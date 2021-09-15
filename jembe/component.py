@@ -1,6 +1,5 @@
 from typing import (
     Iterable,
-    TYPE_CHECKING,
     Optional,
     Union,
     Dict,
@@ -11,12 +10,15 @@ from typing import (
     get_origin,
     Type,
 )
+import re
 from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
 from functools import cached_property
 from copy import deepcopy, copy
 from abc import ABCMeta
 from inspect import Parameter, isclass, signature, getmembers, Signature
+
+from flask.json import dumps
 from .exceptions import JembeError, NotFound
 from flask import render_template, render_template_string, current_app
 from markupsafe import Markup
@@ -301,27 +303,13 @@ class ComponentReference:
     def jrl(self) -> str:
         if not self.is_accessible:
             raise NotFound()
-
-        def _prep_v(v):
-            if isinstance(v, bool):
-                return "true" if v else "false"
-            elif isinstance(v, (int, float)):
-                return v
-            return "'{}'".format(v)
-
         jrl = (
             "component{reset}('{name}'{kwargs}{key})".format(
                 reset="_reset" if not self.merge_existing_params else "",
                 name=self.name,
                 key=",key='{}'".format(self._key) if self._key else "",
-                kwargs=",{{{}}}".format(
-                    ",".join(
-                        (
-                            "{}:{}".format(k, _prep_v(v))
-                            for k, v in self.kwargs.items()
-                            if not k.startswith("_")
-                        )
-                    )
+                kwargs=",{}".format(
+                    re.sub('(?<!\\\\)"', "'", dumps(self.kwargs, separators=(",", ":")))
                 )
                 if self.kwargs
                 else "",
@@ -331,15 +319,14 @@ class ComponentReference:
         )
         jrl += (
             # ".call('{name}',{{{kwargs}}},[{args}])".format(
-            ".call('{name}',{{{kwargs}}})".format(
+            ".call('{name}'{kwargs})".format(
                 name=self.action,
                 # args=",".join((_prep_v(v) for v in self.action_args)),
-                kwargs=",".join(
-                    (
-                        "{}:{}".format(k, _prep_v(v))
-                        for k, v in self.action_kwargs.items()
-                    )
-                ),
+                kwargs=",{}".format(
+                    re.sub('(?<!\\\\)"', "'", dumps(self.action_kwargs, separators=(",", ":")))
+                )
+                if self.action_kwargs
+                else "",
             )
             if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION
             else ".display()"

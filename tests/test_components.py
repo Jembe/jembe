@@ -1,4 +1,3 @@
-from jembe.app import get_processor
 from typing import (
     Any,
     NewType,
@@ -9,9 +8,7 @@ from typing import (
     Sequence,
     List,
     Dict,
-    Union,
 )
-from jembe import Component
 from flask import json
 from jembe import (
     action,
@@ -22,7 +19,9 @@ from jembe import (
     Forbidden,
     Unauthorized,
     Event,
+    Component,
 )
+from jembe.app import get_processor
 
 if TYPE_CHECKING:
     from jembe import ComponentConfig, Jembe, DisplayResponse
@@ -602,7 +601,9 @@ def test_dynamic_add_remove_counters(jmb, client):
         "/cpage",
         data=json.dumps(
             dict(
-                components=[dict(execName="/cpage", state=dict()),],
+                components=[
+                    dict(execName="/cpage", state=dict()),
+                ],
                 commands=[
                     dict(
                         type="call",
@@ -818,7 +819,7 @@ def test_dynamic_add_remove_counters(jmb, client):
 
 
 def test_initialising_listener(jmb, client):
-    """ page sets value of child counter on counter initialisation event.source.init_params.value = 10"""
+    """page sets value of child counter on counter initialisation event.source.init_params.value = 10"""
 
     class Counter(Component):
         def __init__(self, value: int = 0):
@@ -1191,7 +1192,7 @@ def test_inject_init_params_to_component(jmb, client):
             super().__init__()
 
         def inject(self):
-            """ usualy call some services or flask session, g, request to prepare params to inject"""
+            """usualy call some services or flask session, g, request to prepare params to inject"""
             return dict(user_id=1, _user=User(1, "Jembe {}".format(1)))
 
         def display(self):
@@ -1244,9 +1245,9 @@ def test_update_window_location(jmb, client):
     """
     When rendering components via x-jembe ajax request/response cycle
     deepest-latest component url should be used as window.location and it should
-    be set via javascript part of framework. 
+    be set via javascript part of framework.
     Component can opt-out from window.location settings which will make
-    that compoennt and all its children url not be used when determing 
+    that compoennt and all its children url not be used when determing
     window.location. This can be usefull for supporting compoentns on page like
     navigation etc.
 
@@ -1372,7 +1373,10 @@ def test_url_get_query_params(jmb, client):
 
 def test_url_get_query_params_not_used_on_x_jembe_request(jmb, client):
     @jmb.page(
-        "list", Component.Config(url_query_params=dict(p="page", ps="page_size"),),
+        "list",
+        Component.Config(
+            url_query_params=dict(p="page", ps="page_size"),
+        ),
     )
     class ListComponent(Component):
         def __init__(self, page: Optional[int] = None, page_size: int = 10) -> None:
@@ -1873,8 +1877,8 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
     assert r.data == (
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
         """<html jmb-name="/page" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"display_mode":null},"url":"/page"}\'><body>"""
-        """<button jmb-on:click="$jmb.component('a',{rid:1}).display()">C1</button>"""
-        """<button jmb-on:click="$jmb.component('a',{rid:2}).display()">C2</button>"""
+        """<button jmb-on:click="$jmb.component('a',{\'rid\':1}).display()">C1</button>"""
+        """<button jmb-on:click="$jmb.component('a',{\'rid\':2}).display()">C2</button>"""
         """</body></html>"""
     ).encode("utf-8")
 
@@ -1882,7 +1886,9 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
         "/page/a/1",
         data=json.dumps(
             dict(
-                components=[dict(execName="/page", state=dict(display_mode=None)),],
+                components=[
+                    dict(execName="/page", state=dict(display_mode=None)),
+                ],
                 commands=[
                     dict(
                         type="init",
@@ -1941,8 +1947,8 @@ def test_component_is_accessible_can_execute_for_jrl(jmb, client):
     assert json_response[0]["execName"] == "/page"
     assert json_response[0]["dom"] == (
         """<html><body>"""
-        """<button jmb-on:click="$jmb.component('a',{rid:1}).display()">C1</button>"""
-        """<button jmb-on:click="$jmb.component('a',{rid:2}).display()">C2</button>"""
+        """<button jmb-on:click="$jmb.component(\'a\',{\'rid\':1}).display()">C1</button>"""
+        """<button jmb-on:click="$jmb.component(\'a\',{\'rid\':2}).display()">C2</button>"""
         """</body></html>"""
     )
 
@@ -2091,8 +2097,8 @@ def test_component_renderer_absolute_path(jmb, client):
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
         """<html jmb-name="/page" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"display_mode":"a1"},"url":"/page"}\'><body>"""
         """<ul jmb-name="/page/b" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/page/b"}\'>"""
-        """<li><a href="/page/a1/1" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a1\',{rid:1}).display()">A1</a></li>"""
-        """<li><a href="/page/a2/2" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a2\',{rid:2}).display()">A2</a></li>"""
+        """<li><a href="/page/a1/1" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a1\',{\'rid\':1}).display()">A1</a></li>"""
+        """<li><a href="/page/a2/2" jmb-on.click.stop.prevent="$jmb.component(\'/page\').component(\'a2\',{\'rid\':2}).display()">A2</a></li>"""
         """</ul>"""
         """<p jmb-name="/page/a1" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"rid":0},"url":"/page/a1/0"}\'>/page/a1:0</p>"""
         """</body></html>"""
@@ -2238,7 +2244,8 @@ def test_redirect_to(jmb, client):
             return self.render_template_string("<div>{{component('b')}}</div>")
 
     @jmb.page(
-        "page", Component.Config(components=dict(a1=A, a2=A)),
+        "page",
+        Component.Config(components=dict(a1=A, a2=A)),
     )
     class Page(Component):
         def __init__(self, display_mode: str = "a1"):
@@ -2353,16 +2360,15 @@ def test_build_exec_name(app, jmb: "Jembe"):
 
         assert (
             getc("/page/a").component("a1").call("update").jrl
-            == "$jmb.component('a1').call('update',{})"
+            == "$jmb.component('a1').call('update')"
         )
         assert (
             getc("/page/a").component("a1").call("update", a=1, b=2).jrl
-            == "$jmb.component('a1').call('update',{a:1,b:2})"
+            == "$jmb.component('a1').call('update',{'a':1,'b':2})"
         )
         assert getc("/page/a").component(".").call("display").jrl == "$jmb.display()"
         assert (
-            getc("/page/a").component(".").call("update").jrl
-            == "$jmb.call('update',{})"
+            getc("/page/a").component(".").call("update").jrl == "$jmb.call('update')"
         )
         assert getc("/page").component().call("display").jrl == "$jmb.display()"
 
@@ -2624,18 +2630,15 @@ def test_reference_call_action_is_accessible(app, jmb: "Jembe"):
         assert getc("/page/a/c").component().call("taction").is_accessible == True
         assert getc("/page/b/c").component().call("taction").is_accessible == False
 
+
 def test_reference_deep_component_on_another_page(app, jmb: "Jembe", client):
     class A(Component):
         def display(self) -> "DisplayResponse":
-            return self.render_template_string(
-                "<div>A</div>"
-            )
+            return self.render_template_string("<div>A</div>")
 
     class B(Component):
         def display(self) -> "DisplayResponse":
-            return self.render_template_string(
-                "<div>B</div>"
-            )
+            return self.render_template_string("<div>B</div>")
 
     @jmb.page(
         "pagea",
@@ -2650,6 +2653,7 @@ def test_reference_deep_component_on_another_page(app, jmb: "Jembe", client):
             return self.render_template_string(
                 "<html><body>{{component('a')}}<div>{{component('/pageb/b').url}}</div></body></html>"
             )
+
     @jmb.page(
         "pageb",
         Component.Config(
@@ -2664,7 +2668,6 @@ def test_reference_deep_component_on_another_page(app, jmb: "Jembe", client):
                 "<html><body>{{component('b')}}</body></html>"
             )
 
-
     r = client.get("/pagea")
     assert r.status_code == 200
     assert r.data == (
@@ -2673,4 +2676,37 @@ def test_reference_deep_component_on_another_page(app, jmb: "Jembe", client):
         """<html jmb-name="/pagea" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/pagea"}\'><body>"""
         """<div jmb-name="/pagea/a" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/pagea/a"}\'>A</div><div>/pageb/b</div>"""
         "</body></html>"
+    ).encode("utf-8")
+
+
+def test_tuple_str_state_param(app, jmb: "Jembe", client):
+    class A(Component):
+        def __init__(self, display_modes: Tuple[str, ...] = ("self",)):
+            super().__init__()
+
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string("""<div>a</div>""")
+
+    @jmb.page(
+        "pagea",
+        Component.Config(
+            components=dict(
+                a=A,
+            )
+        ),
+    )
+    class PageA(Component):
+        def display(self) -> "DisplayResponse":
+            return self.render_template_string(
+                """<html><body><a href="{{component('a', display_modes=("self", "test")).url}}" jmb-on:click.prevent="{{component().jrl}}">link</a>{{component('a')}}</body></html>"""
+            )
+
+    r = client.get("/pagea")
+    assert r.status_code == 200
+    assert r.data == (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/pagea" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/pagea"}\'><body>"""
+        """<a href="/pagea/a" jmb-on:click.prevent="$jmb.component(\'a\',{\'display_modes\':[\'self\',\'test\']}).display()">link</a>"""
+        """<div jmb-name="/pagea/a" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"display_modes":["self"]},"url":"/pagea/a"}\'>a</div>"""
+        """</body></html>"""
     ).encode("utf-8")

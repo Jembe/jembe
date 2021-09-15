@@ -1492,7 +1492,7 @@ class Processor:
                 ),
             )
 
-        if not html:
+        if not html.strip():
             html = "<div></div>"
         root = etree.HTML(html)
         if is_page_exec_name(exec_name):
