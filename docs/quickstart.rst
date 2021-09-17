@@ -31,14 +31,14 @@ Install Jembe using `pip`, and use premade project template to create and run ne
     # Run application
     $ flask run
 
-With broswer open http://localhost:5000 to view newly created jembe
+With browser open http://localhost:5000 to view newly created jembe
 application.
 
 
-Examples
-~~~~~~~~
+Project Examples
+~~~~~~~~~~~~~~~~
 
-Following examples assumes that the Jembe project is named
+The following examples assumes that the Jembe project is named
 **'myproject'** and it's created with ``$ jembe startproject``
 command.
 
@@ -46,7 +46,7 @@ command.
 Hello World Example
 ===================
 
-Create a simple Component to render a static HTML page.
+In this example, we'll create a simple Component to render a static HTML page.
 
 
 .. code-block:: python
@@ -81,8 +81,10 @@ Visit ``http://localhost:5000/hello``.
 Making Hello World Dynamic
 ==========================
 
--  Use Component **state variable** to represent the current state of Component.
--  Allow a user to update Component **state** by interacting with HTML input field.
+Now let's allow a user to change its name by:
+
+-  Using Component **state variable** to store his name,
+-  and HTML Input field to update his name stored in Component **state**.
 
 
 .. code-block:: python
@@ -93,6 +95,10 @@ Making Hello World Dynamic
 
     @jmb.page('hello')
     class HellowWorld(Component):
+        # all __init__ parameters whose name 
+        # does not start with an underscore (_)
+        # will be state variables
+        # and they must have type annotation
         def __init__(self, name: str = "World"):
             super().__init__()
 
@@ -128,15 +134,16 @@ Making Hello World Dynamic
 Notice that the input field doesn't lose focus when the page is updated.
 
 .. note::
-    -  First ``script`` tag is required only for Page Component, aka ``@jmb.page(..)``;
-    -  Second ``script`` tag is required by ``jembe startproject`` template to add CSRF protection, and it is added only to Page Component;
+    -  First ``script`` tag is required only for Page Component, aka component decorated with ``@jmb.page(..)``;
+    -  Second ``script`` tag is required by ``jembe startproject`` template to add CSRF protection, and it should be added only to component decorated with ``@jmb.page(..)``;
 
 Counter Example
 ===============
 
--  Defines component **actions**.
--  Execute **actions** when an user press button inside component HTML.
--  Creates complex pages by nesting multiple components.
+In this example, we'll:
+
+-  create **actions** that will be executed when a user press button;
+-  and combine multiple components to create complex pages;
 
 
 .. code-block:: python
@@ -177,7 +184,7 @@ Counter Example
     from .counter import CounterPage
 
 
-.. code-block:: jinja
+.. code-block:: html
     :caption: myproject/templates/counter/counter.html
 
     <h2>Counter</h2>
