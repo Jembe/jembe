@@ -323,7 +323,11 @@ class ComponentReference:
                 name=self.action,
                 # args=",".join((_prep_v(v) for v in self.action_args)),
                 kwargs=",{}".format(
-                    re.sub('(?<!\\\\)"', "'", dumps(self.action_kwargs, separators=(",", ":")))
+                    re.sub(
+                        '(?<!\\\\)"',
+                        "'",
+                        dumps(self.action_kwargs, separators=(",", ":")),
+                    )
                 )
                 if self.action_kwargs
                 else "",
@@ -656,7 +660,7 @@ class Component(metaclass=ComponentMeta):
             try:
                 if atype == set or get_origin(atype) == set:
                     return None if (is_optional and value is None) else list(value)
-                if atype == list or get_origin(atype) == list:
+                elif atype == list or get_origin(atype) == list:
                     # TODO support tuple, dict etc.
                     el_annotation = get_args(atype)[0]
                     return (
@@ -666,7 +670,17 @@ class Component(metaclass=ComponentMeta):
                             _dump_supported_types(v, el_annotation) for v in value
                         )
                     )
-                if atype == dict or get_origin(atype) == dict:
+                elif atype == tuple or get_origin(atype) == tuple:
+                    # TODO support tuple, dict etc.
+                    el_annotation = get_args(atype)[0]
+                    return (
+                        None
+                        if (is_optional and value is None)
+                        else tuple([
+                            _dump_supported_types(v, el_annotation) for v in value
+                        ])
+                    )
+                elif atype == dict or get_origin(atype) == dict:
                     el_annotation = get_args(atype)[1]
                     return (
                         None
@@ -704,7 +718,8 @@ class Component(metaclass=ComponentMeta):
                 if current_app.debug or current_app.testing:
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json dump/load "
-                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({}) ".format(
+                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({})\n\n "
+                        "Please double check that you are using actuall class in annotation and not string with class name.".format(
                             name,
                             cls.__module__,
                             cls.__name__,

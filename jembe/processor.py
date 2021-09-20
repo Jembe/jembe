@@ -32,6 +32,8 @@ from .common import (
     is_direct_child_name,
     is_page_exec_name,
     parent_exec_name,
+    # json_object_hook,
+    # json_default,
 )
 from .exceptions import JembeError
 from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
@@ -1016,7 +1018,10 @@ class Processor:
     def __create_commands(self, component_full_name: str):
         if self._is_x_jembe_request:
             # x-jembe ajax request
-            data = json.loads(self.request.data.decode("utf-8"))
+            data = json.loads(
+                self.request.data.decode("utf-8"), 
+                # object_hook=json_object_hook,
+            )
             # init components from data["components"]
             to_be_initialised = []
             for component_data in data["components"]:
@@ -1469,6 +1474,8 @@ class Processor:
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
+        from pprint import pprint
+        pprint(state_jsondict)
 
         def set_jmb_attrs(elem):
             elem.set("jmb-name", exec_name)
@@ -1489,6 +1496,7 @@ class Processor:
                     ),
                     separators=(",", ":"),
                     sort_keys=True,
+                    # default=json_default
                 ),
             )
 
