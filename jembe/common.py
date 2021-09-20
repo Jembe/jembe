@@ -169,17 +169,3 @@ class JembeInitParamSupport(ABC):
     @abstractmethod
     def load_init_param(cls, value: Any) -> Any:
         raise NotImplementedError()
-
-# def json_default(obj):
-#     if isinstance(obj, datetime):
-#         return { '_datetime_isoformat': obj.isoformat() }
-#     elif isinstance(obj, date):
-#         return { '_date_isoformat': obj.isoformat() }
-#     return str(obj)
-#     # raise JembeError("JSON conversion does not support {}".format(obj))
-
-# def json_object_hook(obj):
-#     _isoformat = obj.get('_isoformat')
-#     if _isoformat is not None:
-#         return datetime.fromisoformat(_isoformat)
-#     return obj

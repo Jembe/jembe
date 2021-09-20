@@ -1474,9 +1474,6 @@ class Processor:
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
-        from pprint import pprint
-        pprint(state_jsondict)
-
         def set_jmb_attrs(elem):
             elem.set("jmb-name", exec_name)
             elem.set(
