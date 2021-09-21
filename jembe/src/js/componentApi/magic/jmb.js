@@ -106,7 +106,6 @@ export default class JMB {
     return this.component(relativeExecName, kwargs, false)
   }
   executeCommands(disableInputs=true) {
-    this.jembeClient.consolidateCommands()
     this.jembeClient.executeCommands(disableInputs)
   }
   componentsOnPage(filter) {

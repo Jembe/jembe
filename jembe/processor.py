@@ -36,7 +36,7 @@ from .common import (
     # json_default,
 )
 from .exceptions import JembeError
-from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
+from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag, redisplay
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -949,6 +949,10 @@ class Processor:
         # direct response if component display returns it
         self._response: Optional["Response"] = None
 
+        # List of init commands without coresponding call command that
+        # need to be checked for redisplay depending of other redisplayed compoents
+        # on page (when processing x-jembe request)
+        self._hanging_init_commands_execnames: List[str] = []
         self.__create_commands(component_full_name)
         self._staging_commands.move_commands_to(self._commands)
 
@@ -1034,8 +1038,22 @@ class Processor:
             self.__create_commands_from_url_path(component_full_name, to_be_initialised)
 
             # init commands
+            updated_init_commands_execnames: List[str] = []
+            call_commands_execnames: List[str] = []
             for command_data in data["commands"]:
-                self.add_command(self._x_jembe_command_factory(command_data), end=True)
+                command = self._x_jembe_command_factory(command_data)
+                self.add_command(command, end=True)
+                if isinstance(command, InitialiseCommand):
+                    updated_init_commands_execnames.append(command.component_exec_name)
+                elif isinstance(command, CallActionCommand):
+                    call_commands_execnames.append(command.component_exec_name)
+            # find all init commands without coresponding call or display command
+            self._hanging_init_commands_execnames = [
+                c
+                for c in updated_init_commands_execnames
+                if c not in call_commands_execnames
+            ]
+
         else:
             # regular http/s GET request
             exec_names = self.__create_commands_from_url_path(
@@ -1168,6 +1186,39 @@ class Processor:
             self._staging_commands.move_commands_to(self._commands)
 
             self._execute_commands()
+            # for all componets that have change state params but not have been rendered
+            # find parent that has been renderd and render all parent from that parent
+            # until direct parent of component with changed state params one by one and asses
+            # shuld hanging_init_should be rendered
+            for hanging_init_execname in self._hanging_init_commands_execnames:
+                if hanging_init_execname not in [
+                    execname for execname, v in self.renderers.items() if v.fresh
+                ]:
+                    redisplay_en = ["/".join(hanging_init_execname.split("/")[:2])]
+                    for name in hanging_init_execname.split("/")[2:-1]:
+                        redisplay_en.append("/".join([redisplay_en[-1], name]))
+
+                    for ename in redisplay_en:
+                        if ename not in [
+                            execname
+                            for execname, v in self.renderers.items()
+                            if v.fresh
+                        ]:
+                            # TODO see if we can use not fresh as check but call displayed by parent
+                            # if parent display that is fresh didn't call child display then
+                            # we don't need to call display on child becaue it will not be used
+                            # anyway
+                            # self._execute_command(CallDisplayCommand(ename).mount(self))
+                            self.add_command(CallDisplayCommand(ename))
+                            self._staging_commands.move_commands_to(self._commands)
+                            self._execute_commands()
+                    if "/".join(hanging_init_execname.split("/")[:-1]) not in [
+                        execname for execname, v in self.renderers.items() if v.fresh
+                    ]:
+                        # self._execute_command(CallDisplayCommand(hanging_init_execname).mount(self))
+                        self.add_command(CallDisplayCommand(hanging_init_execname))
+                        self._staging_commands.move_commands_to(self._commands)
+                        self._execute_commands()
             return self
 
         finally:
