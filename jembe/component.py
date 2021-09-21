@@ -178,7 +178,7 @@ class ComponentReference:
         self.action = ComponentConfig.DEFAULT_DISPLAY_ACTION
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
-        self.kwargs = kwargs
+        self.kwargs = {k:v for k, v in kwargs.items() if not k.startswith("_")}
         self.merge_existing_params = merge_existing_params
 
         self._component_initialise_done = False

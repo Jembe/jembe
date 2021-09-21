@@ -243,13 +243,13 @@ test('call nested component actions', () => {
           "args": [],
           "kwargs": {}
         },
-        {
-          "type": "call",
-          "componentExecName": "/nav",
-          "actionName": "display",
-          "args": [],
-          "kwargs": {}
-        },
+        // {
+        //   "type": "call",
+        //   "componentExecName": "/nav",
+        //   "actionName": "display",
+        //   "args": [],
+        //   "kwargs": {}
+        // },
       ]
     }
   ))
@@ -368,13 +368,13 @@ test("test setting nested component init params", () => {
           },
           mergeExistingParams: true
         },
-        {
-          type: "call",
-          componentExecName: "/test",
-          actionName: "display",
-          args: [],
-          kwargs: {}
-        }
+        // {
+        //   type: "call",
+        //   componentExecName: "/test",
+        //   actionName: "display",
+        //   args: [],
+        //   kwargs: {}
+        // }
       ]
     }
   ))
@@ -417,13 +417,13 @@ test("test setting nested component init params - direct", () => {
           },
           mergeExistingParams: true
         },
-        {
-          type: "call",
-          componentExecName: "/test",
-          actionName: "display",
-          args: [],
-          kwargs: {}
-        }
+        // {
+        //   type: "call",
+        //   componentExecName: "/test",
+        //   actionName: "display",
+        //   args: [],
+        //   kwargs: {}
+        // }
       ]
     }
   ))
@@ -602,13 +602,13 @@ test("$jmb.set not deferred shout call display", () => {
           "initParams": { "a": 1 },
           "mergeExistingParams": true
         },
-        {
-          "type": "call",
-          "componentExecName": "/tasks",
-          "actionName": "display",
-          "args": [],
-          "kwargs": {}
-        }
+        // {
+        //   "type": "call",
+        //   "componentExecName": "/tasks",
+        //   "actionName": "display",
+        //   "args": [],
+        //   "kwargs": {}
+        // }
       ]
     }
   ))
@@ -671,13 +671,13 @@ test("$jmb.component chain", () => {
           "args": [],
           "kwargs": {}
         },
-        {
-          "type": "call",
-          "componentExecName": "/main",
-          "actionName": "display",
-          "args": [],
-          "kwargs": {}
-        }
+        // {
+        //   "type": "call",
+        //   "componentExecName": "/main",
+        //   "actionName": "display",
+        //   "args": [],
+        //   "kwargs": {}
+        // }
       ]
     }
   ))

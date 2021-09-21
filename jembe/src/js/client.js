@@ -579,24 +579,24 @@ class JembeClient {
     })
   }
   consolidateCommands() {
-    let initCommandsExecNames = this.commands.filter(
-      c => c.type === 'init'
-    ).map(
-      c => c.componentExecName
-    )
-    let callCommandsExecNames = this.commands.filter(
-      c => c.type === 'call'
-    ).map(
-      c => c.componentExecName
-    )
-    for (const execName of initCommandsExecNames) {
-      if (!callCommandsExecNames.includes(execName)) {
-        this.addCallCommand(execName, "display")
-      }
-    }
-    //TODO
-    // - display error if actions over two different component are called
-    //   and this components are not on ignore part of flow list, also define flow list    
+    // let initCommandsExecNames = this.commands.filter(
+    //   c => c.type === 'init'
+    // ).map(
+    //   c => c.componentExecName
+    // )
+    // let callCommandsExecNames = this.commands.filter(
+    //   c => c.type === 'call'
+    // ).map(
+    //   c => c.componentExecName
+    // )
+    // for (const execName of initCommandsExecNames) {
+    //   if (!callCommandsExecNames.includes(execName)) {
+    //     this.addCallCommand(execName, "display")
+    //   }
+    // }
+    // //TODO
+    // // - display error if actions over two different component are called
+    // //   and this components are not on ignore part of flow list, also define flow list    
   }
   updateLocation(replace = false) {
     // TODO non blocking x request should not update location
