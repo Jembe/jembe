@@ -27,11 +27,11 @@ from lxml.html import Element
 from flask import json, jsonify, g
 from werkzeug import Response
 from .common import (
-    convert_to_annotated_type,
     exec_name_to_full_name,
     is_direct_child_name,
     is_page_exec_name,
     parent_exec_name,
+    load_param,
     # json_object_hook,
     # json_default,
 )
@@ -1019,7 +1019,7 @@ class Processor:
         if self._is_x_jembe_request:
             # x-jembe ajax request
             data = json.loads(
-                self.request.data.decode("utf-8"), 
+                self.request.data.decode("utf-8"),
                 # object_hook=json_object_hook,
             )
             # init components from data["components"]
@@ -1103,13 +1103,11 @@ class Processor:
                         value = self.request.args.get(url_param_name, None)
                         if value is not None:
                             try:
-                                init_params[
-                                    state_param_name
-                                ] = convert_to_annotated_type(
-                                    unquote_plus(self.request.args[url_param_name]),
+                                init_params[state_param_name] = load_param(
                                     cconfig.component_class._jembe_init_signature.parameters[
                                         state_param_name
-                                    ],
+                                    ].annotation,
+                                    unquote_plus(self.request.args[url_param_name]),
                                 )
                             except ValueError as ve:
                                 current_app.logger.warning(
@@ -1474,6 +1472,7 @@ class Processor:
         If html has one root tag attrs are added to that tag othervise
         html is souranded with div
         """
+
         def set_jmb_attrs(elem):
             elem.set("jmb-name", exec_name)
             elem.set(

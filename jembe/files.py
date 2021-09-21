@@ -275,7 +275,9 @@ class Storage(ABC):
             # temporary files cannnot recive access
             return
         try:
-            session.get(JEMBE_FILES_ACCESS_GRANTED).get(self.name).remove(file_path)
+            jfag = session.get(JEMBE_FILES_ACCESS_GRANTED)
+            if jfag:
+                jfag.get(self.name).remove(file_path)
         except (KeyError, ValueError):
             pass
 

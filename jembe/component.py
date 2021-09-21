@@ -6,17 +6,14 @@ from typing import (
     Any,
     List,
     Tuple,
-    get_args,
-    get_origin,
     Type,
 )
 import re
-from collections.abc import Sequence as collectionsSequence
 from urllib.parse import quote_plus
 from functools import cached_property
 from copy import deepcopy, copy
 from abc import ABCMeta
-from inspect import Parameter, isclass, signature, getmembers, Signature
+from inspect import Parameter, signature, getmembers, Signature
 
 from flask.json import dumps
 from .exceptions import JembeError, NotFound
@@ -32,10 +29,10 @@ from .processor import (
     Processor,
 )
 from .common import (
-    JembeInitParamSupport,
     exec_name_to_full_name,
-    get_annotation_type,
     DisplayResponse,
+    load_param,
+    dump_param,
 )
 from .files import Storage
 
@@ -654,71 +651,17 @@ class Component(metaclass=ComponentMeta):
         so that it can be jsonified
 
         """
-
-        def _dump_supported_types(value, annotation):
-            atype, is_optional = get_annotation_type(annotation)
-            try:
-                if atype == set or get_origin(atype) == set:
-                    return None if (is_optional and value is None) else list(value)
-                elif atype == list or get_origin(atype) == list:
-                    # TODO support tuple, dict etc.
-                    el_annotation = get_args(atype)[0]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else list(
-                            _dump_supported_types(v, el_annotation) for v in value
-                        )
-                    )
-                elif atype == tuple or get_origin(atype) == tuple:
-                    # TODO support tuple, dict etc.
-                    el_annotation = get_args(atype)[0]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else tuple([
-                            _dump_supported_types(v, el_annotation) for v in value
-                        ])
-                    )
-                elif atype == dict or get_origin(atype) == dict:
-                    el_annotation = get_args(atype)[1]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else {
-                            k: _dump_supported_types(v, el_annotation)
-                            for k, v in value.items()
-                        }
-                    )
-                elif (
-                    atype == JembeInitParamSupport
-                    or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
-                    or (
-                        isclass(get_origin(atype))
-                        and issubclass(get_origin(atype), JembeInitParamSupport)
-                    )
-                    or isinstance(value, JembeInitParamSupport)
-                ):
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else atype.dump_init_param(value)
-                    )
-            except Exception as e:
-                raise ValueError(e)
-            return value
-
         if name in cls._jembe_init_signature.parameters:
             try:
                 param_hint = cls._jembe_init_signature.parameters[name]
                 if param_hint.annotation == Parameter.empty:
                     raise ValueError("Parameter without annotation")
-                return _dump_supported_types(value, param_hint.annotation)
-            except ValueError as e:
+                return dump_param(param_hint.annotation, value)
+            except Exception as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json dump/load "
-                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({})\n\n "
+                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param.\n ({})\n\n "
                         "Please double check that you are using actuall class in annotation and not string with class name.".format(
                             name,
                             cls.__module__,
@@ -742,90 +685,17 @@ class Component(metaclass=ComponentMeta):
               debug mode exception will be raised (No exception will be raised in production
               because hint checking can be expensive)
         """
-
-        def _load_supported_types(value, annotation):
-            """returns loaded value or raise ValueError"""
-            # TODO add support for multiple annotation types Union[a,b,c] etc
-
-            atype, is_optional = get_annotation_type(annotation)
-            try:
-                if atype == bool:
-                    return None if (is_optional and value is None) else bool(value)
-                elif atype == int:
-                    return None if (is_optional and value is None) else int(value)
-                elif atype == str:
-                    return None if (is_optional and value is None) else str(value)
-                elif atype == float:
-                    return None if (is_optional and value is None) else float(value)
-                elif atype == dict or get_origin(atype) == dict:
-                    try:
-                        el_annotation = get_args(atype)[1]
-                        return (
-                            None
-                            if (is_optional and value is None)
-                            else {
-                                k: _load_supported_types(v, el_annotation)
-                                for k, v in value.items()
-                            }
-                        )
-                    except IndexError:
-                        return None if (is_optional and value is None) else dict(value)
-                elif atype == tuple or get_origin(atype) == tuple:
-                    el_annotation = get_args(atype)[0]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else tuple(
-                            _load_supported_types(v, el_annotation) for v in value
-                        )
-                    )
-                elif atype == list or get_origin(atype) == list:
-                    el_annotation = get_args(atype)[0]
-                    return (
-                        None
-                        if (is_optional and value is None)
-                        else list(
-                            _load_supported_types(v, el_annotation) for v in value
-                        )
-                    )
-                elif atype == set or get_origin(atype) == set:
-                    # TODO recursive set
-                    return None if (is_optional and value is None) else set(value)
-                elif get_origin(atype) == collectionsSequence:
-                    # TODO recursive collection
-                    return None if (is_optional and value is None) else tuple(value)
-                elif (
-                    atype == JembeInitParamSupport
-                    or (isclass(atype) and issubclass(atype, JembeInitParamSupport))
-                    or (
-                        isclass(get_origin(atype))
-                        and issubclass(get_origin(atype), JembeInitParamSupport)
-                    )
-                ):
-                    if is_optional and value is None:
-                        return None
-                    elif isinstance(value, atype):
-                        return value.load_init_param(value)
-                    else:
-                        return atype.load_init_param(value)
-                elif atype == Any or get_origin(atype) == Any:
-                    return None if (is_optional and value is None) else value
-            except Exception as e:
-                raise ValueError(e)
-
-            raise ValueError("Unsuported annotation type {}".format(annotation))
-
         if name in cls._jembe_init_signature.parameters:
             try:
                 param_hint = cls._jembe_init_signature.parameters[name]
                 if param_hint.annotation == Parameter.empty:
                     raise ValueError("Parameter without annotation")
-                return _load_supported_types(value, param_hint.annotation)
+                return load_param(param_hint.annotation, value)
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
                         "State param {} of {}.{} with hint {} is not supported for json dump/load "
-                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. ({}) ".format(
+                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. \n\n({}) ".format(
                             name,
                             cls.__module__,
                             cls.__name__,

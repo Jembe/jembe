@@ -1,10 +1,13 @@
 from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
 import re
-from datetime import date, datetime
-from abc import ABC, abstractmethod
+import collections
 import inspect
+from abc import ABC, abstractmethod
 from importlib import import_module
-from flask import Response, json
+from dataclasses import is_dataclass, asdict
+from datetime import date, datetime
+from flask import Response, json, current_app
+from jembe.exceptions import JembeError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .component import Component, ComponentConfig
@@ -75,70 +78,157 @@ def import_by_name(object_name: str) -> Any:
     return object_type
 
 
-def convert_to_annotated_type(value: str, param: "inspect.Parameter"):
-    try:
-        return _convert_to_annotated_type(value, param.annotation)
-    except ValueError as v:
-        raise v
-    except Exception as e:
-        raise ValueError(
-            "Cant convert url query param {}={}: {}".format(param.name, value, e)
-        )
+class JembeInitParamSupport(ABC):
+    @classmethod
+    @abstractmethod
+    def dump_init_param(cls, value: Any) -> Any:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
+    def load_init_param(cls, value: Any) -> Any:
+        raise NotImplementedError()
 
 
-def _convert_to_annotated_type(value: Any, annotation):
-    def get_type(annotation):
-        if get_origin(annotation) is Union and type(None) in get_args(annotation):
-            # is_optional
-            return get_args(annotation)[0]
-        else:
-            return annotation
-
-    converted_type = get_type(annotation)
-    if converted_type == int:
-        return int(value)
-    elif converted_type == str:
-        return str(value)
-    elif converted_type == bool:
-        return value.upper() == "TRUE"
-    elif converted_type == float:
-        return float(value)
-    elif converted_type == dict or get_origin(converted_type) == dict:
-        decoded_value = (
-            json.loads(re.sub("(?<!\\\\)'", '"', value))
-            if isinstance(value, str)
-            else value
+# Transforming python type to json serializable type back and forth
+def dump_param(annotation, value: Any) -> Any:
+    """
+    Transforms annotated component state param into json serializable type ready to be
+    used by jembe client javascript, either as state variable, url query variale,
+    jrl etc.
+    """
+    source_type, can_be_none = get_annotation_type(annotation)
+    if value is None and can_be_none:
+        return None
+    elif _eq_type(source_type, list, tuple, set, collections.abc.Sequence):
+        targs = get_args(source_type)
+        if len(targs) == 0:
+            _dump_load_unspecified_warning(source_type)
+            return value
+        return list(dump_param(targs[0], item) for item in value)
+    elif _eq_type(source_type, dict):
+        targs = get_args(source_type)
+        if len(targs) < 2:
+            _dump_load_unspecified_warning(source_type)
+            return value
+        return {
+            dump_param(targs[0], k): dump_param(targs[1], v) for k, v in value.items()
+        }
+    elif (
+        source_type == JembeInitParamSupport
+        or (
+            inspect.isclass(source_type)
+            and issubclass(source_type, JembeInitParamSupport)
         )
-        try:
-            el_annotation = get_args(converted_type)[1]
-            return {
-                k: _convert_to_annotated_type(v, el_annotation)
-                for k, v in decoded_value.items()
-            }
-        except IndexError:
-            return dict(decoded_value)
-    elif converted_type == list or get_origin(converted_type) == list:
-        decoded_value = (
-            json.loads(re.sub("(?<!\\\\)'", '"', value))
-            if isinstance(value, str)
-            else value
+        or (
+            inspect.isclass(get_origin(source_type))
+            and issubclass(
+                get_origin(source_type), JembeInitParamSupport  # type:ignore
+            )
         )
-        el_annotation = get_args(converted_type)[1]
-        return list(_convert_to_annotated_type(v, el_annotation) for v in decoded_value)
-    elif converted_type == tuple or get_origin(converted_type) == tuple:
-        decoded_value = (
-            json.loads(re.sub("(?<!\\\\)'", '"', value))
-            if isinstance(value, str)
-            else value
-        )
-        el_annotation = get_args(converted_type)[1]
-        return tuple(
-            _convert_to_annotated_type(v, el_annotation) for v in decoded_value
-        )
-
-    raise ValueError(
-        "Unsuported url query param type. Supported types are int, float, bool and string"
+        or isinstance(value, JembeInitParamSupport)
+    ):
+        return source_type.dump_init_param(value)
+    elif _eq_type(source_type, int, float, bool, str):
+        return value
+    elif _eq_type(source_type, date, datetime):
+        return value.isoformat()
+    elif is_dataclass(source_type):
+        return asdict(value)
+    elif source_type == Any:
+        _dump_load_unspecified_warning(source_type)
+        return value
+    raise JembeError(
+        "Unsupported state/init param type {}:{}".format(source_type, value)
     )
+
+
+def load_param(annotation, value: Any) -> Any:
+    """
+    Loads component sate params received by jembe client javascript
+    and transform it to python type according to its annotation
+    ready to be process by component
+    """
+    target_type, can_be_none = get_annotation_type(annotation)
+    if value is None and can_be_none:
+        return None
+    if _eq_type(target_type, list):
+        if isinstance(value, str):
+            value = _decode_str_to_type(list, value)
+        targs = get_args(target_type)
+        if len(targs) == 0:
+            _dump_load_unspecified_warning(target_type)
+            return value
+        return list(load_param(targs[0], v) for v in value)
+    elif _eq_type(target_type, tuple, collections.abc.Sequence):
+        if isinstance(value, str):
+            value = _decode_str_to_type(list, value)
+        targs = get_args(target_type)
+        if len(targs) == 0:
+            _dump_load_unspecified_warning(target_type)
+            return value
+        return tuple([load_param(targs[0], v) for v in value])
+    elif _eq_type(target_type, set):
+        if isinstance(value, str):
+            value = _decode_str_to_type(list, value)
+        targs = get_args(target_type)
+        if len(targs) == 0:
+            _dump_load_unspecified_warning(target_type)
+            return value
+        return set([load_param(targs[0], v) for v in value])
+    elif _eq_type(target_type, dict):
+        if isinstance(value, str):
+            value = _decode_str_to_type(dict, value)
+        targs = get_args(target_type)
+        if len(targs) == 0:
+            _dump_load_unspecified_warning(target_type)
+            return value
+        return {
+            load_param(targs[0], k): load_param(targs[1], v) for k, v in value.items()
+        }
+    elif (
+        target_type == JembeInitParamSupport
+        or (
+            inspect.isclass(target_type)
+            and issubclass(target_type, JembeInitParamSupport)
+        )
+        or (
+            inspect.isclass(get_origin(target_type))
+            and issubclass(
+                get_origin(target_type), JembeInitParamSupport  # type:ignore
+            )
+        )
+    ):
+        return target_type.load_init_param(value)
+    elif _eq_type(target_type, int):
+        return int(value)
+    elif _eq_type(target_type, float):
+        return float(value)
+    elif _eq_type(target_type, bool):
+        if isinstance(value, str):
+            value = _decode_str_to_type(dict, value)
+        return bool(value)
+    elif _eq_type(target_type, str):
+        return str(value)
+    elif _eq_type(target_type, date):
+        return date.fromisoformat(value)
+    elif _eq_type(target_type, datetime):
+        return datetime.fromisoformat(value)
+    elif is_dataclass(target_type):
+        return dataclass_from_dict(target_type, value)
+    elif target_type == Any:
+        _dump_load_unspecified_warning(Any)
+        return value
+    raise JembeError(
+        "Unsupported state/init param type {}:{}".format(target_type, value)
+    )
+
+
+def _eq_type(checked_type: Type[Any], *compare_with: Type[Any]) -> bool:
+    for cw in compare_with:
+        if checked_type == cw or get_origin(checked_type) == cw:
+            return True
+    return False
 
 
 def get_annotation_type(annotation):
@@ -159,13 +249,26 @@ def get_annotation_type(annotation):
         return (_geta(annotation), False)
 
 
-class JembeInitParamSupport(ABC):
-    @classmethod
-    @abstractmethod
-    def dump_init_param(cls, value: Any) -> Any:
-        raise NotImplementedError()
+def dataclass_from_dict(klass, dikt):
+    try:
+        fieldtypes = klass.__annotations__
+        return klass(**{f: dataclass_from_dict(fieldtypes[f], dikt[f]) for f in dikt})
+    except AttributeError:
+        if isinstance(dikt, (tuple, list)):
+            return [dataclass_from_dict(klass.__args__[0], f) for f in dikt]
+        return dikt
 
-    @classmethod
-    @abstractmethod
-    def load_init_param(cls, value: Any) -> Any:
-        raise NotImplementedError()
+
+def _decode_str_to_type(ttype, value: str):
+    if ttype == bool:
+        return ttype(value.upper() == "TRUE")
+
+    return ttype(json.loads(re.sub("(?<!\\\\)'", '"', value)))
+
+
+def _dump_load_unspecified_warning(ttype):
+    current_app.logger.warning(
+        "Do not use '{}' annotation for component state params "
+        "you should be more specific in other to enable proper transformation"
+        "into and out json".format(ttype)
+    )

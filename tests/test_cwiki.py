@@ -34,7 +34,7 @@ def test_wiki(jmb, client):
     # database
     class WikiDb:
         def __init__(self):
-            self.pages: Dict[str, "WikiPage"] = dict(
+            self.pages: Dict[str, WikiPage] = dict(
                 root=WikiPage(name="root", title="Root", parent=None)
             )
 
@@ -91,8 +91,8 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional["WikiEditForm"] = None,
-            user: Optional["User"] = None,
+            form: Optional[WikiEditForm] = None,
+            user: Optional[User] = None,
         ):
             if not wikidb.exist(page_path):
                 raise NotFound()
@@ -151,8 +151,8 @@ def test_wiki(jmb, client):
         def __init__(
             self,
             page_path: UrlPath,
-            form: Optional["WikiAddForm"] = None,
-            user: Optional["User"] = None,
+            form: Optional[WikiAddForm] = None,
+            user: Optional[User] = None,
         ):
             if not wikidb.exist(page_path):
                 raise NotFound()
