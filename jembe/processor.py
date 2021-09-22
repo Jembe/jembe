@@ -203,9 +203,7 @@ class CallActionCommand(Command):
         else:
             raise JembeError(
                 "Invalid action result type: {}.{} {}".format(
-                    cconfig.full_name,
-                    self.action_name,
-                    action_result,
+                    cconfig.full_name, self.action_name, action_result,
                 )
             )
 
@@ -341,9 +339,7 @@ class CallDisplayCommand(CallActionCommand):
         else:
             raise JembeError(
                 "Invalid display result type: {}.{} {}".format(
-                    self._component._config.full_name,
-                    self.action_name,
-                    action_result,
+                    self._component._config.full_name, self.action_name, action_result,
                 )
             )
         return None
@@ -371,10 +367,7 @@ class CallDisplayCommand(CallActionCommand):
 
 class CallListenerCommand(Command):
     def __init__(
-        self,
-        component_exec_name: str,
-        listener_name: str,
-        event: "Event",
+        self, component_exec_name: str, listener_name: str, event: "Event",
     ):
         super().__init__(component_exec_name)
         self.listener_name = listener_name
@@ -408,9 +401,7 @@ class CallListenerCommand(Command):
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
-                    cconfig.full_name,
-                    self.listener_name,
-                    listener_result,
+                    cconfig.full_name, self.listener_name, listener_result,
                 )
             )
 
@@ -623,9 +614,7 @@ class EmitCommand(Command):
             ):
                 commands.append(
                     CallListenerCommand(
-                        reemit_component.exec_name,
-                        listener_method_name,
-                        self.event,
+                        reemit_component.exec_name, listener_method_name, self.event,
                     )
                 )
         return commands
@@ -691,7 +680,7 @@ class InitialiseCommand(Command):
         component_exec_name: str,
         init_params: dict,
         merge_existing_params: bool = True,
-        displayed_components: Optional[List[str]] = None,
+        exists_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
         self.init_params = {
@@ -699,7 +688,8 @@ class InitialiseCommand(Command):
             for k, v in init_params.items()
         }
         self.merge_existing_params = merge_existing_params
-        self.displayed_components = displayed_components
+        self.exists_on_client = exists_on_client
+        self.displayed_components: List[str] = []
 
         self.initialised_component: Optional["Component"] = None
         self._cconfig: "ComponentConfig"
@@ -723,8 +713,7 @@ class InitialiseCommand(Command):
             if parent_cconfig._inject_into_components:
                 injected_params.update(
                     parent_cconfig._inject_into_components(
-                        parent_component,
-                        self._cconfig,
+                        parent_component, self._cconfig,
                     )
                 )
             # clean up injected params
@@ -815,7 +804,7 @@ class InitialiseCommand(Command):
             if not is_accessible_run:
                 self.processor.components[component.exec_name] = component
 
-                if self.displayed_components is not None:
+                if self.exists_on_client:
                     self.processor.renderers[component.exec_name] = ComponentRender(
                         False,
                         component.state.tojsondict(component, True),
@@ -1007,7 +996,7 @@ class Processor:
             return InitialiseCommand(
                 command_data["execName"],
                 self._load_init_params(command_data["execName"], command_data["state"]),
-                displayed_components=command_data["displayedComponents"],
+                exists_on_client=True,
             )
         elif command_data["type"] == "init":
             return InitialiseCommand(
@@ -1049,13 +1038,17 @@ class Processor:
                 # object_hook=json_object_hook,
             )
             # init components from data["components"]
-            to_be_initialised = []
+            to_be_initialised = [
+                component_data["execName"] for component_data in data["components"]
+            ]
             for component_data in data["components"]:
-                self.add_command(
-                    self._x_jembe_command_factory(component_data),
-                    end=True,
-                )
-                to_be_initialised.append(component_data["execName"])
+                initcmd = self._x_jembe_command_factory(component_data)
+                initcmd.displayed_components = [
+                    en
+                    for en in to_be_initialised
+                    if is_direct_child_name(initcmd.component_exec_name, en)
+                ]
+                self.add_command(initcmd, end=True)
             # init components from url_path if thay doesnot exist in data["compoenents"]
             self.__create_commands_from_url_path(component_full_name, to_be_initialised)
 
@@ -1083,13 +1076,11 @@ class Processor:
             )
 
             self.add_command(
-                CallDisplayCommand(exec_names[-1]),
-                end=True,
+                CallDisplayCommand(exec_names[-1]), end=True,
             )
             for exec_name in exec_names[:-1]:
                 self.add_command(
-                    CallDisplayCommand(exec_name),
-                    end=True,
+                    CallDisplayCommand(exec_name), end=True,
                 )
 
     def __create_commands_from_url_path(
@@ -1209,7 +1200,7 @@ class Processor:
 
             self._execute_commands()
             # for all components that have change state params but not have been redisplayed
-            # check will thay still be presentd/visible on page if so execute display command 
+            # check will thay still be presentd/visible on page if so execute display command
             # for that components
             for hanging_init_execname in self._hanging_init_commands_execnames:
                 if hanging_init_execname not in [

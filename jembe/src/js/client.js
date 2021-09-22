@@ -44,7 +44,6 @@ class ComponentRef {
     return {
       "execName": this.execName,
       "state": this.state,
-      "displayedComponents": Object.keys(this.placeHolders)
     }
   }
 
