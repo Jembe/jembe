@@ -235,7 +235,12 @@ class CallActionCommand(Command):
 
 
 class CallDisplayCommand(CallActionCommand):
-    def __init__(self, component_exec_name: str, force: bool = False) -> None:
+    def __init__(
+        self,
+        component_exec_name: str,
+        force: bool = False,
+        displayed_by_exec_name: Optional[str] = None,
+    ) -> None:
         super().__init__(
             component_exec_name=component_exec_name,
             action_name=ComponentConfig.DEFAULT_DISPLAY_ACTION,
@@ -243,6 +248,21 @@ class CallDisplayCommand(CallActionCommand):
             kwargs=None,
         )
         self.force = force
+        self.displayed_by_exec_name = displayed_by_exec_name
+        self._displayed_components: List[str] = []
+
+    def mount(self, processor: "Processor") -> "CallDisplayCommand":
+        if self.displayed_by_exec_name:
+            if (
+                processor._processing_command
+                and isinstance(processor._processing_command, CallDisplayCommand)
+                and processor._processing_command.component_exec_name
+                == self.displayed_by_exec_name
+            ):
+                processor._processing_command._displayed_components.append(
+                    self.component_exec_name
+                )
+        return super().mount(processor)
 
     @cached_property
     def _component(self) -> "Component":
@@ -295,6 +315,7 @@ class CallDisplayCommand(CallActionCommand):
                 self._component.url,
                 self._component._config.changes_url,
                 action_result,
+                self._displayed_components,
             )
         elif isinstance(action_result, Response):
             # TODO If self.component is component directly requested via http request
@@ -670,7 +691,7 @@ class InitialiseCommand(Command):
         component_exec_name: str,
         init_params: dict,
         merge_existing_params: bool = True,
-        exist_on_client: bool = False,
+        displayed_components: Optional[List[str]] = None,
     ):
         super().__init__(component_exec_name)
         self.init_params = {
@@ -678,7 +699,7 @@ class InitialiseCommand(Command):
             for k, v in init_params.items()
         }
         self.merge_existing_params = merge_existing_params
-        self.exist_on_client = exist_on_client
+        self.displayed_components = displayed_components
 
         self.initialised_component: Optional["Component"] = None
         self._cconfig: "ComponentConfig"
@@ -794,7 +815,7 @@ class InitialiseCommand(Command):
             if not is_accessible_run:
                 self.processor.components[component.exec_name] = component
 
-                if self.exist_on_client:
+                if self.displayed_components is not None:
                     self.processor.renderers[component.exec_name] = ComponentRender(
                         False,
                         component.state.tojsondict(component, True),
@@ -803,6 +824,7 @@ class InitialiseCommand(Command):
                         component.url,
                         component._config.changes_url,
                         None,
+                        self.displayed_components,
                     )
 
                 if self.processor._emited_event_commands:
@@ -838,6 +860,7 @@ class ComponentRender(NamedTuple):
     url: Optional[str]
     changes_url: bool
     html: Optional[str]
+    displayed_components: List[str]
 
 
 class CommandsQue:
@@ -935,6 +958,7 @@ class Processor:
 
         self.components: Dict[str, "Component"] = dict()
         self._commands: Deque["Command"] = deque()
+        self._processing_command: Optional["Command"] = None
         # already emited and processed event commands
         # that will be executed over newelly initialised component
         self._emited_event_commands: Deque["EmitCommand"] = deque()
@@ -972,20 +996,18 @@ class Processor:
             )
         return load_params
 
-    def _x_jembe_command_factory(
-        self, command_data: dict, is_component: bool = False
-    ) -> "Command":
+    def _x_jembe_command_factory(self, command_data: dict) -> "Command":
         """Process data received by json and build commands
 
         is_component - mark that command_data is received in components section of x-jembe request
                     describing current compoents and their state displayed to the user
         """
 
-        if is_component:
+        if "execName" in command_data:
             return InitialiseCommand(
                 command_data["execName"],
                 self._load_init_params(command_data["execName"], command_data["state"]),
-                exist_on_client=True,
+                displayed_components=command_data["displayedComponents"],
             )
         elif command_data["type"] == "init":
             return InitialiseCommand(
@@ -1030,7 +1052,7 @@ class Processor:
             to_be_initialised = []
             for component_data in data["components"]:
                 self.add_command(
-                    self._x_jembe_command_factory(component_data, is_component=True),
+                    self._x_jembe_command_factory(component_data),
                     end=True,
                 )
                 to_be_initialised.append(component_data["execName"])
@@ -1186,36 +1208,36 @@ class Processor:
             self._staging_commands.move_commands_to(self._commands)
 
             self._execute_commands()
-            # for all componets that have change state params but not have been rendered
-            # find parent that has been renderd and render all parent from that parent
-            # until direct parent of component with changed state params one by one and asses
-            # shuld hanging_init_should be rendered
+            # for all components that have change state params but not have been redisplayed
+            # check will thay still be presentd/visible on page if so execute display command 
+            # for that components
             for hanging_init_execname in self._hanging_init_commands_execnames:
                 if hanging_init_execname not in [
                     execname for execname, v in self.renderers.items() if v.fresh
                 ]:
-                    redisplay_en = ["/".join(hanging_init_execname.split("/")[:2])]
-                    for name in hanging_init_execname.split("/")[2:-1]:
-                        redisplay_en.append("/".join([redisplay_en[-1], name]))
-
-                    for ename in redisplay_en:
-                        if ename not in [
-                            execname
-                            for execname, v in self.renderers.items()
-                            if v.fresh
-                        ]:
-                            # TODO see if we can use not fresh as check but call displayed by parent
-                            # if parent display that is fresh didn't call child display then
-                            # we don't need to call display on child becaue it will not be used
-                            # anyway
-                            # self._execute_command(CallDisplayCommand(ename).mount(self))
-                            self.add_command(CallDisplayCommand(ename))
-                            self._staging_commands.move_commands_to(self._commands)
-                            self._execute_commands()
-                    if "/".join(hanging_init_execname.split("/")[:-1]) not in [
-                        execname for execname, v in self.renderers.items() if v.fresh
-                    ]:
-                        # self._execute_command(CallDisplayCommand(hanging_init_execname).mount(self))
+                    # if hanging init is displayed on page it should be rendered
+                    en_split = hanging_init_execname.split("/")
+                    execname_tree = []
+                    for i in range(2, len(en_split) + 1):
+                        execname_tree.append("/".join(en_split[:i]))
+                    # check if root component will be redisplayed
+                    root_fresh_keys = [
+                        k
+                        for k, v in self.renderers.items()
+                        if v.fresh and len(k.split("/")) == 2
+                    ]
+                    displayed_execnames = (
+                        root_fresh_keys
+                        if len(root_fresh_keys) > 0
+                        else [execname_tree[0]]
+                    )
+                    execute_display = True
+                    for ename in execname_tree:
+                        if ename not in displayed_execnames:
+                            execute_display = False
+                            break
+                        displayed_execnames = self.renderers[ename].displayed_components
+                    if execute_display:
                         self.add_command(CallDisplayCommand(hanging_init_execname))
                         self._staging_commands.move_commands_to(self._commands)
                         self._execute_commands()
@@ -1249,7 +1271,9 @@ class Processor:
                 return None
 
         try:
+            self._processing_command = command
             response = command.execute()
+            self._processing_command = None
             self._staging_commands.move_commands_to(self._commands)
             if response is not None:
                 return response
@@ -1416,6 +1440,7 @@ class Processor:
                     url,
                     changes_url,
                     html,
+                    components,
                 ),
             ) in self.renderers.items():
                 if fresh:
@@ -1463,6 +1488,7 @@ class Processor:
                     url,
                     changes_url,
                     html,
+                    components,
                 ) in self.renderers.items()
                 if fresh
                 and state_jsondict is not None

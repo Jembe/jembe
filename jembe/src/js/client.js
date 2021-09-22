@@ -43,7 +43,8 @@ class ComponentRef {
   toJsonRequest() {
     return {
       "execName": this.execName,
-      "state": this.state
+      "state": this.state,
+      "displayedComponents": Object.keys(this.placeHolders)
     }
   }
 
