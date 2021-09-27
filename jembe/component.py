@@ -599,11 +599,11 @@ class Component(metaclass=ComponentMeta):
             self.__key = name_key[1]
 
     @property
-    def has_action_or_listener_executed(self) -> bool:
+    def _jembe_has_action_or_listener_executed(self) -> bool:
         return self.__has_action_or_listener_executed
 
-    @has_action_or_listener_executed.setter
-    def has_action_or_listener_executed(self, value: bool):
+    @_jembe_has_action_or_listener_executed.setter
+    def _jembe_has_action_or_listener_executed(self, value: bool):
         if value != True:
             raise JembeError(
                 "Cannot reset action or listener execution status on component"
@@ -860,9 +860,9 @@ class Component(metaclass=ComponentMeta):
             return self.__prev_sub_component_renderer
 
     def component(
-        self, _jmb_component_name: str = ".", **kwargs
+        self, _jembe_component_name: str = ".", **kwargs
     ) -> "ComponentReference":
-        return self._component_reference(kwargs, _jmb_component_name)
+        return self._component_reference(kwargs, _jembe_component_name)
 
     def component_reset(
         self, _jmb_component_name: str = ".", **kwargs
@@ -884,6 +884,12 @@ class Component(metaclass=ComponentMeta):
         emmit_command = EmitCommand(self.exec_name, name, params)
         processor.add_command(emmit_command)
         return emmit_command
+
+    # def display_subcomponent(self, subcomponet_name: str, **init_params):
+    #     pass
+
+    # def remove_subcomponent(self, subcomponent_name: str):
+    #     pass
 
     def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
         processor = get_processor()

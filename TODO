@@ -38,11 +38,18 @@ Public Dev Lunch:
         ** == /page/me/**/*
         .. == /page
         ../test == /page/test
-        // = /page
         /**/ = 
+        // = /page
         /**/c1.k1/**/
     ☐ Perseve component state vriable in local storage to enable restoring search and pagination when returning to list, and to enable nested forms(??)
     ☐ Component should be able to __init__ without super().__init__()
+
+
+    should_display_itself, should_remove_itself, component().placeholder() api extension for updating child components without redisplaying current compoennt must be tested for:
+      ☐ modals,
+      ☐ master-detail
+      ☐ combinationa of modals with swap and master details
+      (teste to validate API and then do the development)
 
 Archive:
   ✔ Error handling and Restricted access @done(20-09-21 10:55) @project(Public Dev Lunch)

@@ -1,7 +1,8 @@
 from typing import (
+    TYPE_CHECKING,
+    cast,
     Tuple,
     Union,
-    TYPE_CHECKING,
     TypeVar,
     Dict,
     List,
@@ -177,7 +178,7 @@ class CallActionCommand(Command):
 
         # execute action
         action_result = getattr(component, self.action_name)(*self.args, **self.kwargs)
-        component.has_action_or_listener_executed = True
+        component._jembe_has_action_or_listener_executed = True
 
         # process action result
         if action_result is None or (
@@ -203,7 +204,9 @@ class CallActionCommand(Command):
         else:
             raise JembeError(
                 "Invalid action result type: {}.{} {}".format(
-                    cconfig.full_name, self.action_name, action_result,
+                    cconfig.full_name,
+                    self.action_name,
+                    action_result,
                 )
             )
 
@@ -339,7 +342,9 @@ class CallDisplayCommand(CallActionCommand):
         else:
             raise JembeError(
                 "Invalid display result type: {}.{} {}".format(
-                    self._component._config.full_name, self.action_name, action_result,
+                    self._component._config.full_name,
+                    self.action_name,
+                    action_result,
                 )
             )
         return None
@@ -367,7 +372,10 @@ class CallDisplayCommand(CallActionCommand):
 
 class CallListenerCommand(Command):
     def __init__(
-        self, component_exec_name: str, listener_name: str, event: "Event",
+        self,
+        component_exec_name: str,
+        listener_name: str,
+        event: "Event",
     ):
         super().__init__(component_exec_name)
         self.listener_name = listener_name
@@ -385,7 +393,7 @@ class CallListenerCommand(Command):
 
         # execute listener
         listener_result = getattr(component, self.listener_name)(self.event)
-        component.has_action_or_listener_executed = True
+        component._jembe_has_action_or_listener_executed = True
         if listener_result is None or (
             isinstance(listener_result, bool) and listener_result == True
         ):
@@ -401,7 +409,9 @@ class CallListenerCommand(Command):
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
-                    cconfig.full_name, self.listener_name, listener_result,
+                    cconfig.full_name,
+                    self.listener_name,
+                    listener_result,
                 )
             )
 
@@ -614,7 +624,9 @@ class EmitCommand(Command):
             ):
                 commands.append(
                     CallListenerCommand(
-                        reemit_component.exec_name, listener_method_name, self.event,
+                        reemit_component.exec_name,
+                        listener_method_name,
+                        self.event,
                     )
                 )
         return commands
@@ -713,7 +725,8 @@ class InitialiseCommand(Command):
             if parent_cconfig._inject_into_components:
                 injected_params.update(
                     parent_cconfig._inject_into_components(
-                        parent_component, self._cconfig,
+                        parent_component,
+                        self._cconfig,
                     )
                 )
             # clean up injected params
@@ -746,7 +759,7 @@ class InitialiseCommand(Command):
                     has_new_params = True
                     break
 
-            if component.has_action_or_listener_executed:
+            if component._jembe_has_action_or_listener_executed:
                 if has_new_params:
                     if is_accessible_run:
                         return True
@@ -1042,7 +1055,7 @@ class Processor:
                 component_data["execName"] for component_data in data["components"]
             ]
             for component_data in data["components"]:
-                initcmd = self._x_jembe_command_factory(component_data)
+                initcmd = cast("InitialiseCommand", self._x_jembe_command_factory(component_data))
                 initcmd.displayed_components = [
                     en
                     for en in to_be_initialised
@@ -1076,11 +1089,13 @@ class Processor:
             )
 
             self.add_command(
-                CallDisplayCommand(exec_names[-1]), end=True,
+                CallDisplayCommand(exec_names[-1]),
+                end=True,
             )
             for exec_name in exec_names[:-1]:
                 self.add_command(
-                    CallDisplayCommand(exec_name), end=True,
+                    CallDisplayCommand(exec_name),
+                    end=True,
                 )
 
     def __create_commands_from_url_path(
