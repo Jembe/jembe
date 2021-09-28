@@ -46,6 +46,8 @@ Public Dev Lunch:
 
 
     should_display_itself, should_remove_itself, component().placeholder() api extension for updating child components without redisplaying current compoennt must be tested for:
+      ☐ CREATE TEST FOR CLIENT.JS
+      ☐ Remove display responses if marked as remvoed from static page build response
       ☐ modals,
       ☐ master-detail
       ☐ combinationa of modals with swap and master details

@@ -969,6 +969,8 @@ class Processor:
         self._staging_commands = CommandsQue(self.jembe)
         # component renderers is dict[exec_name] = (componentState, url, rendered_str)
         self.renderers: Dict[str, "ComponentRender"] = dict()
+        # list of execnames marked for removal by jembe client js without redisplaying parent
+        self.components_marked_for_removal: List[str] = []
         # component that raised exception on initialise
         # any subsequent command on this component should be ignored
         self._raised_exception_on_initialise: Dict[str, dict] = dict()
@@ -1449,7 +1451,7 @@ class Processor:
                     components,
                 ),
             ) in self.renderers.items():
-                if fresh:
+                if fresh and exec_name not in self.components_marked_for_removal:
                     ajax_responses.append(
                         dict(
                             execName=exec_name,
@@ -1470,6 +1472,13 @@ class Processor:
                             },
                         )
                     )
+            if self.components_marked_for_removal:
+                ajax_responses.append(
+                    dict(
+                        globals=True,
+                        removeComponents=self.components_marked_for_removal
+                    )
+                )
             return jsonify(ajax_responses)
         else:
             # for page with components build united response

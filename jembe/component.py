@@ -375,6 +375,12 @@ class ComponentReference:
         will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
         so that we can decide how to render template
         """
+        if self.exec_name in self.processor.components_marked_for_removal:
+            raise JembeError(
+                "Cant display component '{}' marked for removal in parent component template!".format(
+                    self.exec_name
+                )
+            )
         self.processor.add_command(
             InitialiseCommand(self.exec_name, self.kwargs, self.merge_existing_params),
             end=True,
@@ -836,6 +842,7 @@ class Component(metaclass=ComponentMeta):
             # command to render subcomponents
             "component": self._jinja2_component,
             "component_reset": self._jinja2_component_reset,
+            "placeholder": self._jinja2_placeholder,
             # add helpers
             "_config": self._config,
         }
@@ -879,17 +886,50 @@ class Component(metaclass=ComponentMeta):
     ) -> "ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name, False)
 
+    def _jinja2_placeholder(self, _jmb_copmonent_name: str):
+        return Markup(
+            '<{dtag} jmb-placeholder-permanent="{component_name}"></{dtag}>'.format(
+                component_name=_jmb_copmonent_name, dtag="template"
+            )
+        )
+
     def emit(self, name: str, **params) -> "EmitCommand":
         processor = get_processor()
         emmit_command = EmitCommand(self.exec_name, name, params)
         processor.add_command(emmit_command)
         return emmit_command
 
-    # def display_subcomponent(self, subcomponet_name: str, **init_params):
-    #     pass
+    def display_component(self, _jmb_componet_name: str, **init_params):
+        """
+        Calls initCommand and displayComand of subcomponent without need to
+        redisplay this commponent.
+        """
+        pass
 
-    # def remove_subcomponent(self, subcomponent_name: str):
-    #     pass
+    def remove_component(self, _jmb_component_name: str):
+        """
+        Marks component for removal from user page (will not be displayed to the user)
+        without need to redisplay this entire component.
+
+        TODO: Check if component is rendered with {{componet()}} and removed, if so
+        raise exception.
+        """
+        if _jmb_component_name.split(".", 2)[0] not in self._config.components.keys():
+            raise JembeError(
+                "Component '{}' is not valid sub compoennt of '{}'!".format(
+                    _jmb_component_name, self._config.full_name
+                )
+            )
+        processor = get_processor()
+        cexec_name = "{}/{}".format(self.exec_name, _jmb_component_name)
+        if cexec_name in processor.renderers and processor.renderers[cexec_name].fresh:
+            raise JembeError(
+                "Can't remove compoent '{}' that is freshly displayed!".format(
+                    cexec_name
+                )
+            )
+
+        processor.components_marked_for_removal.append(cexec_name)
 
     def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
         processor = get_processor()
