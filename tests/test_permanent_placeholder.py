@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Dict, Tuple
 from inspect import cleandoc
 from jembe import Component, action, listener, config
 from flask import json
-from pprint import pprint
 
 if TYPE_CHECKING:
     import jembe
@@ -256,13 +255,13 @@ def test_display_tasks(jmb, client):
         <body>
         <div jmb-name="/page/tasks" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"routing":["self"]},"url":"/page/tasks"}\'>
             <div>Task List</div>
-            <template jmb-placeholder-permanent="mdview"></template>
-            <template jmb-placeholder-permanent="mdupdate"></template>
-            <template jmb-placeholder-permanent="mdcreate"></template>
-            <template jmb-placeholder-permanent="mview"></template>
-            <template jmb-placeholder-permanent="mupdate"></template>
-            <template jmb-placeholder-permanent="mcreate"></template>
-            <template jmb-placeholder-permanent="mdelete"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
         </div>
         </body></html>
         """
@@ -324,7 +323,7 @@ def test_display_tasks(jmb, client):
                     """
                 <div>
                     View task: 1
-                    <template jmb-placeholder-permanent="delete"></template>
+                    <template jmb-placeholder-permanent="/page/tasks/view/delete"></template>
                 </div>
                 """
                 ),
@@ -450,13 +449,13 @@ def test_display_tasks(jmb, client):
                     """
                     <div>
                         <div>Task List</div>
-                        <template jmb-placeholder-permanent="mdview"></template>
-                        <template jmb-placeholder-permanent="mdupdate"></template>
-                        <template jmb-placeholder-permanent="mdcreate"></template>
-                        <template jmb-placeholder-permanent="mview"></template>
-                        <template jmb-placeholder-permanent="mupdate"></template>
-                        <template jmb-placeholder-permanent="mcreate"></template>
-                        <template jmb-placeholder-permanent="mdelete"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+                        <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
                     </div>
                     """
                 ),
@@ -482,7 +481,7 @@ def test_display_view_task(jmb, client):
         <div jmb-name="/page/tasks" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"routing":["view"]},"url":"/page/tasks"}\'>
             <div jmb-name="/page/tasks/view" jmb-data=\'{"actions":{"cancel":true},"changesUrl":true,"state":{"id":1},"url":"/page/tasks/view/1"}\'>
             View task: 1
-            <template jmb-placeholder-permanent="delete"></template>
+            <template jmb-placeholder-permanent="/page/tasks/view/delete"></template>
         </div>
         </div>
         </body></html>

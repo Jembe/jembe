@@ -66,7 +66,7 @@ test('indentify components from x-jembe response v1', () => {
     }
   ]
   const jembeClient = new JembeClient()
-  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  const { components, globals } = jembeClient.getComponentsAndGlobalsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
 
   const counterCompRef = components["/cpage/counter"]
@@ -89,7 +89,7 @@ test('indentify components from x-jembe response v2', () => {
     }
   ]
   const jembeClient = new JembeClient()
-  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  const { components, globals } = jembeClient.getComponentsAndGlobalsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
 
   const counterCompRef = components["/page/test"]
@@ -116,7 +116,7 @@ test('indentify components from x-jembe response - page component', () => {
     }
   ]
   const jembeClient = new JembeClient()
-  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  const { components, globals } = jembeClient.getComponentsAndGlobalsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
 
   const pageCompRef = components["/page"]
@@ -149,7 +149,7 @@ test('update document with x-response - page component', () => {
       <body>Test1</body></html>`
     },
   ]
-  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
     `<html jmb-name="/page1"><head><title>Test1</title></head>
       <body>Test1</body></html>`
@@ -202,7 +202,7 @@ test('update document with x-response', () => {
       "dom": `<div>Task 1</div>`,
     }
   ]
-  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
     `<html jmb-name="/page"><head>
         <title jmb-name="/page/title">Task</title>
@@ -212,7 +212,7 @@ test('update document with x-response', () => {
       
     </body></html>`
   )
-  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(
     [
       {
         "execName": "/page",
@@ -366,7 +366,7 @@ test('update x-response dom with souranding div', () => {
       "dom": ``,
     }
   ]
-  let components = window.jembeClient.getComponentsFromXResponse(xResponse)
+  let { components, globals } = window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse)
   expect(components["/page/test1"].dom.outerHTML).toBe('<div jmb-name="/page/test1"></div>')
   expect(components["/page/test2"].dom.outerHTML).toBe('<div jmb-name="/page/test2"><div>1</div><div>2</div></div>')
   expect(components["/page/test3"].dom.outerHTML).toBe('<div jmb-name="/page/test3">Test 3</div>')
@@ -395,7 +395,7 @@ test('update window.location on x-response', () => {
       "dom": `<div>Test</div>`,
     },
   ]
-  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   window.jembeClient.updateLocation()
   expect(window.location.pathname).toBe("/page/test")
 })
@@ -427,8 +427,7 @@ test("update url when change_url is false", () => {
       "dom": `<div>Confirm</div>`,
     }
   ]
-  const components = window.jembeClient.getComponentsFromXResponse(xResponse)
-  window.jembeClient.updateDocument(components)
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   window.history.pushState = jest.fn((state, title, url) => {
     return url
   })
@@ -483,8 +482,7 @@ test("update keyed components", () => {
       "actions": []
     }
   ]
-  const components = window.jembeClient.getComponentsFromXResponse(xResponse)
-  window.jembeClient.updateDocument(components)
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(`<html jmb-name="/projects"><head></head><body>
         <div jmb-name="/projects/edit">
           <div jmb-name="/projects/edit/tasks">
@@ -520,7 +518,7 @@ test('dont add souranundin div to component if not necessary', () => {
     }
   ]
   const jembeClient = new JembeClient()
-  const components = jembeClient.getComponentsFromXResponse(xResponse)
+  const { components, globals } = jembeClient.getComponentsAndGlobalsFromXResponse(xResponse)
   expect(Object.keys(components).length).toBe(1)
   expect(components["/page/test"].dom.outerHTML).toBe(
     `<div jmb-name="/page/test">a</div>`
@@ -558,7 +556,7 @@ test('update nested component templates', () => {
       "dom": `<div>C</div>`,
     },
   ]
-  window.jembeClient.updateDocument(window.jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(`<html jmb-name="/page"><head></head><body>
       <div jmb-name="/page/a"><div jmb-name="/page/a/b"><div jmb-name="/page/a/b/c">C</div></div></div>
       
@@ -694,12 +692,12 @@ test('dont merge under jmb-ignore', () => {
       <body>Test1<div jmb-ignore>T2</div></body></html>`
     },
   ]
-  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(document.documentElement.outerHTML).toBe(
     `<html jmb-name="/page1"><head><title>Test1</title></head>
       <body>Test1<div jmb-ignore="">T1</div></body></html>`
   )
-  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(
+  window.jembeClient.updateDocument(jembeClient.getComponentsAndGlobalsFromXResponse(
     [
       {
         "execName": "/page1",
@@ -714,5 +712,167 @@ test('dont merge under jmb-ignore', () => {
   expect(document.documentElement.outerHTML).toBe(
     `<html jmb-name="/page1"><head><title>Test2</title></head>
       <body>Test2</body></html>`
+  )
+})
+test('support permanent placeholder and remove component command in x-response', () => {
+  buildDocument(`
+        <html jmb-name="/page" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/page"}\'><head></head>
+        <body>
+        <div jmb-name="/page/tasks" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"routing":["self"]},"url":"/page/tasks"}\'>
+            <div>Task List</div>
+            <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+            <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
+        </div>
+        </body></html>
+  `)
+  expect(Object.keys(window.jembeClient.components).length).toBe(2)
+
+  let tasksCompRef = window.jembeClient.components["/page/tasks"]
+  expect(Object.keys(tasksCompRef.permanentPlaceHolders).length).toBe(7)
+  let xResponse = [
+    {
+      "execName": "/page/tasks",
+      "state": { "routing": ["view"] },
+      "actions": {},
+      "changesUrl": true,
+      "url": "/page/tasks",
+      "dom": `<div>
+                <template jmb-placeholder="/page/tasks/view"></template>
+              </div>`
+    },
+    {
+      "execName": "/page/tasks/view",
+      "state": { "id": 1 },
+      "actions": { "cancel": true },
+      "changesUrl": true,
+      "url": "/page/tasks/view/1",
+      "dom": `<div>
+                View task: 1
+                <template jmb-placeholder-permanent="/page/tasks/view/delete"></template>
+              </div>`
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+        <body>
+        <div jmb-name="/page/tasks">
+                <div jmb-name="/page/tasks/view">
+                View task: 1
+                <template jmb-placeholder-permanent="/page/tasks/view/delete"></template>
+              </div>
+              </div>
+        
+  </body></html>`
+  )
+  expect(Object.keys(window.jembeClient.components).length).toBe(3)
+
+  const viewCompRef = window.jembeClient.components["/page/tasks/view"]
+  expect(Object.keys(viewCompRef.permanentPlaceHolders).length).toBe(1)
+
+  // show view delete modal
+  xResponse = [
+    {
+      "execName": "/page/tasks/view/delete",
+      "state": { "id": 1 },
+      "actions": { "submit": true, "cancel": true },
+      "changesUrl": false,
+      "url": "/page/tasks/view/1/delete/1",
+      "dom": `<div class="modal">Delete task: 1</div>`
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+        <body>
+        <div jmb-name="/page/tasks">
+                <div jmb-name="/page/tasks/view">
+                View task: 1
+                <template jmb-placeholder-permanent="/page/tasks/view/delete"></template><div jmb-name="/page/tasks/view/delete" class="modal">Delete task: 1</div>
+              </div>
+              </div>
+        
+  </body></html>`
+  )
+  expect(Object.keys(window.jembeClient.components).length).toBe(4)
+
+  // cancel view delete
+  xResponse = [
+    {
+      "globals": true,
+      "removeComponents": ["/page/tasks/view/delete"]
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+        <body>
+        <div jmb-name="/page/tasks">
+                <div jmb-name="/page/tasks/view">
+                View task: 1
+                <template jmb-placeholder-permanent="/page/tasks/view/delete"></template>
+              </div>
+              </div>
+        
+  </body></html>`
+  )
+  expect(Object.keys(window.jembeClient.components).length).toBe(3)
+  // submit view delete
+  xResponse = [
+    {
+      "execName": "/page/tasks/view/delete",
+      "state": { "id": 1 },
+      "actions": { "submit": true, "cancel": true },
+      "changesUrl": false,
+      "url": "/page/tasks/view/1/delete/1",
+      "dom": `<div class="modal">Delete task: 1</div>`
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  xResponse = [
+    {
+      "execName": "/page/tasks",
+      "state": { "routing": ["self"] },
+      "actions": {},
+      "changesUrl": true,
+      "url": "/page/tasks",
+      "dom":   `<div>
+                <div>Task List</div>
+                <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
+                </div>`
+    },
+    {
+      "globals": true,
+      "removeComponents": ["/page/tasks/view/delete", "/page/tasks/view"]
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+        <body>
+        <div jmb-name="/page/tasks">
+                <div>Task List</div>
+                <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
+                </div>
+        
+  </body></html>`
   )
 })

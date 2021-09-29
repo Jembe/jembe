@@ -888,7 +888,8 @@ class Component(metaclass=ComponentMeta):
 
     def _jinja2_placeholder(self, _jmb_copmonent_name: str):
         return Markup(
-            '<{dtag} jmb-placeholder-permanent="{component_name}"></{dtag}>'.format(
+            '<{dtag} jmb-placeholder-permanent="{exec_name}/{component_name}"></{dtag}>'.format(
+                exec_name=self.exec_name,
                 component_name=_jmb_copmonent_name, dtag="template"
             )
         )

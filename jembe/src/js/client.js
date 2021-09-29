@@ -24,6 +24,7 @@ class ComponentRef {
     this.onDocument = onDocument
 
     this.placeHolders = {}
+    this.permanentPlaceHolders = {}
     this.api = null
   }
   mount(originalComponentRef = undefined) {
@@ -32,6 +33,20 @@ class ComponentRef {
       this.api = new ComponentAPI(this)
     }
     this.api.mount(originalComponentRef)
+  }
+  remove() {
+    let removed = []
+    for (const cr of Object.values(this.placeHolders)) {
+      removed.push(...cr.remove())
+    }
+    const dom = this.dom
+    this.unmount()
+    dom.remove()
+    removed.push(this.execName)
+    return removed
+  }
+  _removeSubcomponents() {
+
   }
   unmount() {
     if (this.api !== null) {
@@ -58,7 +73,7 @@ class ComponentRef {
       && originalComponent.dom.isSameNode(this.dom)) {
       // no need to unmount-merge-mount component that is already on document
       if (!parentComponent.placeHolders[this.execName].isSameNode(this.dom)) {
-        // but if paramet is changed we need to update parent place holders
+        // but if parent is changed we need to update parent place holders
         parentComponent.placeHolders[this.execName].replaceWith(this.dom)
         parentComponent.placeHolders[this.execName] = this.dom
       }
@@ -70,8 +85,21 @@ class ComponentRef {
       this.dom = documentElement = this._morphdom(documentElement, this.dom)
       this.dom.setAttribute("jmb-name", this.execName)
     } else {
-      this.dom = this._morphdom(parentComponent.placeHolders[this.execName], this.dom)
-      parentComponent.placeHolders[this.execName] = this.dom
+      if (Object.keys(parentComponent.placeHolders).includes(this.execName)) {
+        this.dom = this._morphdom(parentComponent.placeHolders[this.execName], this.dom)
+        parentComponent.placeHolders[this.execName] = this.dom
+      } else {
+        // adding to permanent placeholder
+        const placeholderEl = document.createElement('template')
+        placeholderEl.setAttribute('jmb-placeholder', this.execName)
+        const newPlaceholder = (
+          parentComponent
+            .permanentPlaceHolders[this.execName]
+            .insertAdjacentElement('afterend', placeholderEl)
+        )
+        this.dom = this._morphdom(newPlaceholder, this.dom)
+        parentComponent.placeHolders[this.execName] = this.dom
+      }
     }
 
     this.onDocument = true
@@ -117,9 +145,14 @@ class ComponentRef {
   }
   _getPlaceHolders() {
     this.placeHolders = {}
+    this.permanentPlaceHolders = {}
     walkComponentDom(
       this.dom,
-      undefined,
+      (el) => {
+        if (el.hasAttribute('jmb-placeholder-permanent')) {
+          this.permanentPlaceHolders[el.getAttribute('jmb-placeholder-permanent')] = el
+        }
+      },
       (el, execName) => {
         // populate placeHolders
         this.placeHolders[execName] = el
@@ -233,30 +266,41 @@ class JembeClient {
    * x-jembe response
    * @param {*} xJembeResponse 
    */
-  getComponentsFromXResponse(xJembeResponse) {
+  getComponentsAndGlobalsFromXResponse(xJembeResponse) {
     let components = {}
-    for (const xComp of xJembeResponse) {
-      const dom = xComp.dom
-      components[xComp.execName] = new ComponentRef(
-        this,
-        xComp.execName,
-        {
-          "url": xComp.url,
-          "changesUrl": xComp.changesUrl,
-          "state": xComp.state,
-          "actions": xComp.actions
-        },
-        xComp.dom,
-        false
-      )
+    let globals = {
+      "removeComponents": []
     }
-    return components
+    for (const xComp of xJembeResponse) {
+      if (Object.keys(xComp).includes("globals")) {
+        // this block is not component but
+        // contains global response information
+        globals = {
+          "removeComponents": xComp.removeComponents !== undefined ? xComp.removeComponents : []
+        }
+      } else {
+        const dom = xComp.dom
+        components[xComp.execName] = new ComponentRef(
+          this,
+          xComp.execName,
+          {
+            "url": xComp.url,
+            "changesUrl": xComp.changesUrl,
+            "state": xComp.state,
+            "actions": xComp.actions
+          },
+          xComp.dom,
+          false
+        )
+      }
+    }
+    return { components: components, globals: globals }
   }
   /**
    * Update document with new components:dict
-   * @param {} components 
+   * @param {} components
    */
-  updateDocument(components) {
+  updateDocument({ components, globals }) {
     // make list of all existing components that can be display on updated document
     // list contains all from this.components merged with components where
     // if there is components with same execname one from components is used
@@ -300,14 +344,23 @@ class JembeClient {
       const currentComponent = currentComponents[
         processingExecNames.shift()
       ]
-      let orignalComponent = this.components[currentComponent.execName]
-      let parentComponent = Object.values(newComponents).find(
-        c => Object.keys(c.placeHolders).includes(currentComponent.execName)
-      )
-      currentComponent.merge(parentComponent, orignalComponent)
-      newComponents[currentComponent.execName] = currentComponent
-      for (const placeHolderName of Object.keys(currentComponent.placeHolders)) {
-        processingExecNames.push(placeHolderName)
+      if (currentComponent !== undefined) {
+        let orignalComponent = this.components[currentComponent.execName]
+        let parentComponent = Object.values(newComponents).find(
+          c => (
+            Object.keys(c.placeHolders).includes(currentComponent.execName)
+            || Object.keys(c.permanentPlaceHolders).includes(currentComponent.execName))
+        )
+        currentComponent.merge(parentComponent, orignalComponent)
+        newComponents[currentComponent.execName] = currentComponent
+        for (const placeHolderName of Object.keys(currentComponent.placeHolders)) {
+          processingExecNames.push(placeHolderName)
+        }
+        for (const permanentPlaceHolderName of Object.keys(currentComponent.permanentPlaceHolders)) {
+          if (!Object.keys(currentComponent.placeHolders).includes(permanentPlaceHolderName)) {
+            processingExecNames.push(permanentPlaceHolderName)
+          }
+        }
       }
     }
     // unmount components that will be removed
@@ -316,6 +369,17 @@ class JembeClient {
         || newComponents[execName] !== component) {
         component.unmount()
       }
+    }
+    // unmount and remove components from globals.removeComponents list
+    // console.log(globals)
+    let removedComponents = []
+    for (const execName of globals.removeComponents) {
+      if (Object.keys(newComponents).includes(execName) && !removedComponents.includes(execName)) {
+        removedComponents.push(...newComponents[execName].remove())
+      }
+    }
+    for (const rmExecName of removedComponents) {
+      delete newComponents[rmExecName]
     }
 
     this.components = newComponents
@@ -547,10 +611,10 @@ class JembeClient {
           }
           return response.json()
         }).then(
-          json => this.getComponentsFromXResponse(json)
+          json => this.getComponentsAndGlobalsFromXResponse(json)
         ).then(
-          components => {
-            this.updateDocument(components)
+          ({ components, globals }) => {
+            this.updateDocument(components, globals)
             if (updateLocation && disableInputs) {
               this.updateLocation()
             }

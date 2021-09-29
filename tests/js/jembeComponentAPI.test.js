@@ -496,7 +496,7 @@ test("test on refresh delay clears all timers", () => {
     </html>
     `},
   ]
-  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(setTimeout).toHaveBeenCalledTimes(2)
   expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 500)
   // expect(setTimeout).toHaveBeenNthCalledWith(2, expect.any(Function), 300)
@@ -533,7 +533,7 @@ test("test on refresh delay continue named timers", () => {
   ]
   jest.advanceTimersByTime(1)
   expect(document.test).toBe(undefined)
-  window.jembeClient.updateDocument(jembeClient.getComponentsFromXResponse(xResponse))
+  window.jembeClient.updateDocument(jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
   expect(setTimeout).toHaveBeenCalledTimes(2)
   expect(setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), 50)
   expect(setTimeout.mock.calls[1][1]).toBeLessThan(50) 
