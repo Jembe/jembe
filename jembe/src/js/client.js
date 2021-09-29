@@ -371,7 +371,6 @@ class JembeClient {
       }
     }
     // unmount and remove components from globals.removeComponents list
-    // console.log(globals)
     let removedComponents = []
     for (const execName of globals.removeComponents) {
       if (Object.keys(newComponents).includes(execName) && !removedComponents.includes(execName)) {
@@ -613,8 +612,8 @@ class JembeClient {
         }).then(
           json => this.getComponentsAndGlobalsFromXResponse(json)
         ).then(
-          ({ components, globals }) => {
-            this.updateDocument(components, globals)
+          componentsAndGlobals => {
+            this.updateDocument(componentsAndGlobals)
             if (updateLocation && disableInputs) {
               this.updateLocation()
             }
@@ -622,7 +621,7 @@ class JembeClient {
               this.xRequestsInProgress -= 1
               this.enableInputsAfterResponse()
             }
-            this.dispatchUpdatePageEvent(true, disableInputs, components)
+            this.dispatchUpdatePageEvent(true, disableInputs, this.components)
           }
         ).catch(error => {
           if (error.message != 'errorInJembeResponse') {
