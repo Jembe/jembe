@@ -940,6 +940,47 @@ test('support permanent placeholder and remove component command in x-response',
       "commands": []
     }
   ))
-  console.log(window.jembeClient.components["/page/tasks"].placeHolders)
   expect(Object.keys(window.jembeClient.components["/page/tasks"].placeHolders).includes("/page/tasks/mdview")).toBe(false)
+  // remove not existing components
+  xResponse = [
+    {
+      "execName": "/page/tasks",
+      "state": { "routing": ["self"] },
+      "actions": {},
+      "changesUrl": true,
+      "url": "/page/tasks",
+      "dom":   `<div>
+                <div>Task List</div>
+                <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
+                </div>`
+    },
+    {
+      "globals": true,
+      "removeComponents": ["/page/tasks/mdview","/page/tasks/mdcreate","/page/tasks/mdupdate"]
+    }
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+        <body>
+        <div jmb-name="/page/tasks">
+                <div>Task List</div>
+                <template jmb-placeholder-permanent="/page/tasks/mdview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mview"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mupdate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mcreate"></template>
+                <template jmb-placeholder-permanent="/page/tasks/mdelete"></template>
+                </div>
+        
+  </body></html>`
+  )
+  expect(Object.keys(window.jembeClient.components).length).toBe(2)
 })

@@ -70,7 +70,8 @@ class ComponentRef {
     }
     if (this.onDocument
       && originalComponent !== undefined
-      && originalComponent.dom.isSameNode(this.dom)) {
+      && originalComponent.dom.isSameNode(this.dom)
+      && Object.keys(parentComponent.placeHolders).includes(this.execName)) {
       // no need to unmount-merge-mount component that is already on document
       if (!parentComponent.placeHolders[this.execName].isSameNode(this.dom)) {
         // but if parent is changed we need to update parent place holders
