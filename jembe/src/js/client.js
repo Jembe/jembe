@@ -375,6 +375,8 @@ class JembeClient {
     for (const execName of globals.removeComponents) {
       if (Object.keys(newComponents).includes(execName) && !removedComponents.includes(execName)) {
         removedComponents.push(...newComponents[execName].remove())
+        const parentComponentExecName = execName.split("/").slice(0, -1).join("/")
+        delete newComponents[parentComponentExecName].placeHolders[execName]
       }
     }
     for (const rmExecName of removedComponents) {
