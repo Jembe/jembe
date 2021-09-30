@@ -843,9 +843,16 @@ class Component(metaclass=ComponentMeta):
             "component": self._jinja2_component,
             "component_reset": self._jinja2_component_reset,
             "placeholder": self._jinja2_placeholder,
+            "action_is_accessible": self._jinja2_action_is_accessible,
             # add helpers
             "_config": self._config,
         }
+
+    def _jinja2_action_is_accessible(self, action_name: str) -> bool:
+        return (
+            action_name not in self._jembe_disabled_actions
+            and action_name in self._config.component_actions.keys()
+        )
 
     def _component_reference(
         self,
@@ -890,7 +897,8 @@ class Component(metaclass=ComponentMeta):
         return Markup(
             '<{dtag} jmb-placeholder-permanent="{exec_name}/{component_name}"></{dtag}>'.format(
                 exec_name=self.exec_name,
-                component_name=_jmb_copmonent_name, dtag="template"
+                component_name=_jmb_copmonent_name,
+                dtag="template",
             )
         )
 
