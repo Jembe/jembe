@@ -149,6 +149,11 @@ class ComponentReference:
                 cr = cls(
                     caller_exec_name, name_split[-1], kwargs, merge_existing_params
                 )
+        elif "/" not in name and "." not in name and "()" in name:
+            # compoent("cancel()").is_accessible
+            cr = cls(caller_exec_name, ".", dict(), merge_existing_params).call(
+                name.replace("()", ""), **kwargs
+            )
         else:
             cr = cls(caller_exec_name, name, kwargs, merge_existing_params)
         return cr
@@ -843,16 +848,9 @@ class Component(metaclass=ComponentMeta):
             "component": self._jinja2_component,
             "component_reset": self._jinja2_component_reset,
             "placeholder": self._jinja2_placeholder,
-            "action_is_accessible": self._jinja2_action_is_accessible,
             # add helpers
             "_config": self._config,
         }
-
-    def _jinja2_action_is_accessible(self, action_name: str) -> bool:
-        return (
-            action_name not in self._jembe_disabled_actions
-            and action_name in self._config.component_actions.keys()
-        )
 
     def _component_reference(
         self,
