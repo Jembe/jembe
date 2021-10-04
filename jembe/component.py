@@ -1,4 +1,5 @@
 from typing import (
+    TYPE_CHECKING,
     Iterable,
     Optional,
     Union,
@@ -26,15 +27,15 @@ from .processor import (
     CallDisplayCommand,
     InitialiseCommand,
     EmitCommand,
-    Processor,
 )
 from .common import (
     exec_name_to_full_name,
-    DisplayResponse,
     load_param,
     dump_param,
 )
-from .files import Storage
+
+if TYPE_CHECKING:
+    import jembe
 
 
 class ComponentState(dict):
@@ -86,7 +87,9 @@ class ComponentState(dict):
         return c
 
     def tojsondict(
-        self, component_class: Union[Type["Component"], "Component"], full=False
+        self,
+        component_class: Union[Type["jembe.Component"], "jembe.Component"],
+        full=False,
     ):
         return {
             k: copy(component_class.dump_init_param(k, v))
@@ -211,7 +214,7 @@ class ComponentReference:
 
     def _component(
         self, merge_existing_params, jmb_exec_name: str, **kwargs
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         cr = ComponentReference(
             self.exec_name, jmb_exec_name, kwargs, merge_existing_params
         )
@@ -226,7 +229,7 @@ class ComponentReference:
         cr.base_jrl = self.jrl
         return cr
 
-    def component(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+    def component(self, jmb_exec_name: str, **kwargs) -> "jembe.ComponentReference":
         if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION:
             raise JembeError(
                 "<{}> Cant reference child component when action '{}' is called".format(
@@ -235,7 +238,9 @@ class ComponentReference:
             )
         return self._component(True, jmb_exec_name, **kwargs)
 
-    def component_reset(self, jmb_exec_name: str, **kwargs) -> "ComponentReference":
+    def component_reset(
+        self, jmb_exec_name: str, **kwargs
+    ) -> "jembe.ComponentReference":
         return self._component(False, jmb_exec_name, **kwargs)
 
     def _init_component(self):
@@ -255,7 +260,7 @@ class ComponentReference:
             )
 
     @property
-    def component_instance(self) -> Optional["Component"]:
+    def component_instance(self) -> Optional["jembe.Component"]:
         if self.name == "." and self.root_renderer == self:
             return self.processor.components[self.exec_name]
         else:
@@ -369,7 +374,7 @@ class ComponentReference:
             )
 
     @cached_property
-    def processor(self) -> Processor:
+    def processor(self) -> "jembe.Processor":
         return get_processor()
 
     def __call__(self) -> str:
@@ -418,11 +423,11 @@ class ComponentReference:
             '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
         )
 
-    def key(self, key: str) -> "ComponentReference":
+    def key(self, key: str) -> "jembe.ComponentReference":
         self._key = key
         return self
 
-    def call(self, action: str, *args, **kwargs) -> "ComponentReference":
+    def call(self, action: str, *args, **kwargs) -> "jembe.ComponentReference":
         self.action = action
         self.action_args = args
         self.action_kwargs = kwargs
@@ -775,7 +780,7 @@ class Component(metaclass=ComponentMeta):
     def isinjected(self, param_name: str) -> bool:
         return param_name in self._jembe_injected_params_names
 
-    def display(self) -> "DisplayResponse":
+    def display(self) -> "jembe.DisplayResponse":
         return self.render_template()
 
     def render_template(
@@ -857,7 +862,7 @@ class Component(metaclass=ComponentMeta):
         kwargs: Dict[str, Any],
         name: Optional[str] = None,
         merge_existing_params: bool = True,
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         if name is None:
             try:
                 return self.__prev_sub_component_renderer.active_renderer
@@ -873,22 +878,22 @@ class Component(metaclass=ComponentMeta):
 
     def component(
         self, _jembe_component_name: str = ".", **kwargs
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         return self._component_reference(kwargs, _jembe_component_name)
 
     def component_reset(
         self, _jmb_component_name: str = ".", **kwargs
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name, False)
 
     def _jinja2_component(
         self, _jmb_component_name: Optional[str] = None, **kwargs
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name)
 
     def _jinja2_component_reset(
         self, _jmb_component_name: Optional[str] = None, **kwargs
-    ) -> "ComponentReference":
+    ) -> "jembe.ComponentReference":
         return self._component_reference(kwargs, _jmb_component_name, False)
 
     def _jinja2_placeholder(self, _jmb_copmonent_name: str):
@@ -938,11 +943,11 @@ class Component(metaclass=ComponentMeta):
 
         processor.components_marked_for_removal.append(cexec_name)
 
-    def get_storage(self, storage_name: Optional[str] = None) -> "Storage":
+    def get_storage(self, storage_name: Optional[str] = None) -> "jembe.Storage":
         processor = get_processor()
         return processor.jembe.get_storage(storage_name)
 
-    def redirect_to(self, component_ref: "ComponentReference"):
+    def redirect_to(self, component_ref: "jembe.ComponentReference"):
         """
         Redirects request to another component removing all unecessory
         components from processing.

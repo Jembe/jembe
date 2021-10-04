@@ -14,10 +14,8 @@ from .common import ComponentRef, exec_name_to_full_name, import_by_name
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    import jembe
     from flask import Flask, Response
-    from .component_config import ComponentConfig
-    from .component import Component
-    from .files import Storage
 
 
 class _JembeState:
@@ -36,16 +34,16 @@ class Jembe:
     def __init__(
         self,
         app: Optional["Flask"] = None,
-        storages: Optional[Sequence["Storage"]] = None,
+        storages: Optional[Sequence["jembe.Storage"]] = None,
     ):
         """Initialise jembe configuration"""
         self.__flask: "Flask"
         # all registred jembe components configs [full_name, config instance]
-        self.components_configs: Dict[str, "ComponentConfig"] = {}
+        self.components_configs: Dict[str, "jembe.ComponentConfig"] = {}
         # pages waiting to be registred
-        self._unregistred_pages: Dict[str, ComponentRef] = {}
+        self._unregistred_pages: Dict[str, "jembe.ComponentRef"] = {}
 
-        self._storages: Dict[str, "Storage"]
+        self._storages: Dict[str, "jembe.Storage"]
         self.extensions: Dict[str, Any] = dict()
 
         from .jembe_page import JembePage
@@ -65,7 +63,9 @@ class Jembe:
             #     "Jembe app is not initilised with flask app. Call init_app first."
             # )
 
-    def init_app(self, app: "Flask", storages: Optional[Sequence["Storage"]] = None):
+    def init_app(
+        self, app: "Flask", storages: Optional[Sequence["jembe.Storage"]] = None
+    ):
         """
         This callback is used to initialize an applicaiton for the use
         with Jembe components.
@@ -90,7 +90,7 @@ class Jembe:
                 self._register_page(name, component)
             self._unregistred_pages = {}
 
-    def _init_storages(self, storages: Optional[Sequence["Storage"]]):
+    def _init_storages(self, storages: Optional[Sequence["jembe.Storage"]]):
         if not self.flask:
             raise JembeError(
                 "Cannot initialise storages before "
@@ -129,8 +129,8 @@ class Jembe:
     def add_page(
         self,
         name: str,
-        component: Type["Component"],
-        component_config: Optional["ComponentConfig"] = None,
+        component: Type["jembe.Component"],
+        component_config: Optional["jembe.ComponentConfig"] = None,
     ):
         component_ref: ComponentRef = (
             (
@@ -149,7 +149,7 @@ class Jembe:
     def page(
         self,
         name: str,
-        component_config: Optional["ComponentConfig"] = None,
+        component_config: Optional["jembe.ComponentConfig"] = None,
     ):
         """
         A decorator that is used to register a jembe page commponent.
@@ -172,14 +172,14 @@ class Jembe:
 
         # go down component hiearchy
         bp: Optional["Blueprint"] = None
-        component_refs: List[Tuple[str, ComponentRef, Optional["ComponentConfig"]]] = [
-            (name, component_ref, None)
-        ]
+        component_refs: List[
+            Tuple[str, ComponentRef, Optional["jembe.ComponentConfig"]]
+        ] = [(name, component_ref, None)]
         while component_refs:
             component_name, curent_ref, parent_config = component_refs.pop(0)
             if isinstance(curent_ref, tuple):
                 # create config with custom params
-                component_class: Type["Component"] = (
+                component_class: Type["jembe.Component"] = (
                     curent_ref[0]
                     if not isinstance(curent_ref[0], str)
                     else import_by_name(curent_ref[0])
@@ -238,7 +238,7 @@ class Jembe:
         if bp:
             self.flask.register_blueprint(bp)
 
-    def get_component_config(self, exec_name: str) -> "ComponentConfig":
+    def get_component_config(self, exec_name: str) -> "jembe.ComponentConfig":
         try:
             return self.components_configs[exec_name_to_full_name(exec_name)]
         except KeyError:
@@ -247,8 +247,8 @@ class Jembe:
             )
 
     def get_storage_by_type(
-        self, storage_type: "Storage.Type", storage_name: Optional[str] = None
-    ) -> "Storage":
+        self, storage_type: "jembe.Storage.Type", storage_name: Optional[str] = None
+    ) -> "jembe.Storage":
         # returs named storage if exist and it's right type
         if storage_name is not None:
             try:
@@ -271,10 +271,10 @@ class Jembe:
                 "Storage of type '{}' does not exist".format(storage_type.value)
             )
 
-    def get_storages(self) -> List["Storage"]:
+    def get_storages(self) -> List["jembe.Storage"]:
         return list(self._storages.values())
 
-    def get_storage(self, storage_name: str) -> "Storage":
+    def get_storage(self, storage_name: str) -> "jembe.Storage":
         try:
             return self._storages[storage_name]
         except KeyError:
@@ -300,27 +300,27 @@ def get_jembe() -> "Jembe":
     return jembe_state.jembe
 
 
-def get_storage(storage_name: str) -> "Storage":
+def get_storage(storage_name: str) -> "jembe.Storage":
     return get_processor().jembe.get_storage(storage_name)
 
 
-def get_storages() -> List["Storage"]:
+def get_storages() -> List["jembe.Storage"]:
     return get_processor().jembe.get_storages()
 
 
-def get_temp_storage(storage_name: Optional[str] = None) -> "Storage":
+def get_temp_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.TEMP, storage_name)
 
 
-def get_public_storage(storage_name: Optional[str] = None) -> "Storage":
+def get_public_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.PUBLIC, storage_name)
 
 
-def get_private_storage(storage_name: Optional[str] = None) -> "Storage":
+def get_private_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.PRIVATE, storage_name)

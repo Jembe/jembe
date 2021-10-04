@@ -22,9 +22,8 @@ from flask import url_for
 
 if TYPE_CHECKING:  # pragma: no cover
     import inspect
-    from .component import Component, ComponentState
-    from .processor import Processor
-    from .common import ComponentRef
+    import jembe
+    from .component import ComponentState
 
 UrlPath = NewType("UrlPath", str)
 
@@ -191,7 +190,7 @@ def redisplay(
         return decorator_action(_method)
 
 
-def config(component_config: "ComponentConfig"):
+def config(component_config: "jembe.ComponentConfig"):
     """
     Decorates Component to chante its ComponentConfig init parameters
     """
@@ -347,13 +346,13 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     # initialised by _jembe_init
     _name: str
-    _component_class: Type["Component"]
-    _parent: Optional["ComponentConfig"]
+    _component_class: Type["jembe.Component"]
+    _parent: Optional["jembe.ComponentConfig"]
 
     # initilised by _jembe_prepare_component_init run inside _jembe_init
     component_actions: Dict[str, "ComponentAction"]  # [method_name]
     component_listeners: Dict[str, "ComponentListener"]  # [method_name]
-    redisplay: Tuple["RedisplayFlag", ...]
+    redisplay: Tuple["jembe.RedisplayFlag", ...]
     _hiearchy_level: int
     _url_params: Tuple["UrlParamDef", ...]
     _key_url_param: "UrlParamDef"
@@ -365,8 +364,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def _jembe_init_(
         cls,
         _name: str,
-        _component_class: Type["Component"],
-        _parent: Optional["ComponentConfig"],
+        _component_class: Type["jembe.Component"],
+        _parent: Optional["jembe.ComponentConfig"],
         **init_params,
     ):
         """
@@ -453,11 +452,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def __init__(
         self,
         template: Optional[Union[str, Iterable[str]]] = None,
-        components: Optional[Dict[str, "ComponentRef"]] = None,
+        components: Optional[Dict[str, "jembe.ComponentRef"]] = None,
         inject_into_components: Optional[
-            Callable[["Component", "ComponentConfig"], dict]
+            Callable[["jembe.Component", "jembe.ComponentConfig"], dict]
         ] = None,  # TODO
-        redisplay: Tuple["RedisplayFlag", ...] = (),
+        redisplay: Tuple["jembe.RedisplayFlag", ...] = (),
         changes_url: bool = True,
         url_query_params: Optional[Dict[str, str]] = None,
     ):
@@ -479,7 +478,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
                 t if t != "" else self.default_template_name for t in template
             )
 
-        self.components: Dict[str, "ComponentRef"] = (
+        self.components: Dict[str, "jembe.ComponentRef"] = (
             components if components else dict()
         )
         self._inject_into_components = inject_into_components
@@ -509,7 +508,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         self.__endpoint = endpoint
 
     @property
-    def component_class(self) -> Type["Component"]:
+    def component_class(self) -> Type["jembe.Component"]:
         try:
             return getattr(self, "_component_class")
         except AttributeError:
@@ -531,7 +530,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             )
 
     @property
-    def parent(self) -> Optional["ComponentConfig"]:
+    def parent(self) -> Optional["jembe.ComponentConfig"]:
         try:
             return getattr(self, "_parent")
         except AttributeError:
@@ -577,10 +576,12 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         )
         return url_params
 
-    def build_url(self, exec_name: str, component: Optional["Component"] = None) -> str:
+    def build_url(
+        self, exec_name: str, component: Optional["jembe.Component"] = None
+    ) -> str:
         from .app import get_processor
 
-        processor: "Processor" = get_processor()
+        processor: "jembe.Processor" = get_processor()
         exec_names = tuple(
             accumulate(map(lambda x: "/" + x, exec_name.strip("/").split("/")), add)
         )
@@ -614,8 +615,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             return
 
         def _update_cref(cname: str, params: Dict):
-            """ Update self.compoennts """
-            comp_ref: "ComponentRef" = self.components[cname]
+            """Update self.compoennts"""
+            comp_ref: "jembe.ComponentRef" = self.components[cname]
             if not isinstance(comp_ref, tuple):
                 comp_ref = (comp_ref, dict())
                 self.components[cname] = comp_ref
@@ -641,11 +642,11 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             _update_cref(name, params)
 
     @property
-    def components_configs(self) -> Dict[str, "ComponentConfig"]:
+    def components_configs(self) -> Dict[str, "jembe.ComponentConfig"]:
         from .app import get_processor
 
-        processor: "Processor" = get_processor()
-        configs: Dict[str, "ComponentConfig"] = dict()
+        processor: "jembe.Processor" = get_processor()
+        configs: Dict[str, "jembe.ComponentConfig"] = dict()
         for component_name in self.components.keys():
             configs[component_name] = processor.jembe.components_configs[
                 "{}/{}".format(self.full_name, component_name)
@@ -653,8 +654,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         return configs
 
     @property
-    def components_classes(self) -> Dict[str, Type["Component"]]:
-        def _get_cref_class(cref: "ComponentRef") -> Type["Component"]:
+    def components_classes(self) -> Dict[str, Type["jembe.Component"]]:
+        def _get_cref_class(cref: "jembe.ComponentRef") -> Type["jembe.Component"]:
             cc = cref[0] if isinstance(cref, tuple) else cref
             if isinstance(cc, str):
                 return import_by_name(cc)

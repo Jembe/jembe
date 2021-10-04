@@ -37,21 +37,20 @@ from .common import (
     # json_default,
 )
 from .exceptions import JembeError
-from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag, redisplay
+from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .app import Jembe
+    import jembe
     from flask import Request
-    from .component import Component
-    from .component_config import ComponentListener
+    from jembe.component_config import ComponentListener
 
 
 class Event:
     def __init__(
         self,
         source_exec_name: str,
-        source: Optional["Component"],
+        source: Optional["jembe.Component"],
         event_name: str,
         to: Optional[str],
         params: dict,
@@ -61,7 +60,7 @@ class Event:
         self.params = params
         self.to: Optional[str] = to
 
-        self.source: Optional["Component"] = source
+        self.source: Optional["jembe.Component"] = source
 
     def __repr__(self):
         return "Event: source={}, name={}, to={} params={}".format(
@@ -105,7 +104,7 @@ TCommand = TypeVar("TCommand", bound="Command")
 
 
 class Command(ABC):
-    jembe: "Jembe"
+    jembe: "jembe.Jembe"
 
     def __init__(self, component_exec_name: str):
         self.component_exec_name = component_exec_name
@@ -266,7 +265,7 @@ class CallDisplayCommand(CallActionCommand):
         return super().mount(processor)
 
     @cached_property
-    def _component(self) -> "Component":
+    def _component(self) -> "jembe.Component":
         return self.processor.components[self.component_exec_name]
 
     @cached_property
@@ -481,7 +480,7 @@ class EmitCommand(Command):
             to=self._to,
             params=self.params,
         )
-        execute_over: List[Tuple["Component", str]] = []
+        execute_over: List[Tuple["jembe.Component", str]] = []
         for exec_name, component in self.processor.components.items():
             for (
                 listener_method_name,
@@ -703,8 +702,8 @@ class InitialiseCommand(Command):
         self.exists_on_client = exists_on_client
         self.displayed_components: List[str] = []
 
-        self.initialised_component: Optional["Component"] = None
-        self._cconfig: "ComponentConfig"
+        self.initialised_component: Optional["jembe.Component"] = None
+        self._cconfig: "jembe.ComponentConfig"
 
     def mount(self, processor: "Processor") -> "InitialiseCommand":
         self._cconfig = processor.jembe.get_component_config(self.component_exec_name)
@@ -866,7 +865,7 @@ class ComponentRender(NamedTuple):
 
 
 class CommandsQue:
-    def __init__(self, jembe: "Jembe") -> None:
+    def __init__(self, jembe: "jembe.Jembe") -> None:
         self.commands: Deque["Command"] = deque()
         self.deferred_commands: Deque["Command"] = deque()
 
@@ -952,13 +951,15 @@ class Processor:
        (display) will not be called
     """
 
-    def __init__(self, jembe: "Jembe", component_full_name: str, request: "Request"):
+    def __init__(
+        self, _jembe: "jembe.Jembe", component_full_name: str, request: "Request"
+    ):
         g.jmb_processor = self
 
-        self.jembe = jembe
+        self.jembe = _jembe
         self.request = request
 
-        self.components: Dict[str, "Component"] = dict()
+        self.components: Dict[str, "jembe.Component"] = dict()
         self._commands: Deque["Command"] = deque()
         self._processing_command: Optional["Command"] = None
         # already emited and processed event commands
@@ -1057,7 +1058,9 @@ class Processor:
                 component_data["execName"] for component_data in data["components"]
             ]
             for component_data in data["components"]:
-                initcmd = cast("InitialiseCommand", self._x_jembe_command_factory(component_data))
+                initcmd = cast(
+                    "InitialiseCommand", self._x_jembe_command_factory(component_data)
+                )
                 initcmd.displayed_components = [
                     en
                     for en in to_be_initialised
@@ -1302,8 +1305,8 @@ class Processor:
             return None
 
     def execute_initialise_command_successfully(
-        self, command: "InitialiseCommand", *additional_components: "Component"
-    ) -> Tuple[bool, Optional["Component"]]:
+        self, command: "InitialiseCommand", *additional_components: "jembe.Component"
+    ) -> Tuple[bool, Optional["jembe.Component"]]:
         """
         Directly out of commands que execute initialise command
         in order to check will it raise Exception
@@ -1476,7 +1479,7 @@ class Processor:
                 ajax_responses.append(
                     dict(
                         globals=True,
-                        removeComponents=self.components_marked_for_removal
+                        removeComponents=self.components_marked_for_removal,
                     )
                 )
             return jsonify(ajax_responses)

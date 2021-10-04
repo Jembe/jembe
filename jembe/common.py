@@ -10,11 +10,14 @@ from flask import Response, json, current_app
 from jembe.exceptions import JembeError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .component import Component, ComponentConfig
+    import jembe
 
 ComponentRef = Union[
-    Union[Type["Component"], str],
-    Tuple[Union[Type["Component"], str], Union["ComponentConfig", Dict[str, Any]]],
+    Union[Type["jembe.Component"], str],
+    Tuple[
+        Union[Type["jembe.Component"], str],
+        Union["jembe.ComponentConfig", Dict[str, Any]],
+    ],
 ]
 
 DisplayResponse = Union[str, Response]
@@ -34,7 +37,9 @@ def is_page_exec_name(exec_name: str) -> bool:
     return len(exec_name.strip("/").split("/")) == 1
 
 
-def direct_child_name(component: "Component", subcompoenent_full_name: str) -> str:
+def direct_child_name(
+    component: "jembe.Component", subcompoenent_full_name: str
+) -> str:
     """
     Returns name of the direct child of compoennt from subcomponent.
     If subcompoennt is not under component raise error.

@@ -20,6 +20,7 @@ from .defaults import (
 )
 
 if TYPE_CHECKING:
+    import jembe
     from flask import Response
 
 JEMBE_FILES_ACCESS_GRANTED = "jembe_files_access_granted"
@@ -30,7 +31,7 @@ class File(JembeInitParamSupport):
     storage: "Storage"
     path: str
 
-    def __init__(self, storage: Union[str, "Storage"], file_path: str):
+    def __init__(self, storage: Union[str, "jembe.Storage"], file_path: str):
         """
         Represents file inside Jembe File Storage
 
@@ -83,23 +84,23 @@ class File(JembeInitParamSupport):
     def basename(self) -> str:
         return self.storage.basename(self.path)
 
-    def copy_to(self, storage: Union["Storage", str], subdir: str = "") -> "File":
+    def copy_to(self, storage: Union["jembe.Storage", str], subdir: str = "") -> "jembe.File":
         if isinstance(storage, str):
             storage = get_storage(storage)
         return storage.store_file(self, subdir)
 
-    def move_to(self, storage: Union["Storage", str], subdir: str = "") -> "File":
+    def move_to(self, storage: Union["jembe.Storage", str], subdir: str = "") -> "jembe.File":
         file = self.copy_to(storage, subdir)
         self.storage.remove(self.path)
         return file
 
-    def copy_to_public(self, subdir: str = "") -> "File":
+    def copy_to_public(self, subdir: str = "") -> "jembe.File":
         return self.copy_to(get_public_storage(), subdir)
 
-    def copy_to_private(self, subdir: str = "") -> "File":
+    def copy_to_private(self, subdir: str = "") -> "jembe.File":
         return self.copy_to(get_private_storage(), subdir)
 
-    def copy_to_temp(self, subdir: Optional[str] = None) -> "File":
+    def copy_to_temp(self, subdir: Optional[str] = None) -> "jembe.File":
         temp_subdir = self.storage._get_default_temp_subdir()
         return self.copy_to(
             get_temp_storage(),
@@ -156,9 +157,9 @@ class File(JembeInitParamSupport):
         self,
         cache_name: str,
         file: Union[
-            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
         ],
-    ) -> "File":
+    ) -> "jembe.File":
         return self.storage.store_cache_version_of_file(self.path, cache_name, file)
 
     def get_cache_version(self, cache_name: str) -> "File":
@@ -290,11 +291,11 @@ class Storage(ABC):
     def store_file(
         self,
         file: Union[
-            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
         ],
         subdir: str = "",
         filename: Optional[str] = None,
-    ) -> File:
+    ) -> "jembe.File":
         """
         Store file inside this storage dir with unique file name inside subdir
 
@@ -329,9 +330,9 @@ class Storage(ABC):
         file_path: str,
         cache_name: str,
         cache_file: Union[
-            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
         ],
-    ) -> "File":
+    ) -> "jembe.File":
         return self.store_file_raw(
             cache_file,
             self._get_cache_subdir(file_path),
@@ -370,7 +371,7 @@ class Storage(ABC):
             session[DEFAULT_SESSION_TEMP_STORAGE_ID],
         )
 
-    def get_cache_version_of_file(self, file_path: str, cache_name: str) -> "File":
+    def get_cache_version_of_file(self, file_path: str, cache_name: str) -> "jembe.File":
         split_file_path = file_path.split("/")
         if self.type != self.Type.TEMP:
             if split_file_path[0] == DEFAULT_STORAGE_CACHE_FOLDER:
@@ -403,7 +404,7 @@ class Storage(ABC):
         )
         return File(storage=self, file_path=full_path)
 
-    def get_original_file(self, cache_file_path: str) -> "File":
+    def get_original_file(self, cache_file_path: str) -> "jembe.File":
         if cache_file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
             raise ValueError(
                 "Invalid cache file name '{}' in storage '{}'".format(
@@ -444,11 +445,11 @@ class Storage(ABC):
     def store_file_raw(
         self,
         file: Union[
-            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
         ],
         subdir: str = "",
         filename: Optional[str] = None,
-    ) -> File:
+    ) -> "jembe.File":
         raise NotImplementedError()
 
     def open(
@@ -525,7 +526,7 @@ class DiskStorage(Storage):
     """Stores files on disk"""
 
     def __init__(
-        self, name: str, folder: str, type: Storage.Type = Storage.Type.PUBLIC
+        self, name: str, folder: str, type: "jembe.Storage.Type" = Storage.Type.PUBLIC
     ):
         super().__init__(name, type=type)
 
@@ -552,11 +553,11 @@ class DiskStorage(Storage):
     def store_file_raw(
         self,
         file: Union[
-            "File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
         ],
         subdir: str = "",
         filename: Optional[str] = None,
-    ) -> File:
+    ) -> "jembe.File":
         """
         Store file inside this storage dir with unique file name inside subdir
 
