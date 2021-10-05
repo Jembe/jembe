@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 class ComponentState(dict):
     """
-    Two instance of the same compoennt, component with same full_name, in the same
+    Two instance of the same component, component with same full_name, in the same
     state should behawe identically.
 
     State of the component is defined by state params, __init__ params whose name
@@ -104,7 +104,7 @@ class ComponentReference:
     usage for link:
     lamda self: self.component('name')[.jrl...]
     lambda self: self.component('/main').component('name')[.jrl|url|is_accessible]
-    usage for displaying compoennt in template:
+    usage for displaying component in template:
     {{component('name')}}
     {{component('name').component('name')}} -- shuld raise exception
     usage in template to display link
@@ -749,7 +749,7 @@ class Component(metaclass=ComponentMeta):
     def inject_into(self, cconfig: "ComponentConfig") -> Dict[str, Any]:
         """
         inject_into params are used to inject  params into child component.
-        This params usually defines values required by child compoennt that are
+        This params usually defines values required by child component that are
         generated or optained by parent component.
 
         inject_into is called when child component is initialised, which can
@@ -911,14 +911,44 @@ class Component(metaclass=ComponentMeta):
         processor.add_command(emmit_command)
         return emmit_command
 
-    def display_component(self, _jmb_componet_name: str, **init_params):
+    def display_component(
+        self,
+        _jmb_component_name: str,
+        _jmb_component_key: Optional[str] = None,
+        **init_params
+    ):
         """
         Calls initCommand and displayComand of subcomponent without need to
         redisplay this commponent.
         """
-        pass
+        if _jmb_component_name not in self._config.components.keys():
+            raise JembeError(
+                "Component '{}' is not valid sub component of '{}'!".format(
+                    _jmb_component_name, self._config.full_name
+                )
+            )
+        processor = get_processor()
+        cexec_name = "{}/{}".format(
+            self.exec_name,
+            _jmb_component_name
+            if _jmb_component_key is None
+            else "{}.{}".format(_jmb_component_name, _jmb_component_key),
+        )
+        processor.add_command(
+            InitialiseCommand(cexec_name, init_params),
+            end=True,
+        )
+        processor.add_command(
+            CallDisplayCommand(
+                cexec_name,
+                displayed_by_exec_name=self.exec_name,
+            ),
+            end=True,
+        )
 
-    def remove_component(self, _jmb_component_name: str):
+    def remove_component(
+        self, _jmb_component_name: str, _jmb_component_key: Optional[str] = None
+    ):
         """
         Marks component for removal from user page (will not be displayed to the user)
         without need to redisplay this entire component.
@@ -926,14 +956,19 @@ class Component(metaclass=ComponentMeta):
         TODO: Check if component is rendered with {{componet()}} and removed, if so
         raise exception.
         """
-        if _jmb_component_name.split(".", 2)[0] not in self._config.components.keys():
+        if _jmb_component_name not in self._config.components.keys():
             raise JembeError(
-                "Component '{}' is not valid sub compoennt of '{}'!".format(
+                "Component '{}' is not valid sub component of '{}'!".format(
                     _jmb_component_name, self._config.full_name
                 )
             )
         processor = get_processor()
-        cexec_name = "{}/{}".format(self.exec_name, _jmb_component_name)
+        cexec_name = "{}/{}".format(
+            self.exec_name,
+            _jmb_component_name
+            if _jmb_component_key is None
+            else "{}.{}".format(_jmb_component_name, _jmb_component_key),
+        )
         if cexec_name in processor.renderers and processor.renderers[cexec_name].fresh:
             raise JembeError(
                 "Can't remove compoent '{}' that is freshly displayed!".format(
