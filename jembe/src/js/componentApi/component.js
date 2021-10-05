@@ -191,7 +191,7 @@ export default class Component {
         // If we're cloning a component, the third parameter ensures no duplicate
         // event listeners are registered (the mutation observer will take care of them)
         // this.initializeElements(this.$el, () => { }, originalComponent === undefined)
-        this.initializeElements(this.$el, () => { })
+        this.initializeElements(this.$el, () => { }, originalComponent !== undefined)
 
         // Use mutation observer to detect new elements being added within this component at run-time.
         // Alpine's just so darn flexible amirite?
@@ -327,7 +327,7 @@ export default class Component {
         })
     }
 
-    initializeElements(rootEl, extraVars = () => { }) {
+    initializeElements(rootEl, extraVars = () => { }, mutated=false) {
         this.walkAndSkipNestedComponents(rootEl, el => {
             // Don't touch spawns from for loop
             if (el.__jmb_for_key !== undefined) return false
@@ -335,7 +335,7 @@ export default class Component {
             // Don't touch spawns from if directives
             if (el.__jmb_inserted_me !== undefined) return false
 
-            this.initializeElement(el, extraVars)
+            this.initializeElement(el, extraVars, mutated)
         }, el => {
             el.__jmb = new Component(el)
         })

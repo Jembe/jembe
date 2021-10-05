@@ -135,7 +135,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
     }
 
     if (event === 'ready') {
-        if (! mutated) {
+        if (! (mutated && modifiers.includes("once"))) {
             component.nextTickStack.push(() => {
                 handler(new Event('ready', { target: el }))
             })
