@@ -281,7 +281,11 @@ class ComponentReference:
                     )
                 )
                 return True
-            return self.action not in ci._jembe_disabled_actions
+
+            return (
+                self.action in ci._config.component_actions
+                and self.action not in ci._jembe_disabled_actions
+            )
         else:
             if self.name == ".":
                 return True
