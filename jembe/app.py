@@ -45,6 +45,7 @@ class Jembe:
 
         self._storages: Dict[str, "jembe.Storage"]
         self.extensions: Dict[str, Any] = dict()
+        self.initialised_extensions: List[str] = []
 
         from .jembe_page import JembePage
 
@@ -70,10 +71,16 @@ class Jembe:
         This callback is used to initialize an applicaiton for the use
         with Jembe components.
         """
+        self.__flask = app
+
+        # init extensions
+        for k, w in self.extensions.items():
+            if k not in self.initialised_extensions:
+                w.do_init_jembe()
+                self.initialised_extensions.append(k)
+
         # app.teardown_appcontext(self.teardown)
         # app.context_processor(self.template_processor)
-
-        self.__flask = app
         if "jembe" in self.__flask.extensions:
             raise JembeError(
                 "Only one Jembe extension can be initialise for a Flask instance."
@@ -89,6 +96,7 @@ class Jembe:
             for name, component in self._unregistred_pages.items():
                 self._register_page(name, component)
             self._unregistred_pages = {}
+
 
     def _init_storages(self, storages: Optional[Sequence["jembe.Storage"]]):
         if not self.flask:
