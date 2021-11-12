@@ -750,7 +750,7 @@ class Component(metaclass=ComponentMeta):
         """
         return dict()
 
-    def inject_into(self, cconfig: "ComponentConfig") -> Dict[str, Any]:
+    def inject_into(self, cconfig: "jembe.ComponentConfig") -> Dict[str, Any]:
         """
         inject_into params are used to inject  params into child component.
         This params usually defines values required by child component that are
