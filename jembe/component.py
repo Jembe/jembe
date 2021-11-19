@@ -540,6 +540,7 @@ class Component(metaclass=ComponentMeta):
         _component_exec_name: str,
         _jembe_injected_params_names: List[str],
         _jembe_merged_existing_params: bool,
+        _jembe_existing_component_state: Optional["ComponentState"],
         **init_params
     ):
         """
@@ -547,13 +548,17 @@ class Component(metaclass=ComponentMeta):
         because _config should be avaiable in __init__
         """
         component: "Component" = object.__new__(cls)
+        component._jembe_component_initialising = True
         component._config = _config  # type: ignore
         component._jembe_injected_params_names = _jembe_injected_params_names
         component._jembe_merged_existing_params = _jembe_merged_existing_params
+        component._jembe_existing_component_state = _jembe_existing_component_state
         component._jembe_disabled_actions = []
         component.exec_name = _component_exec_name
         component.__init__(**init_params)  # type: ignore
         component.init()
+        component._jembe_component_initialising = None
+        component._jembe_existing_component_state = None
         return component
 
     _jembe_init_signature: "Signature"
@@ -563,7 +568,9 @@ class Component(metaclass=ComponentMeta):
     _jembe_injected_params_names: List[str]
     _jembe_config_init_params: Dict[str, Any]
     _jembe_merged_existing_params: bool
+    _jembe_existing_component_state: Optional["ComponentState"]
     _jembe_inject_into_overriden: bool
+    _jembe_component_initialising: Optional[bool]
     _config: "Config"
 
     state: "ComponentState"
@@ -588,6 +595,15 @@ class Component(metaclass=ComponentMeta):
         executed on init but without need to rewrite/list init params.
         """
         pass
+
+    @property
+    def previous_state(self) -> Optional["ComponentState"]:
+        if not self._jembe_component_initialising:
+            raise JembeError(
+                "Component previous state is only avaiable during "
+                "component intialisation in __init__ and init methods."
+            )
+        return self._jembe_existing_component_state
 
     @property
     def key(self) -> str:
@@ -851,7 +867,7 @@ class Component(metaclass=ComponentMeta):
                 for property_name, property in getmembers(
                     self.__class__,
                     lambda o: isinstance(o, property) or isinstance(o, cached_property),
-                )
+                ) if property_name != "previous_state"
             },
             # command to render subcomponents
             "component": self._jinja2_component,

@@ -805,6 +805,7 @@ class InitialiseCommand(Command):
                 self.component_exec_name,
                 list(self._inject_into_params.keys()),
                 self.merge_existing_params,
+                existing_component.state if existing_component else None,
                 **init_params
             )
 
@@ -1220,7 +1221,7 @@ class Processor:
 
             self._execute_commands()
             # for all components that have change state params but not have been redisplayed
-            # check will thay still be presentd/visible on page if so execute display command
+            # check will thay still be presented/visible on page if so execute display command
             # for that components
             for hanging_init_execname in self._hanging_init_commands_execnames:
                 if hanging_init_execname not in [

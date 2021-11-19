@@ -2337,6 +2337,10 @@ def test_build_exec_name(app, jmb: "Jembe"):
         def display(self) -> "DisplayResponse":
             return ""
 
+        @action
+        def update(self):
+            pass
+
     @jmb.page(
         "page",
         Component.Config(
