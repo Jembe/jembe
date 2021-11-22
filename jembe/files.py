@@ -1,3 +1,4 @@
+from re import I
 from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
 import shutil
@@ -84,12 +85,16 @@ class File(JembeInitParamSupport):
     def basename(self) -> str:
         return self.storage.basename(self.path)
 
-    def copy_to(self, storage: Union["jembe.Storage", str], subdir: str = "") -> "jembe.File":
+    def copy_to(
+        self, storage: Union["jembe.Storage", str], subdir: str = ""
+    ) -> "jembe.File":
         if isinstance(storage, str):
             storage = get_storage(storage)
         return storage.store_file(self, subdir)
 
-    def move_to(self, storage: Union["jembe.Storage", str], subdir: str = "") -> "jembe.File":
+    def move_to(
+        self, storage: Union["jembe.Storage", str], subdir: str = ""
+    ) -> "jembe.File":
         file = self.copy_to(storage, subdir)
         self.storage.remove(self.path)
         return file
@@ -157,7 +162,12 @@ class File(JembeInitParamSupport):
         self,
         cache_name: str,
         file: Union[
-            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File",
+            "FileStorage",
+            "BufferedIOBase",
+            "TextIOBase",
+            "RawIOBase",
+            str,
         ],
     ) -> "jembe.File":
         return self.storage.store_cache_version_of_file(self.path, cache_name, file)
@@ -188,6 +198,11 @@ class File(JembeInitParamSupport):
 
     def __repr__(self) -> str:
         return "<File: storage={}, path={}>".format(self.storage.name, self.path)
+
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, File):
+            return False
+        return self.storage == o.storage and self.path == o.path
 
 
 class Storage(ABC):
@@ -291,7 +306,12 @@ class Storage(ABC):
     def store_file(
         self,
         file: Union[
-            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File",
+            "FileStorage",
+            "BufferedIOBase",
+            "TextIOBase",
+            "RawIOBase",
+            str,
         ],
         subdir: str = "",
         filename: Optional[str] = None,
@@ -330,7 +350,12 @@ class Storage(ABC):
         file_path: str,
         cache_name: str,
         cache_file: Union[
-            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File",
+            "FileStorage",
+            "BufferedIOBase",
+            "TextIOBase",
+            "RawIOBase",
+            str,
         ],
     ) -> "jembe.File":
         return self.store_file_raw(
@@ -371,7 +396,9 @@ class Storage(ABC):
             session[DEFAULT_SESSION_TEMP_STORAGE_ID],
         )
 
-    def get_cache_version_of_file(self, file_path: str, cache_name: str) -> "jembe.File":
+    def get_cache_version_of_file(
+        self, file_path: str, cache_name: str
+    ) -> "jembe.File":
         split_file_path = file_path.split("/")
         if self.type != self.Type.TEMP:
             if split_file_path[0] == DEFAULT_STORAGE_CACHE_FOLDER:
@@ -445,7 +472,12 @@ class Storage(ABC):
     def store_file_raw(
         self,
         file: Union[
-            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File",
+            "FileStorage",
+            "BufferedIOBase",
+            "TextIOBase",
+            "RawIOBase",
+            str,
         ],
         subdir: str = "",
         filename: Optional[str] = None,
@@ -521,6 +553,11 @@ class Storage(ABC):
     def basename(self, path: str) -> str:
         raise NotImplementedError()
 
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, Storage):
+            return False
+        return self.name == o.name and self.type == o.type
+
 
 class DiskStorage(Storage):
     """Stores files on disk"""
@@ -553,7 +590,12 @@ class DiskStorage(Storage):
     def store_file_raw(
         self,
         file: Union[
-            "jembe.File", "FileStorage", "BufferedIOBase", "TextIOBase", "RawIOBase", str
+            "jembe.File",
+            "FileStorage",
+            "BufferedIOBase",
+            "TextIOBase",
+            "RawIOBase",
+            str,
         ],
         subdir: str = "",
         filename: Optional[str] = None,
