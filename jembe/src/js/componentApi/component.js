@@ -98,7 +98,7 @@ export default class Component {
         // Object.entries(Alpine.magicProperties).forEach(([name, callback]) => {
         //     Object.defineProperty(dataExtras, `$${name}`, { get: function () { return callback(canonicalComponentElementReference) } });
         // })
-
+        // add local
         this.unobservedData = {
             $local: (originalComponent === undefined)
                 ? saferEval(this.$el, localExpression, dataExtras)
@@ -145,6 +145,7 @@ export default class Component {
         this.unobservedData.$refs = this.getRefsProxy()
         this.unobservedData.$jmb = this.$jmb
         this.unobservedData.$updateDom = this.$updateDom
+        this.unobservedData.$data = this.$data
 
         this.nextTickStack = []
         this.unobservedData.$nextTick = (callback) => {

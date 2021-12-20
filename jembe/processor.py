@@ -786,7 +786,7 @@ class InitialiseCommand(Command):
                 {
                     k: v
                     for k, v in existing_component.state.items()
-                    if k in existing_component.state._injected_params_names
+                    if k not in existing_component.state._injected_params_names # TODO: Test this and figure out why it's needed?
                 }
                 if self.merge_existing_params and existing_component
                 else dict()
