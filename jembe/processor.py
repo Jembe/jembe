@@ -740,7 +740,11 @@ class InitialiseCommand(Command):
             return dict()
 
     def _must_do_init(self, is_accessible_run: bool):
-        if self.component_exec_name in self.processor.components:
+        if (
+            self.component_exec_name in self.processor.components
+            and self.component_exec_name
+            not in self.processor.components_marked_for_removal
+        ):
             component = self.processor.components[self.component_exec_name]
             new_params = (
                 {}
@@ -786,9 +790,13 @@ class InitialiseCommand(Command):
                 {
                     k: v
                     for k, v in existing_component.state.items()
-                    if k not in existing_component.state._injected_params_names # TODO: Test this and figure out why it's needed?
+                    if k
+                    not in existing_component.state._injected_params_names  # TODO: Test this and figure out why it's needed?
                 }
-                if self.merge_existing_params and existing_component
+                if self.merge_existing_params
+                and existing_component
+                and self.component_exec_name
+                not in self.processor.components_marked_for_removal
                 else dict()
             )
             init_params = (
