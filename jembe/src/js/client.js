@@ -36,8 +36,9 @@ class ComponentRef {
   }
   remove() {
     let removed = []
-    for (const cr of Object.values(this.placeHolders)) {
-      removed.push(...cr.remove())
+    for (const [execName, domElement] of Object.entries(this.placeHolders)) {
+      removed.push(execName)
+      domElement.remove()
     }
     const dom = this.dom
     this.unmount()
