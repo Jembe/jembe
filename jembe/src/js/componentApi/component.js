@@ -145,7 +145,7 @@ export default class Component {
         this.unobservedData.$refs = this.getRefsProxy()
         this.unobservedData.$jmb = this.$jmb
         this.unobservedData.$updateDom = this.$updateDom
-        this.unobservedData.$data = this.$data
+        this.unobservedData.$context = this.$data
 
         this.nextTickStack = []
         this.unobservedData.$nextTick = (callback) => {
