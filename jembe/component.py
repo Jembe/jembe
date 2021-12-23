@@ -867,7 +867,8 @@ class Component(metaclass=ComponentMeta):
                 for property_name, property in getmembers(
                     self.__class__,
                     lambda o: isinstance(o, property) or isinstance(o, cached_property),
-                ) if property_name != "previous_state"
+                )
+                if property_name != "previous_state"
             },
             # command to render subcomponents
             "component": self._jinja2_component,
@@ -925,9 +926,9 @@ class Component(metaclass=ComponentMeta):
             )
         )
 
-    def emit(self, name: str, **params) -> "EmitCommand":
+    def emit(self, _jmb_event_name: str, **params) -> "EmitCommand":
         processor = get_processor()
-        emmit_command = EmitCommand(self.exec_name, name, params)
+        emmit_command = EmitCommand(self.exec_name, _jmb_event_name, params)
         processor.add_command(emmit_command)
         return emmit_command
 
