@@ -2714,3 +2714,29 @@ def test_tuple_str_state_param(app, jmb: "Jembe", client):
         """<div jmb-name="/pagea/a" jmb-data=\'{"actions":{},"changesUrl":true,"state":{"display_modes":["self"]},"url":"/pagea/a"}\'>a</div>"""
         """</body></html>"""
     ).encode("utf-8")
+
+
+def test_rendering_component_in_placeholder(jmb, client):
+    @config(Component.Config(changes_url=False))
+    class Login(Component):
+        def display(self):
+            return self.render_template_string("""<div>Login form</div>""")
+
+    @jmb.page("main", Component.Config(components=dict(_login=Login)))
+    class CPage(Component):
+        def display(self):
+            return self.render_template_string(
+                """<html><head></head><body>{{placeholder("_login")}}</body></html>"""
+            )
+
+    # call page
+    login_page_html = (
+        """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
+        """<html jmb-name="/main" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/main"}\'><head></head><body>"""
+        """<template jmb-placeholder-permanent="/main/_login"></template>"""
+        """<div jmb-name="/main/_login" jmb-data=\'{"actions":{},"changesUrl":false,"state":{},"url":"/main/_login"}\'>Login form</div>"""
+        """</body></html>"""
+    ).encode("utf-8")
+    r = client.get("/main/_login")
+    assert r.status_code == 200
+    assert r.data == login_page_html

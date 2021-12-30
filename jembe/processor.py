@@ -11,6 +11,7 @@ from typing import (
     Deque,
     Any,
     NamedTuple,
+    final,
 )
 from abc import ABC, abstractmethod
 import re
@@ -1535,24 +1536,42 @@ class Processor:
                 # compose response including all components not just page
                 # find all placeholders in response_tree and replace them with
                 # appropriate etrees
+                placeholders = []
+                permanent_placeholders = []
                 for placeholder in response_etree.xpath(
-                    ".//template[@jmb-placeholder]"
+                    ".//template[@jmb-placeholder or @jmb-placeholder-permanent]"
                 ):
                     can_find_placeholder = True
-                    exec_name = placeholder.attrib["jmb-placeholder"]
+                    if "jmb_placeholder" in placeholder.attrib:
+                        placeholders.append(placeholder)
+                    else:
+                        permanent_placeholders.append(placeholder)
+
+                for placeholder in placeholders + permanent_placeholders:
                     try:
-                        c_etree = c_etrees[exec_name]
-                        unused_exec_names.pop(unused_exec_names.index(exec_name))
-                        placeholder.addnext(c_etree)
-                        placeholder.getparent().remove(placeholder)
+                        permanent = False
+                        exec_name = placeholder.attrib["jmb-placeholder"]
                     except KeyError:
-                        # exec_name referenced by this placeholder does not exist
-                        # so we will just remove placeholder
-                        # This situation can ocure when handling exceptions
-                        # of child components but not changing display html
-                        # so we can assume that developer just want to ignore
-                        # exception and dont display component that coused exception
-                        placeholder.getparent().remove(placeholder)
+                        permanent = True
+                        exec_name = placeholder.attrib["jmb-placeholder-permanent"]
+
+                    if exec_name in unused_exec_names:
+                        unused_exec_names.pop(unused_exec_names.index(exec_name))
+                        try:
+                            c_etree = c_etrees[exec_name]
+                            placeholder.addnext(c_etree)
+                        except KeyError:
+                            # exec_name referenced by this placeholder does not exist
+                            # so we will just remove placeholder
+                            # This situation can ocure when handling exceptions
+                            # of child components but not changing display html
+                            # so we can assume that developer just want to ignore
+                            # exception and dont display component that coused exception
+                            pass
+                        finally:
+                            if not permanent:
+                                placeholder.getparent().remove(placeholder)
+
             # Remove empty placeholder if thay are left in response
             # because above logic will not find all empty placeholders
             if response_etree is not None:
