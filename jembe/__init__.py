@@ -13,6 +13,7 @@ from .common import JembeInitParamSupport, ComponentRef, DisplayResponse
 from .component_config import action, listener, redisplay, config, UrlPath, ComponentConfig, RedisplayFlag
 from .processor import Event
 from .exceptions import (
+    ComponentPreviousStateUnavaiableError,
     BadRequest,
     Unauthorized,
     Forbidden,
@@ -48,6 +49,7 @@ __all__ = (
     "ComponentRef",
     "DisplayResponse",
     "Event",
+    "ComponentPreviousStateUnavaiableError",
     "BadRequest",
     "Unauthorized",
     "Forbidden",

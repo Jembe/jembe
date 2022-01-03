@@ -5,6 +5,10 @@ class JembeError(Exception):
     pass
 
 
+class ComponentPreviousStateUnavaiableError(JembeError):
+    pass
+
+
 class BadRequest(we.BadRequest):
     pass
 

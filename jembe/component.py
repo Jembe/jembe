@@ -17,7 +17,7 @@ from abc import ABCMeta
 from inspect import Parameter, signature, getmembers, Signature
 
 from flask.json import dumps
-from .exceptions import JembeError, NotFound
+from .exceptions import JembeError, NotFound, ComponentPreviousStateUnavaiableError
 from flask import render_template, render_template_string, current_app
 from markupsafe import Markup
 from .component_config import ComponentConfig
@@ -599,7 +599,7 @@ class Component(metaclass=ComponentMeta):
     @property
     def previous_state(self) -> Optional["ComponentState"]:
         if not self._jembe_component_initialising:
-            raise JembeError(
+            raise ComponentPreviousStateUnavaiableError(
                 "Component previous state is only avaiable during "
                 "component intialisation in __init__ and init methods."
             )
