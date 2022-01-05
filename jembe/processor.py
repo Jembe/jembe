@@ -37,7 +37,7 @@ from .common import (
     # json_object_hook,
     # json_default,
 )
-from .exceptions import JembeError
+from .exceptions import AccessDenied, Forbidden, JembeError, NotFound, Unauthorized
 from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
 
 
@@ -1364,13 +1364,17 @@ class Processor:
             self._staging_commands = backup_current_staging_commands
             self.components = backup_current_components
             if current_app.debug or current_app.testing:
-                # import traceback
-                # traceback.print_exc()
                 current_app.logger.warning(
                     "Exception when initialising component out of proccessing que {}: {}".format(
                         cmd, exc.__repr__()
                     )
                 )
+                if not isinstance(
+                    exc, (AccessDenied, NotFound, Unauthorized, Forbidden)
+                ):
+                    import traceback
+
+                    traceback.print_exc()
             return (False, None)
         self._staging_commands = backup_current_staging_commands
         self.components = backup_current_components
@@ -1541,7 +1545,6 @@ class Processor:
                 for placeholder in response_etree.xpath(
                     ".//template[@jmb-placeholder or @jmb-placeholder-permanent]"
                 ):
-                    can_find_placeholder = True
                     if "jmb_placeholder" in placeholder.attrib:
                         placeholders.append(placeholder)
                     else:
@@ -1556,6 +1559,7 @@ class Processor:
                         exec_name = placeholder.attrib["jmb-placeholder-permanent"]
 
                     if exec_name in unused_exec_names:
+                        can_find_placeholder = True
                         unused_exec_names.pop(unused_exec_names.index(exec_name))
                         try:
                             c_etree = c_etrees[exec_name]

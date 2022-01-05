@@ -440,6 +440,10 @@ class ComponentReference:
     def __html__(self):
         return self.__call__()
 
+    def if_accessible(self):
+        if self.is_accessible:
+            return self.__html__()
+        return ""
 
 def component(
     jmb_exec_name: str, jmb_reset: bool = True, **kwargs
