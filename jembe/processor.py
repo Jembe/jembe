@@ -1438,6 +1438,10 @@ class Processor:
             current_app.logger.error(
                 "Unhandled exception in {}: {}".format(command, exc)
             )
+            if current_app.debug or current_app.testing:
+                import traceback
+
+                traceback.print_exc()
             raise emit_command.event.params["exception"]
 
         # if exception is handled dont raise exception
