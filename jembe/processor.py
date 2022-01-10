@@ -365,7 +365,7 @@ class CallDisplayCommand(CallActionCommand):
         return commands
 
     def __repr__(self):
-        return "DisplayAction({}, {})".format(
+        return "CallDisplayCommand({}, {})".format(
             self.component_exec_name, self.action_name
         )
 
