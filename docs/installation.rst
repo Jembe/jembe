@@ -25,8 +25,8 @@ It's recommended to install Jembe in a separate Python virtual environment:
     # Install Jembe into an active virtual environment
     (.venv) $ pip install jembe
 
-Minimal Jembe Application
-=========================
+Create New Application Manually
+===============================
 
 Bellow is minimal one file "Hello World" example.
 
@@ -102,8 +102,8 @@ To run this application use:
     'Hello World' example above does not use any of the Jembe Components advantages, it just demonstrates how to write a minimal Jembe application.
     
 
-Use ``jembe startproject`` command
-==================================
+Create New Application From Template
+====================================
 
 New project that uses Jembe components can be craeted in two ways:
 

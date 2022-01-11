@@ -10,7 +10,7 @@ from .app import (
 )
 from .component import Component, ComponentReference
 from .common import JembeInitParamSupport, ComponentRef, DisplayResponse
-from .component_config import action, listener, redisplay, config, UrlPath, ComponentConfig, RedisplayFlag
+from .component_config import config, action, listener, redisplay, UrlPath, ComponentConfig, RedisplayFlag
 from .processor import Event
 from .exceptions import (
     ComponentPreviousStateUnavaiableError,

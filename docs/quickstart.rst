@@ -35,8 +35,8 @@ With browser open http://localhost:5000 to view newly created jembe
 application.
 
 
-Project Examples
-~~~~~~~~~~~~~~~~
+Jembe Project Examples
+~~~~~~~~~~~~~~~~~~~~~~
 
 The following examples assumes that the Jembe project is named
 **'myproject'** and it's created with ``$ jembe startproject``
