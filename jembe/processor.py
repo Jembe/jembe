@@ -858,7 +858,7 @@ class InitialiseCommand(Command):
         return ()
 
     def __repr__(self):
-        return "Init({})".format(self.component_exec_name)
+        return "Init({}, {})".format(self.component_exec_name, self.init_params)
 
 
 class ComponentRender(NamedTuple):

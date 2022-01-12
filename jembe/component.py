@@ -445,6 +445,7 @@ class ComponentReference:
             return self.__html__()
         return ""
 
+
 def component(
     jmb_exec_name: str, jmb_reset: bool = True, **kwargs
 ) -> "ComponentReference":
@@ -978,7 +979,7 @@ class Component(metaclass=ComponentMeta):
         Marks component for removal from user page (will not be displayed to the user)
         without need to redisplay this entire component.
 
-        TODO: Check if component is rendered with {{componet()}} and removed, if so
+        TODO: Check if component is rendered with {{component()}} and removed, if so
         raise exception.
         """
         if _jmb_component_name not in self._config.components.keys():
@@ -996,7 +997,7 @@ class Component(metaclass=ComponentMeta):
         )
         if cexec_name in processor.renderers and processor.renderers[cexec_name].fresh:
             raise JembeError(
-                "Can't remove compoent '{}' that is freshly displayed!".format(
+                "Can't remove component '{}' that is freshly displayed!".format(
                     cexec_name
                 )
             )
@@ -1064,6 +1065,8 @@ class Component(metaclass=ComponentMeta):
         """
         Apply access control rules
         """
-        if ComponentConfig.DEFAULT_DISPLAY_ACTION in self._jembe_disabled_actions:
+        if ComponentConfig.DEFAULT_DISPLAY_ACTION in self._jembe_disabled_actions or (
+            action_name is not None and action_name in self._jembe_disabled_actions
+        ):
             return False
-        return action_name not in self._jembe_disabled_actions
+        return True

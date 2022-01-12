@@ -23,6 +23,7 @@ from .exceptions import (
     Gone,
     NotImplemented,
     InternalServerError,
+    JembeError
 )
 from .files import File, Storage, DiskStorage
 from .utils import page_url, run_only_once
@@ -59,6 +60,7 @@ __all__ = (
     "Gone",
     "NotImplemented",
     "InternalServerError",
+    "JembeError",
     "File",
     "Storage",
     "DiskStorage",
