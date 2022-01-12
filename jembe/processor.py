@@ -416,8 +416,8 @@ class CallListenerCommand(Command):
             )
 
     def __repr__(self):
-        return "CallListener({},{})".format(
-            self.component_exec_name, self.listener_name
+        return "CallListener({}, {}, {})".format(
+            self.component_exec_name, self.listener_name, self.event
         )
 
 
@@ -695,7 +695,7 @@ class InitialiseCommand(Command):
         exists_on_client: bool = False,
     ):
         super().__init__(component_exec_name)
-        self.init_params = {
+        self._init_params = {
             k: (v if not isinstance(v, Undefined) else None)
             for k, v in init_params.items()
         }
@@ -709,6 +709,34 @@ class InitialiseCommand(Command):
     def mount(self, processor: "Processor") -> "InitialiseCommand":
         self._cconfig = processor.jembe.get_component_config(self.component_exec_name)
         return super().mount(processor)
+
+    @cached_property
+    def existing_component(self) -> Optional["jembe.Component"]:
+        if self.component_exec_name in self.processor.components_marked_for_removal:
+            return None
+        return self.processor.components.get(self.component_exec_name, None)
+
+    @cached_property
+    def init_params(self) -> dict:
+        existing_params = (
+            {
+                k: v
+                for k, v in self.existing_component.state.items()
+                if k
+                not in self.existing_component.state._injected_params_names  # TODO: Test this and figure out why it's needed?
+            }
+            if self.merge_existing_params and self.existing_component
+            else dict()
+        )
+        init_params = (
+            {}
+            if self.merge_existing_params
+            else {**self._cconfig.component_class._jembe_state_param_default_values}
+        )
+        init_params.update(
+            {**existing_params, **self._init_params, **self._inject_into_params}
+        )
+        return init_params
 
     @cached_property
     def _inject_into_params(self) -> Dict[str, Any]:
@@ -741,29 +769,32 @@ class InitialiseCommand(Command):
             return dict()
 
     def _must_do_init(self, is_accessible_run: bool):
-        if (
-            self.component_exec_name in self.processor.components
-            and self.component_exec_name
-            not in self.processor.components_marked_for_removal
-        ):
-            component = self.processor.components[self.component_exec_name]
-            new_params = (
-                {}
-                if self.merge_existing_params
-                else {**self._cconfig.component_class._jembe_state_param_default_values}
-            )
-            new_params.update(
-                {**self.init_params, **self._inject_into_params, **component.inject()}
-            )
+        if self.existing_component:
+            # new_params = (
+            #     {}
+            #     if self.merge_existing_params
+            #     else {**self._cconfig.component_class._jembe_state_param_default_values}
+            # )
+            # new_params.update(
+            #     {
+            #         **self._init_params,
+            #         **self._inject_into_params,
+            #         **self.existing_component.inject(),
+            #     }
+            # )
             # if state params are same continue
             # else raise jembeerror until find better solution
             has_new_params = False
-            for k, v in new_params.items():
-                if k in component.state and v != component.state[k]:
+            # for k, v in new_params.items():
+            for k, v in self.init_params.items():
+                if (
+                    k in self.existing_component.state
+                    and v != self.existing_component.state[k]
+                ):
                     has_new_params = True
                     break
 
-            if component._jembe_has_action_or_listener_executed:
+            if self.existing_component._jembe_has_action_or_listener_executed:
                 if has_new_params:
                     if is_accessible_run:
                         return True
@@ -772,7 +803,7 @@ class InitialiseCommand(Command):
                             (
                                 "Cant reinitialise component {} with new parametes after "
                                 "action or listener is executed by this component."
-                            ).format(component.exec_name)
+                            ).format(self.component_exec_name)
                         )
                 else:
                     return False
@@ -784,38 +815,13 @@ class InitialiseCommand(Command):
         # create new component if component with identical exec_name does not exist
         # or component with identical exec_name has not action or listener executed
         if self._must_do_init(is_accessible_run):
-            existing_component = self.processor.components.get(
-                self.component_exec_name, None
-            )
-            existing_params = (
-                {
-                    k: v
-                    for k, v in existing_component.state.items()
-                    if k
-                    not in existing_component.state._injected_params_names  # TODO: Test this and figure out why it's needed?
-                }
-                if self.merge_existing_params
-                and existing_component
-                and self.component_exec_name
-                not in self.processor.components_marked_for_removal
-                else dict()
-            )
-            init_params = (
-                {}
-                if self.merge_existing_params
-                else {**self._cconfig.component_class._jembe_state_param_default_values}
-            )
-            init_params.update(
-                {**existing_params, **self.init_params, **self._inject_into_params}
-            )
-
             component = self._cconfig.component_class._jembe_init_(
                 self._cconfig,
                 self.component_exec_name,
                 list(self._inject_into_params.keys()),
                 self.merge_existing_params,
-                existing_component.state if existing_component else None,
-                **init_params
+                self.existing_component.state if self.existing_component else None,
+                **self.init_params
             )
 
             # check if action passes access control
@@ -1325,14 +1331,16 @@ class Processor:
         """
         # check if component with requested full_name exist or if
         # initialisation with same init_params already failed
-        if exec_name_to_full_name(
-            command.component_exec_name
-        ) not in self.jembe.components_configs or (
-            command.component_exec_name in self._raised_exception_on_initialise
-            and (
-                command.init_params
-                == self._raised_exception_on_initialise[command.component_exec_name]
-            )
+
+        if (
+            exec_name_to_full_name(command.component_exec_name)
+            not in self.jembe.components_configs
+        ):
+            return (False, None)
+        command = command if command.is_mounted else command.mount(self)
+        if command.component_exec_name in self._raised_exception_on_initialise and (
+            command.init_params
+            == self._raised_exception_on_initialise[command.component_exec_name]
         ):
             return (False, None)
 
@@ -1344,20 +1352,17 @@ class Processor:
         for acomp in additional_components:
             self.components[acomp.exec_name] = acomp
 
-        cmd: "InitialiseCommand" = (
-            command if command.is_mounted else command.mount(self)
-        )
         try:
-            cmd.execute(is_accessible_run=True)
+            command.execute(is_accessible_run=True)
         except JembeError as jmb_error:
             # JembeError are exceptions raised by jembe
             # and thay indicate bad usage of framework
             self.components = backup_current_components
             raise jmb_error
         except Exception as exc:
-            self._raised_exception_on_initialise[cmd.component_exec_name] = deepcopy(
-                cmd.init_params
-            )
+            self._raised_exception_on_initialise[
+                command.component_exec_name
+            ] = deepcopy(command.init_params)
             # initalise command is not run properly
 
             # restore _staging_commands
@@ -1366,7 +1371,7 @@ class Processor:
             if current_app.debug or current_app.testing:
                 current_app.logger.warning(
                     "Exception when initialising component out of proccessing que {}: {}".format(
-                        cmd, exc.__repr__()
+                        command, exc.__repr__()
                     )
                 )
                 if not isinstance(
@@ -1378,7 +1383,7 @@ class Processor:
             return (False, None)
         self._staging_commands = backup_current_staging_commands
         self.components = backup_current_components
-        return (True, cmd.initialised_component)
+        return (True, command.initialised_component)
 
     def _handle_exception_in_command(self, command: "Command", exc: "Exception"):
         """

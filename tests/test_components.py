@@ -24,6 +24,7 @@ from jembe import (
 from jembe.app import get_processor
 
 if TYPE_CHECKING:
+    import jembe
     from jembe import ComponentConfig, Jembe, DisplayResponse
 
 
@@ -2740,3 +2741,48 @@ def test_rendering_component_in_placeholder(jmb, client):
     r = client.get("/main/_login")
     assert r.status_code == 200
     assert r.data == login_page_html
+
+
+def test_reinit_rejected_command(jmb, client):
+    class Bcumb(Component):
+        @listener(event="_display", source="/main/a")
+        def on_display_a(self, event: "jembe.Event"):
+            component_reference = self.component(
+                "/main/a",
+            )
+            url = component_reference.url
+
+        def display(self) -> "jembe.DisplayResponse":
+            return self.render_template_string("<div>bcumb</div>")
+
+    class Child(Component):
+        def __init__(self, id: int, trap: str = "trap"):
+            super().__init__()
+
+        def display(self) -> "jembe.DisplayResponse":
+            return self.render_template_string("<div>child</div>")
+
+    @jmb.page("main", Component.Config(components=dict(a=Child, b=Bcumb)))
+    class CPage(Component):
+        @listener(event="_display", source=".")
+        def on_self_display(self, event: "jembe.Event"):
+            if hasattr(self, "alreadydisplayed"):
+                return
+            self.alreadydisplayed = True
+            self.display_component("a", id=1)
+
+        def display(self) -> "jembe.DisplayResponse":
+            return self.render_template_string(
+                """<html><head></head><body>"""
+                """{{component("b")}}"""
+                """{% if component("a").is_accessible %}"""
+                """{{component("a")}}"""
+                """{% else %}"""
+                """{{placeholder("a")}}"""
+                """{% endif %}"""
+                """</body></html>"""
+            )
+
+    r = client.get("/main")
+    assert r.status_code == 200
+    print(r.data)
