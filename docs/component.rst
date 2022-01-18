@@ -15,9 +15,10 @@ Root/Page Component.
    Components diagram
 Web application can have multiple Root/Page Components if needed.
 
-Jembe Component is made of two main parts: - **Component.Config class**
-- responsible for: - configuring the behavior of te Component class
-instances; - it's initialized: - only once for every registred
+Jembe Component is made of two main parts: 
+
+- **Component.Config class** responsible for: 
+    - configuring the behavior of te Component class instances; - it's initialized: - only once for every registred
 component, when an application is started; - **Component class** -
 responsible for: - rendering part of the HTML page; - handling user
 interaction with that part of the page; - initalized: - on every HTTP

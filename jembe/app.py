@@ -24,8 +24,80 @@ class _JembeState:
 
 
 class Jembe:
-    """
-    This class is used to configure Jembe pages and Flask integration.
+    """Keep tracks of all registred Jembe Components and Storages.
+
+    Jembe class is initilised only once per application and its main purpose 
+    is to keep track of all Componets and Storages used by application itself.
+
+    Usually you create ``Jembe`` instance and registre it as Flask extension
+    inside ``yourproject/__init__.py``, or in ``yourproject/app.py`` 
+    when using ``jembe startproject`` template, similar like this:
+
+    .. code-block:: python
+
+        from flask import Flask
+        from jembe import Jembe
+
+        app = Flask(__name__)
+        jmb = Jembe(app)
+
+
+    Attributes:
+        app:
+            Optional Flask application instance.
+
+            If Flask application instance is not provided than ``Jembe.init_app``
+            method must be executed after Flask instance becomes avaiable like so:
+
+            .. code-block:: python
+
+                from flask import Flask
+                from jembe import Jembe
+
+                jmb = Jembe()
+
+                def create_app(config):
+                    app = Flask()
+                    jmb.init_app(app)
+                    return app
+
+                jembe = Jembe()
+                app = Flask(__name__)
+
+        storages: 
+            Optional Jembe storage definitions used for  files 
+            created or uploaded by end user.
+
+            If storages are not defined than default storages configuration will be used:
+
+            - Public storage named `public` in ``data/media/public`` directory;
+            - Private storage named `private` in ``data/media/private`` directory;
+            - Temporary storage named `temp` in ``data/media/temp`` directory;
+
+            If you want to change location of media folder but keep the same
+            configuration of public, private and temporary storage you can 
+            alter Flask config variable ``JEMBE_MEDIA_FOLDER`` like so:
+
+            .. code-block:: python
+                :caption: instance/config.py
+
+                JEMBE_MEDIA_FOLDER = "/var/yourproject/media"
+
+            If you manually define one storage, Jembe will not add default storages,
+            and you must define all storages used by your application including at 
+            least one temporary storage. 
+
+    Raises:
+        JembeError: 
+                In following cases:
+
+                - Only one Jembe extension can be initialise for a Flask instance.
+                - Cannot initialise storages before initialising jembe with flask instance.
+                - Temporary Storage must be configured in order for file upload to work.
+                - Component {exec_name} does not exist.
+
+    Returns:
+        :obj:`Jembe`: Jembe instance
     """
 
     X_JEMBE = "X-Jembe"
@@ -96,7 +168,6 @@ class Jembe:
             for name, component in self._unregistred_pages.items():
                 self._register_page(name, component)
             self._unregistred_pages = {}
-
 
     def _init_storages(self, storages: Optional[Sequence["jembe.Storage"]]):
         if not self.flask:
