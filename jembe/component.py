@@ -828,6 +828,8 @@ class Component(metaclass=ComponentMeta):
         template = template if template else self._config.template
         if not isinstance(template, str):
             template = list(template)
+        # add reference to itself in context (usefull for passing parameters in macros)
+        context["_context"] = context
         return render_template(template, **context)
 
     def render_template_string(self, source, **context):
@@ -845,6 +847,8 @@ class Component(metaclass=ComponentMeta):
             **self._get_default_template_context(),
             **context,
         }
+        # add reference to itself in context (usefull for passing parameters in macros)
+        context["_context"] = context
         return render_template_string(source, **context)
 
     def _get_default_template_context(self) -> Dict[str, Any]:
