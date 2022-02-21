@@ -55,7 +55,8 @@ export function registerListener(component, el, event, modifiers, expression, ex
             // If the .self modifier isn't present, or if it is present and
             // the target element matches the element we are registering the
             // event on, run the handler
-            if (!modifiers.includes('self') || e.target === el) {
+            const target = e.type === 'ready'? e.detail['target'] : e.target
+            if (!modifiers.includes('self') || target === el) {
                 const returnValue = runListenerHandler(component, expression, e, extraVars, el)
 
                 returnValue.then(value => {
@@ -127,7 +128,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
             } else {
                 //run emidiatly like on:ready
                 component.nextTickStack.push(() => {
-                    handler(new Event('ready', { target: el }))
+                    handler(new CustomEvent('ready', {detail: {target: el }}))
                 })
                 return // dont register listener nor 
             }
@@ -137,7 +138,7 @@ export function registerListener(component, el, event, modifiers, expression, ex
     if (event === 'ready') {
         if (! (mutated && modifiers.includes("once"))) {
             component.nextTickStack.push(() => {
-                handler(new Event('ready', { target: el }))
+                handler(new CustomEvent('ready', {detail:{ target: el }}))
             })
         }
     } else {
@@ -151,7 +152,8 @@ export function registerListener(component, el, event, modifiers, expression, ex
 }
 
 function runListenerHandler(component, expression, e, extraVars, self) {
-    return component.evaluateCommandExpression(e.target, expression, () => {
+    const target = e.type === 'ready'? e.detail['target'] : e.target
+    return component.evaluateCommandExpression(target, expression, () => {
         return { ...extraVars(), '$event': e, '$self': self }
     })
 }
