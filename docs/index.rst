@@ -1,28 +1,22 @@
 Welcome to Jembe Framework
 ==========================
 
-`Jembe <https://jembe.io>`_  is a Python web Framework build on top of Flask, to fullfill following goals:
+`Jembe <https://jembe.io>`_  is Web Framework written in Python on top of Flask, for rapid development of business oriented datacentric applications.
 
--  Frontend is build from configurable, reusable and easily adaptable UI Components;
--  After developing a "fundamental" set of UI components developer:
+.. warning:: This documentation is under writing and it is far from completed. All sugestions are Welcome.
 
-   -  can stay focused on "business" logic on all his/her future project;
-   -  and write new UI Components only for specific use cases;
+Design Principes of Jembe
+-------------------------
 
--  UI Component is created by extending Python Component class, and
-   writing associated Jinja2 template;
--  UI Component is responsible for rendering a part of a web page and
-   handling all user interaction with that part of the page;
--  After a user interacts with the UI Component, the HTML of that Component is updated using 
-   server-side rendering and partial HTML updating;
--  UI Component allows developers to develop frontend logic in Python and HTML
-   and write javascript code only to implement unusual and complex User interactions;
--  There should be no reason to think about or implement the logic for:
-
-   -  Handling HTTP request-response cycle;
-   -  URL Routing;
-   -  Handling any "low level" web/HTTP API;
-
+- Application is build by laying **Components** on top of ech other; 
+- **Component** is:
+   - Python class with, 
+   - associated Jinja2 template, 
+- **Component** is:
+   - responsible for displaying part of the web page and 
+   - handling all user interaction with that part of the page;
+- Components communicate with each other by dispatching and listening for events;
+- Components are configurable;
 
 
 User Guide

@@ -24,14 +24,14 @@ class _JembeState:
 
 
 class Jembe:
-    """Keep tracks of all registred Jembe Components and Storages.
+    """Keeps track of all application Components and Storages.
 
-    Jembe class is initilised only once per application and its main purpose 
+    Jembe instance is initilised only once per application and its main purpose
     is to keep track of all Componets and Storages used by application itself.
 
-    Usually you create ``Jembe`` instance and registre it as Flask extension
-    inside ``yourproject/__init__.py``, or in ``yourproject/app.py`` 
-    when using ``jembe startproject`` template, similar like this:
+    Usually you create ``Jembe`` instance and register it as Flask extension
+    in ``yourproject/__init__.py``, or in ``yourproject/app.py``
+    when using ``jembe startproject`` template, similar to:
 
     .. code-block:: python
 
@@ -61,12 +61,10 @@ class Jembe:
                     jmb.init_app(app)
                     return app
 
-                jembe = Jembe()
-                app = Flask(__name__)
+        storages:
+            Optional Jembe storages definitions.
 
-        storages: 
-            Optional Jembe storage definitions used for  files 
-            created or uploaded by end user.
+            Files created or uploaded by end user are saved in this storages.
 
             If storages are not defined than default storages configuration will be used:
 
@@ -74,8 +72,19 @@ class Jembe:
             - Private storage named `private` in ``data/media/private`` directory;
             - Temporary storage named `temp` in ``data/media/temp`` directory;
 
+            .. code-block:: python
+
+                from jembe import DiskStorage
+
+                # example storage configuration
+                Jembe(storages=[
+                    DiskStorage("public", "data/media/public"),
+                    DiskStorage("private", "data/media/private", type=DiskStorage.Type.PRIVATE),
+                    DiskStorage("temp", "data/media/temp", type=DiskStorage.Type.TEMP),
+                ])
+
             If you want to change location of media folder but keep the same
-            configuration of public, private and temporary storage you can 
+            configuration of public, private and temporary storage you can
             alter Flask config variable ``JEMBE_MEDIA_FOLDER`` like so:
 
             .. code-block:: python
@@ -83,18 +92,13 @@ class Jembe:
 
                 JEMBE_MEDIA_FOLDER = "/var/yourproject/media"
 
-            If you manually define one storage, Jembe will not add default storages,
-            and you must define all storages used by your application including at 
-            least one temporary storage. 
+            If you manually define one storage, Jembe will not add other default storages,
+            and you must define all storages used by your application including at
+            least one temporary storage.
 
     Raises:
-        JembeError: 
-                In following cases:
-
-                - Only one Jembe extension can be initialise for a Flask instance.
-                - Cannot initialise storages before initialising jembe with flask instance.
-                - Temporary Storage must be configured in order for file upload to work.
-                - Component {exec_name} does not exist.
+        JembeError: When: More then one Jembe extension is initialised for a Flask instance;
+            Storage is initialised before associating Jembe with Flask instance; Temporary Storage is not configured;
 
     Returns:
         :obj:`Jembe`: Jembe instance
@@ -128,20 +132,17 @@ class Jembe:
 
     @property
     def flask(self) -> Optional["Flask"]:
+        """Returns associated Flask instance"""
         try:
             return self.__flask
         except AttributeError:
             return None
-            # raise JembeError(
-            #     "Jembe app is not initilised with flask app. Call init_app first."
-            # )
 
     def init_app(
         self, app: "Flask", storages: Optional[Sequence["jembe.Storage"]] = None
     ):
         """
-        This callback is used to initialize an applicaiton for the use
-        with Jembe components.
+        Use this callback to initialize Jembe with Flask application dynamicaly.
         """
         self.__flask = app
 
@@ -211,6 +212,19 @@ class Jembe:
         component: Type["jembe.Component"],
         component_config: Optional["jembe.ComponentConfig"] = None,
     ):
+        """
+        Register Jembe Component as Page to Jembe instance.
+
+        Page Component and all its sub-component will be recursivlly 
+        registred. 
+        Page component becomes avaiable under `/<name>` URL.
+
+        Args:
+            name: Unique name of the component.
+            component: Component Class
+            component_config: Optional instance of Component.Config to
+                configure Component behavior
+        """
         component_ref: ComponentRef = (
             (
                 component,
@@ -231,10 +245,13 @@ class Jembe:
         component_config: Optional["jembe.ComponentConfig"] = None,
     ):
         """
-        A decorator that is used to register a jembe page commponent.
-        It does same thing as add_page but is intended for decorator usage::
+        A decorator that registers a Jembe Page Component.
 
-            @jmb.page("page", Component.Config(components={..}))
+        It does same thing as add_page but its used as deocrator:
+
+        .. code-block:: python
+        
+            @jmb.page("simple", Component.Config(components={..}))
             class SimplePage(Component):
                 pass
         """
@@ -328,6 +345,15 @@ class Jembe:
     def get_storage_by_type(
         self, storage_type: "jembe.Storage.Type", storage_name: Optional[str] = None
     ) -> "jembe.Storage":
+        """
+            Returns first storage of the provided type if it exists.
+            
+            Args:
+                storage_type: Storage type one of `Storage.Type.PRIVATE`, `Storage.Type.PUBLIC` or `Storage.Type.TEMP`
+                storage_name: Optional name of the storage
+            Raises:
+                JembeError: When storage does not exists
+        """
         # returs named storage if exist and it's right type
         if storage_name is not None:
             try:
@@ -351,9 +377,18 @@ class Jembe:
             )
 
     def get_storages(self) -> List["jembe.Storage"]:
+        """Returns list of all configured Jembe storages"""
         return list(self._storages.values())
 
     def get_storage(self, storage_name: str) -> "jembe.Storage":
+        """Returns storage by storage name
+
+        Args:
+            storage_name (str): Name of the storage
+
+        Raises:
+            JembeError: Storage does not exist
+        """
         try:
             return self._storages[storage_name]
         except KeyError:
@@ -361,6 +396,11 @@ class Jembe:
 
 
 def get_processor():
+    """Returns current Jembe Processors
+
+    Raises:
+        JembeError: When current HTTP request can't be handled by jembe processor or when Jembe extension is not initialised
+    """
     if "jmb_processor" not in g:
         if not (request.endpoint and request.blueprint):
             raise JembeError("Request {} can't be handled by jembe processor")
@@ -373,6 +413,12 @@ def get_processor():
 
 
 def get_jembe() -> "Jembe":
+    """Returns current Jembe instance
+
+    Raises:
+        JembeError: When Jembe extension is not initialised
+    """
+    
     jembe_state = current_app.extensions.get("jembe", None)
     if jembe_state is None:
         raise JembeError("Jembe extension is not initialised")
@@ -380,30 +426,64 @@ def get_jembe() -> "Jembe":
 
 
 def get_storage(storage_name: str) -> "jembe.Storage":
+    """Returns storage by storage name from current Jembe instance
+
+    Args:
+        storage_name (str): Name of the storage
+
+    Raises:
+        JembeError: Storage does not exist
+    """
     return get_processor().jembe.get_storage(storage_name)
 
 
 def get_storages() -> List["jembe.Storage"]:
+    """Returns list of all registred Storages in current Jembe instance"""
     return get_processor().jembe.get_storages()
 
 
 def get_temp_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
+    """Returns temporary storage of current Jembe instance.
+
+    When storage_name is provided it will return temporary storage with given name,
+    otherwise it will return first temporary storage from storage list.
+
+    Args:
+        storage_name (Optional[str], optional): Name of the temporary storage. Defaults to None.
+    """
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.TEMP, storage_name)
 
 
 def get_public_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
+    """Returns public storage of current Jembe instance.
+
+    When storage_name is provided it will return public storage with given name,
+    otherwise it will return first public storage from storage list.
+
+    Args:
+        storage_name (Optional[str], optional): Name of the public storage. Defaults to None.
+    """
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.PUBLIC, storage_name)
 
 
 def get_private_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
+    """Returns private storage of current Jembe instance.
+
+    When storage_name is provided it will return private storage with given name,
+    otherwise it will return first private storage from storage list.
+
+    Args:
+        storage_name (Optional[str], optional): Name of the private storage. Defaults to None.
+    """
     from .files import Storage
 
     return get_processor().jembe.get_storage_by_type(Storage.Type.PRIVATE, storage_name)
 
 
 def jembe_master_view(**kwargs) -> "Response":
+    """Process HTTP request with Jembe Processors"""
     return get_processor().process_request().build_response()

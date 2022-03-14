@@ -9,21 +9,25 @@ Application User Interface.
 Components are combined in a hierarchy. At least one component will be
 Root/Page Component.
 
-.. figure:: doc/components.png
+.. figure:: img/components.png
    :alt: Components diagram
 
-   Components diagram
+    Components diagram
+
 Web application can have multiple Root/Page Components if needed.
 
 Jembe Component is made of two main parts: 
 
 - **Component.Config class** responsible for: 
-    - configuring the behavior of te Component class instances; - it's initialized: - only once for every registred
-component, when an application is started; - **Component class** -
-responsible for: - rendering part of the HTML page; - handling user
-interaction with that part of the page; - initalized: - on every HTTP
-request (user interaction) with application when that specific component
-is displayed.
+    - configuring the behavior of te Component class instances; 
+    - it's initialized: 
+    - only once for every registred component, when an application is started; 
+
+- **Component class** responsible for: 
+    -  rendering part of the HTML page; 
+    -  handling user interaction with that part of the page; 
+    -  initalized: 
+    -  on every HTTP request (user interaction) with application when that specific component is displayed.
 
 The following example creates a simplified web application with one
 Root/Page component and three subcomponents.
@@ -122,10 +126,10 @@ myproject/templates/demo/form.html
 
     <div>Form</div>
 
-.. figure:: doc/demo_app.png
+.. figure:: img/demo_app.png
    :alt: Demo app
 
-   Demo app
+Demo app
 Configuring PageComponent by extending the Component class, like in the
 example above, is the most powerful and flexible way to configure a
 Component's behavior, and it's usually used when creating new components
@@ -134,7 +138,7 @@ to add additional configuration parameters.
 To combine existing components it's easier and less verbose to use
 ``page`` decorator:
 
-.. code:: python
+.. code::python
 
     from jembe import Component
     from myproject.app import jmb

@@ -7,7 +7,17 @@ from flask import url_for
 
 
 def page_url(exec_name: str, url_params: Optional[List[Dict[str, Any]]] = None):
-    """Returns page url with applied url_params"""
+    """Returns url of the Component with provided exec_name.
+
+    Url is genarated without initialising components but by bulidin url dynamicaly.
+
+    .. note:: Url params are same as state params if not renamed with `ComponentConfig(url_query_params={})`
+
+    Args:
+        exec_name: Execution name of the Jembe component which url we want to obtain
+        url_params: Optional list of component url params for every component in exec_name.  Defaults to None.
+
+    """
     if not exec_name.startswith("/"):
         exec_name = "/{}".format(exec_name)
     root_page_name = exec_name.split("/")[1].split(".")[0]

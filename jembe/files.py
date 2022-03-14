@@ -1,4 +1,3 @@
-from re import I
 from typing import TYPE_CHECKING, Union, Any, Dict, List, Optional
 from enum import Enum
 import shutil

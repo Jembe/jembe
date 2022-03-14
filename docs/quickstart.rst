@@ -7,7 +7,7 @@ Install Jembe
 .. important::
     Jembe requires **Python 3.8** or above.
 
-To install Jembe using `pip`, and start new project with premade project template:
+Installing Jembe using `pip`, and starting new project from project template:
 
 .. code-block:: bash
 
@@ -22,7 +22,7 @@ To install Jembe using `pip`, and start new project with premade project templat
     # Install Jembe framework in newly created vritual enviroment
     $ pip install jembe
 
-    # Start a new project with the premade project template
+    # Start a new project
     $ jembe startproject
 
     # Install developer dependencies in a virtual environment
@@ -31,46 +31,43 @@ To install Jembe using `pip`, and start new project with premade project templat
     # Run application
     $ flask run
 
-With browser open http://localhost:5000 to view newly created jembe
-application.
+Open http://localhost:5000 in browser to view newly created application.
 
 Project Folder Structure
 ========================
 
+You can organize your code as you want, the structure bellow is used by default
+with ``jembe startproject`` command, this structure is recomended for developing applications 
+with Jembe Components.
+
 .. code-block:: bash
 
     myproject                       # - Project root directory
-    ├── data                        # - Permanent and temporary storage 
+    ├── data                        # - Permanent and temporary data storage 
     │                               #   for application files, images, etc.
+    │
     ├── instance                    # - Flask instance folder
-    │   └── config.py               # - Application configuration settings
-    ├── myproject                   # - Package with your application
-    │   │                           #   source code
+    │   └── config.py               # - Application configuration
+    ├── myproject                   # - Package with your application source code
     │   ├── __init__.py             # - Initilase Flask
-    │   ├── app.py                  # - Initialise Jembe and other Flask 
-    │   │                           #   extensions
+    │   ├── app.py                  # - Initialise Jembe and other Flask extensions
     │   ├── commands.py             # - Custom Flask CLI commands
-    │   │                             
     │   ├── pages                   # - Package for Jembe Components
-    │   │   ├── __init__.py         # - Imports Jembe Component decorated
-    │   │                           #   with @page so that Jembe instance
-    │   │                           #   can find them
+    │   │   ├── __init__.py         # - Imports Jembe @page Components 
+    │   │   │                       #   so that Jembe instance can find them
     │   │   ├── _counter.py         
     │   │   └── main.py
     │   ├── static                  # - Static resources
     │   │   └── css
     │   │       └── myproject.css   
-    │   ├── templates               # - Jinja2 templates for Jembe 
-    │   │   │                       #   components
+    │   ├── templates               # - Jinja2 templates
     │   │   ├── main
     │   │   │   └── counter.html
     │   │   └── main.html
     │   └── views
-    │       └── __init__.py         # - Flask view for redirecting 
-    │                               #   requsets from root URL 
-    │                               #   to "/main" Jembe @page Component
-    ├── .flaskenv                   # - Sets required OS enviroment variables
-    │                               #   before starting app
+    │       └── __init__.py         # - Flask view that redirects request for / 
+    │                               #   to "/main" Jembe Component
+    ├── .flaskenv                   # - Sets OS enviroment variables 
     ├── pyproject.toml              # - packaging configuration
     ├── README.md
     ├── LICENSE
@@ -79,8 +76,6 @@ Project Folder Structure
     └── tests                       # - place for tests
         └── conftest.py             # - pytest configuration
 
-You can organize your code as you want, the structure above is used by default
-template created with ``jembe startproject`` command.
 
 Main advantages of this project structure are:
 
@@ -88,36 +83,37 @@ Main advantages of this project structure are:
 2. Easy installation in production with:
 
    1. ``pip install myproject``;
-   2. create ``config.py`` for production and put it in ``instance`` subfolder;
-   3. create ``data`` directory;
+   2. creating ``instance/config.py`` with production settings;
+   3. creating ``data`` directory;
 
 3. Easy production update with ``pip install --update myproject``;
 4. Application data (files, images, etc.) are separated from application code in ``data`` directory;
-5. Easy creation of development enviroment with ``pip install .[dev]`` 
+5. Creation of development enviroment with ``pip install .[dev]`` 
 6. Development and production enviroment are created with same commands and are "exacly the same";
 7. All Jembe Components are organized inside ``pages`` subpackage.
 
 Main drawbacks are:
 
 1. Dependencies in setup.cfg must be manually maintained;
-2. Whole application is in one package, which is not ideal for very large 
+2. Whole application is in one package, which may not be ideal for very large 
    application maintained by multiple teams.
 
 
-Introduction to Jembe
-~~~~~~~~~~~~~~~~~~~~~
+Jembe Examples
+~~~~~~~~~~~~~~
 
-To better understand how Jembe works, let's write couple simple applications.
+To better understand how Jembe works, let's write some simple applications.
 
-The following examples assumes that the project is named
-**'myproject'** and it's created with ``$ jembe startproject``
-command.
+.. important:: 
+    The following examples assumes that the project is named
+    **'myproject'** and it's created with ``$ jembe startproject``
+    command.
 
 
 Hello World Example
 ===================
 
-In this example, we'll create a simple Component to render a static HTML page.
+Let's create a simple Component to render a static HTML page.
 
 
 .. code-block:: python
@@ -147,15 +143,18 @@ In this example, we'll create a simple Component to render a static HTML page.
     </html>
 
 
-Visit ``http://localhost:5000/hello``.
+Open http://localhost:5000/hello in browser to see Helo World page.
 
 Making Hello World Dynamic
 ==========================
 
-Now let's allow a user to change its name by:
+Now let's allow a user to say Hello to himself by:
 
--  Using **state variable** to store his name,
--  and HTML Input field to update his name stored in **state variable**.
+-  Typing name in input field and updating Hello message.
+
+.. note:: 
+    This example uses Component **state variable** to store name from input field. Component HTML is redisplayed every time
+    any state variable is changed.
 
 
 .. code-block:: python
@@ -168,8 +167,11 @@ Now let's allow a user to change its name by:
     class HellowWorld(Component):
         # all __init__ parameters whose name 
         # does not start with an underscore (_)
-        # will be state variables
-        # and they must been annotated with type
+        # will become state variables.
+        # 
+        # State variables must be annotated with type 
+        # in order to be serialized and used by
+        # javascript in jinja2 template.
         def __init__(self, name: str = "World"):
             """
                 State variable "name" is avaiable in this component as
@@ -181,9 +183,8 @@ Now let's allow a user to change its name by:
 .. code-block:: python
     :caption: myproject/pages/__init__.py
 
-    # add at the end of the file
-    # to enable application to find your
-    # newlly crated @jmb.page
+    # add this at the end of the __init__.py
+    # for Jembe instance to find HelloWorld @page 
     from .hello_world import HelloWorld
 
 .. code-block:: jinja
@@ -192,10 +193,10 @@ Now let's allow a user to change its name by:
     <html>
     <body>
         <h1>Hello {{name}}!</h1>
+        {# on keydown change component state 'name' to value of input field #}
         <input 
             jmb-on:keydown.debounce="name = $self.value" 
-            value="{{name}}"
-        >
+            value="{{name}}">
 
         {# Following is boilerplate code required only for 
            @jmb.page component to:
@@ -224,10 +225,10 @@ Notice that the input field doesn't lose focus when the page is updated.
 Counter Example
 ===============
 
-In this example, we'll:
+In this example, we'll create "counter" that can be increased or decreased by clicking on ``+`` or ``-`` buttons.
 
--  create **actions** that will be executed when a user press button;
--  and combine multiple components to create complex pages;
+.. note:: 
+    This example uses **actions** that will be executed when a user clicks on buttons, it also uses multiple components to create complex application;
 
 
 .. code-block:: python
@@ -239,8 +240,8 @@ In this example, we'll:
 
     class Counter(Component):
         """ 
-            Keeps track of current count and defines 
-            actions to increase and decrease it.
+            Component that tracks current count and
+            defines increase and decrease actions.
         """
         def __init__(self, count:int = 0):
             """ 
@@ -272,8 +273,8 @@ In this example, we'll:
 .. code-block:: python
     :caption: myproject/pages/__init__.py
 
-    # add at the end of the file
-    # for application to find CounterPage
+    # add this at the end of the __init__.py
+    # for Jembe instance to find CounterPage 
     from .counter import CounterPage
 
 
@@ -293,7 +294,7 @@ In this example, we'll:
 
     <html>
     <body>
-        <!-- displays "counter" subcomponent -->
+        {# display "counter" subcomponent #}
         {{component('counter')}}
 
         {# Boilerplate code required by Jembe only for @jmb.page Compoennt #}
@@ -316,12 +317,16 @@ When increasing/decreasing counter, Counter Component HTML is rendered and updat
 Multiple Counters Example
 =========================
 
-Using multiple components of same class on one page, demonstrates how to:
+Let's put multiple counters on page and display sum of all counters.
 
--  Changes component configuration without extending its class, by instructing Jembe that URL 
-   should not be changed when the component is displayed on the page;
--  Communicate between components using **events** and **listeners**.
--  Use multiple instances of the same component on a page.
+
+.. note::
+    This example demonstrates how to:
+
+    -  Change component configuration without extending its class, by instructing Jembe that URL 
+       should not be changed when the component is displayed on the page;
+    -  Communicate between components using **events** and **listeners**.
+    -  Use multiple instances of the same component on a page.
 
 
 .. code-block:: python
@@ -372,7 +377,7 @@ Using multiple components of same class on one page, demonstrates how to:
 .. code-block:: python
     :caption: myproject/pages/__init__.py
 
-    # add at the end of the file
+    # add at the end of the __init__.py file
     from .multi_counter import MultiCountPage
 
 .. code-block:: jinja
