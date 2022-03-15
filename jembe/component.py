@@ -863,6 +863,12 @@ class Component(metaclass=ComponentMeta):
         return {
             # adds state params
             **self.state,
+            # add class variables not starting with underscore
+            **{
+                name: value
+                for name, value in vars(self.__class__).items()
+                if not name.startswith("_")
+            },
             # add instance variables not starting with underscore
             **{
                 name: value
