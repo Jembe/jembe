@@ -35,19 +35,17 @@ class ComponentRef {
     this.api.mount(originalComponentRef)
   }
   remove() {
-    let removed = []
-    for (const [execName, domElement] of Object.entries(this.placeHolders)) {
-      removed.push(execName)
-      domElement.remove()
-    }
+    // let removed = []
+    // for (const [execName, domElement] of Object.entries(this.placeHolders)) {
+    //   removed.push(execName)
+    //   domElement.remove()
+    // }
     const dom = this.dom
     this.unmount()
     dom.remove()
-    removed.push(this.execName)
-    return removed
-  }
-  _removeSubcomponents() {
-
+    return this.execName
+    // removed.push(this.execName)
+    // return removed
   }
   unmount() {
     if (this.api !== null) {
@@ -374,9 +372,13 @@ class JembeClient {
     }
     // unmount and remove components from globals.removeComponents list
     let removedComponents = []
-    for (const execName of globals.removeComponents) {
+    let execName
+    while (typeof(execName = globals.removeComponents.pop()) !== 'undefined') {
       if (Object.keys(newComponents).includes(execName) && !removedComponents.includes(execName)) {
-        removedComponents.push(...newComponents[execName].remove())
+        for (const childExecName of Object.keys(newComponents[execName].placeHolders)) {
+          globals.removeComponents.push(childExecName)
+        }
+        removedComponents.push(newComponents[execName].remove())
         const parentComponentExecName = execName.split("/").slice(0, -1).join("/")
         delete newComponents[parentComponentExecName].placeHolders[execName]
       }
