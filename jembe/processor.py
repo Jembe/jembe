@@ -11,10 +11,10 @@ from typing import (
     Deque,
     Any,
     NamedTuple,
-    final,
 )
 from abc import ABC, abstractmethod
 import re
+from json import JSONDecodeError
 from copy import deepcopy
 from enum import Enum
 from collections import deque
@@ -1064,11 +1064,14 @@ class Processor:
 
     def __create_commands(self, component_full_name: str):
         if self._is_x_jembe_request:
+            try:
+                data = json.loads(
+                    self.request.data.decode("utf-8"),
+                )
+            except JSONDecodeError:
+                data = dict()
+        if self._is_x_jembe_request and data:
             # x-jembe ajax request
-            data = json.loads(
-                self.request.data.decode("utf-8"),
-                # object_hook=json_object_hook,
-            )
             # init components from data["components"]
             to_be_initialised = [
                 component_data["execName"] for component_data in data["components"]
@@ -1102,9 +1105,8 @@ class Processor:
                 for c in updated_init_commands_execnames
                 if c not in call_commands_execnames
             ]
-
         else:
-            # regular http/s GET request
+            # regular http/s GET request and when invalid x-jembe request data
             exec_names = self.__create_commands_from_url_path(
                 component_full_name, list()
             )
