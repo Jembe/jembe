@@ -981,6 +981,9 @@ class Component(metaclass=ComponentMeta):
             ),
             end=True,
         )
+        processor.components_marked_for_removal = [
+            en for en in processor.components_marked_for_removal if en != cexec_name
+        ]
 
     def remove_component(
         self, _jmb_component_name: str, _jmb_component_key: Optional[str] = None
@@ -1005,14 +1008,9 @@ class Component(metaclass=ComponentMeta):
             if _jmb_component_key is None
             else "{}.{}".format(_jmb_component_name, _jmb_component_key),
         )
-        if cexec_name in processor.renderers and processor.renderers[cexec_name].fresh:
-            raise JembeError(
-                "Can't remove component '{}' that is freshly displayed!".format(
-                    cexec_name
-                )
-            )
 
-        processor.components_marked_for_removal.append(cexec_name)
+        if cexec_name not in processor.components_marked_for_removal:
+            processor.components_marked_for_removal.append(cexec_name)
 
     def get_storage(self, storage_name: Optional[str] = None) -> "jembe.Storage":
         processor = get_processor()

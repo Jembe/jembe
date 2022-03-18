@@ -1554,6 +1554,7 @@ class Processor:
                 and state_jsondict is not None
                 and url is not None
                 and html is not None
+                and exec_name not in self.components_marked_for_removal
             }
             unused_exec_names = sorted(
                 c_etrees.keys(),
