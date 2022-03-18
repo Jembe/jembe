@@ -41,7 +41,7 @@ def direct_child_name(
     component: "jembe.Component", subcompoenent_full_name: str
 ) -> str:
     """
-    Returns name of the direct child of compoennt from subcomponent.
+    Returns name of the direct child of component from subcomponent.
     If subcompoennt is not under component raise error.
     """
     parent_names = component._config.full_name.split("/")
@@ -63,6 +63,15 @@ def is_direct_child_name(exec_name: str, sub_exec_name: str) -> bool:
     if relative_name[0] != "/":
         return False
     if len(relative_name.split("/")) > 2:
+        return False
+    return True
+
+def is_child_name(exec_name: str, sub_exec_name: str) -> bool:
+    """Returns True if sub_exec_name is under exec_name"""
+    if not sub_exec_name.startswith(exec_name) or exec_name == sub_exec_name:
+        return False
+    relative_name = sub_exec_name[len(exec_name) :]
+    if relative_name[0] != "/":
         return False
     return True
 

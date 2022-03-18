@@ -31,6 +31,7 @@ from werkzeug import Response
 from .common import (
     exec_name_to_full_name,
     is_direct_child_name,
+    is_child_name,
     is_page_exec_name,
     parent_exec_name,
     load_param,
@@ -1459,6 +1460,22 @@ class Processor:
             self._raised_exception_on_initialise[
                 command.component_exec_name
             ] = deepcopy(command.init_params)
+            # remove all child compoennt of command.component_exec_name
+            self.components = {
+                exec_name: comp
+                for exec_name, comp in self.components.items()
+                if not is_child_name(command.component_exec_name, exec_name)
+            }
+            # remove all commands to and from  removed components
+            self._commands = deque(
+                (
+                    cmd
+                    for cmd in self._commands
+                    if not is_child_name(
+                        command.component_exec_name, cmd.component_exec_name
+                    )
+                )
+            )
 
     def build_response(self) -> "Response":
         if self._response:
