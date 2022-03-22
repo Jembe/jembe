@@ -152,7 +152,7 @@ export default class Component {
             this.nextTickStack.push(callback)
         }
 
-        this.watchers = {}
+        this.watchers = originalComponent !== undefined ? originalComponent.watchers: {}
         this.unobservedData.$watch = (property, callback) => {
             if (!this.watchers[property]) this.watchers[property] = []
             this.watchers[property].push(callback)
