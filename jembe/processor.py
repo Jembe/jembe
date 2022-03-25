@@ -1438,44 +1438,44 @@ class Processor:
             cmd = exception_commands.pop()
             # if exception is raised during handling exception ... dont try to catch it :)
             cmd.execute()
-            self._staging_commands.move_commands_to(exception_commands)
-
-        if not emit_command.event.params["handled"]:
-            # if exception is not handled by parent components
-            # rerise exception
-            current_app.logger.error(
-                "Unhandled exception in {}: {}".format(command, exc)
-            )
-            if current_app.debug or current_app.testing:
-                import traceback
-
-                traceback.print_exc()
-            raise emit_command.event.params["exception"]
-
-        # if exception is handled dont raise exception
-        if isinstance(command, InitialiseCommand):
-            # save initialises command that raised exception with params
-            # so we can skip executing other commants on this component
-            # (save to skip execution because we handled exception)
-            self._raised_exception_on_initialise[
-                command.component_exec_name
-            ] = deepcopy(command.init_params)
-            # remove all child compoennt of command.component_exec_name
-            self.components = {
-                exec_name: comp
-                for exec_name, comp in self.components.items()
-                if not is_child_name(command.component_exec_name, exec_name)
-            }
-            # remove all commands to and from  removed components
-            self._commands = deque(
-                (
-                    cmd
-                    for cmd in self._commands
-                    if not is_child_name(
-                        command.component_exec_name, cmd.component_exec_name
+            if emit_command.event.params["handled"]:
+                if isinstance(command, InitialiseCommand):
+                    # save initialises command that raised exception with params
+                    # so we can skip executing other commants on this component
+                    # (save to skip execution because we handled exception)
+                    self._raised_exception_on_initialise[
+                        command.component_exec_name
+                    ] = deepcopy(command.init_params)
+                    # remove all child compoennt of command.component_exec_name
+                    self.components = {
+                        exec_name: comp
+                        for exec_name, comp in self.components.items()
+                        if not is_child_name(cmd.component_exec_name, exec_name)
+                    }
+                    # remove all commands to and from  removed components
+                    self._commands = deque(
+                        (
+                            c
+                            for c in self._commands
+                            if not is_child_name(
+                                cmd.component_exec_name, c.component_exec_name
+                            )
+                        )
                     )
-                )
-            )
+                exception_commands = deque()
+                self._staging_commands.move_commands_to(self._commands)
+                return
+            else:
+                self._staging_commands.move_commands_to(exception_commands)
+
+        # if exception is not handled by parent components
+        # rerise exception
+        current_app.logger.error("Unhandled exception in {}: {}".format(command, exc))
+        if current_app.debug or current_app.testing:
+            import traceback
+
+            traceback.print_exc()
+        raise emit_command.event.params["exception"]
 
     def build_response(self) -> "Response":
         if self._response:
