@@ -56,7 +56,9 @@ class ComponentState(dict):
 
     def __setitem__(self, key, value):
         if not key in self.keys():
-            raise JembeError("Can't add new param to component state")
+            raise JembeError(
+                "Can't add new param '{}' to component state {}".format(key, self)
+            )
         return super().__setitem__(key, value)
 
     def __delitem__(self, key):
