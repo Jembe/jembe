@@ -1010,7 +1010,7 @@ class Component(metaclass=ComponentMeta):
             if _jmb_component_key is None
             else "{}.{}".format(_jmb_component_name, _jmb_component_key),
         )
-
+        self.emit("_remove", removed_exec_name=cexec_name)
         if cexec_name not in processor.components_marked_for_removal:
             processor.components_marked_for_removal.append(cexec_name)
 
