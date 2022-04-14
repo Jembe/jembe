@@ -1242,9 +1242,14 @@ class Processor:
 
             self._execute_commands()
             # for all components that have change state params but not have been redisplayed
+            # and all components with RedisplayFlag.WHEN_ON_PAGE:
             # check will thay still be presented/visible on page if so execute display command
             # for that components
-            for hanging_init_execname in self._hanging_init_commands_execnames:
+            for hanging_init_execname in self._hanging_init_commands_execnames + [
+                k
+                for k, v in self.components.items()
+                if RedisplayFlag.WHEN_ON_PAGE in v._config.redisplay
+            ]:
                 if hanging_init_execname not in [
                     execname for execname, v in self.renderers.items() if v.fresh
                 ]:
@@ -1274,6 +1279,14 @@ class Processor:
                         self.add_command(CallDisplayCommand(hanging_init_execname))
                         self._staging_commands.move_commands_to(self._commands)
                         self._execute_commands()
+                    elif (
+                        hanging_init_execname in self.components
+                        and RedisplayFlag.WHEN_ON_PAGE
+                        in self.components[hanging_init_execname]._config.redisplay
+                        and hanging_init_execname
+                        not in self.components_marked_for_removal
+                    ):
+                        self.components_marked_for_removal.append(hanging_init_execname)
             return self
 
         finally:
