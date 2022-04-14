@@ -2785,4 +2785,3 @@ def test_reinit_rejected_command(jmb, client):
 
     r = client.get("/main")
     assert r.status_code == 200
-    print(r.data)

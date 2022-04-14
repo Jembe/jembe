@@ -1072,9 +1072,15 @@ class Component(metaclass=ComponentMeta):
                     self._jembe_disabled_actions.append(a)
 
     def ac_check(self, action_name: Optional[str] = None) -> bool:
+        """Check if access control rules are satisfied 
+
+        Args:
+            action_name (Optional[str], optional): Check if action is accessible, when none it will check is whole component is accessible. Defaults to None.
+
+        Returns:
+            bool: returns true if action or whole compoennt is accesible
         """
-        Apply access control rules
-        """
+        # Apply access control rules
         if ComponentConfig.DEFAULT_DISPLAY_ACTION in self._jembe_disabled_actions or (
             action_name is not None and action_name in self._jembe_disabled_actions
         ):
