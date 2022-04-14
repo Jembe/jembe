@@ -563,6 +563,7 @@ class Component(metaclass=ComponentMeta):
         component._jembe_disabled_actions = []
         component.exec_name = _component_exec_name
         component.__init__(**init_params)  # type: ignore
+        # init is called after __init__ so it can access all state variables regardles if __init__ is overwriten
         component.init()
         component._jembe_component_initialising = None
         component._jembe_existing_component_state = None
@@ -601,7 +602,9 @@ class Component(metaclass=ComponentMeta):
         Executed after __init__, usefull for adding logic that should be
         executed on init but without need to rewrite/list init params.
         """
-        pass
+        # raise NotFound when componet is not accessible
+        if not self.ac_check():
+            raise self._config.DEFAULT_AC_EXCEPTION()
 
     @property
     def previous_state(self) -> Optional["ComponentState"]:
@@ -1072,7 +1075,7 @@ class Component(metaclass=ComponentMeta):
                     self._jembe_disabled_actions.append(a)
 
     def ac_check(self, action_name: Optional[str] = None) -> bool:
-        """Check if access control rules are satisfied 
+        """Check if access control rules are satisfied
 
         Args:
             action_name (Optional[str], optional): Check if action is accessible, when none it will check is whole component is accessible. Defaults to None.
