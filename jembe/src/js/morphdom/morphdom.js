@@ -6,6 +6,7 @@
 
 import { compareNodeNames, toElement, moveChildren, createElementNS, doc } from './util';
 import specialElHandlers from './specialElHandlers';
+import { format } from 'path-browserify';
 
 var ELEMENT_NODE = 1;
 var DOCUMENT_FRAGMENT_NODE = 11;

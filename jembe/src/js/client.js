@@ -33,6 +33,7 @@ class ComponentRef {
       this.api = new ComponentAPI(this)
     }
     this.api.mount(originalComponentRef)
+    this._add_support_for_jmb_changed_attr_to_inputs()
   }
   remove() {
     // let removed = []
@@ -195,6 +196,18 @@ class ComponentRef {
     }
     dom.removeAttribute('jmb-data')
     return dom
+  }
+  _add_support_for_jmb_changed_attr_to_inputs(){
+    // when input is changed add jmb-input-changed attribute
+    // so that morphdom will pickup the change and update it
+    // with new value (jembe treats input value as actual/live value instead of default value)
+    for (const inputEl of this.dom.querySelectorAll('input')) {
+      inputEl.removeEventListener('change', this._jmb_input_changed_attr_listener, false)
+      inputEl.addEventListener('change', this._jmb_input_changed_attr_listener, false)
+    }
+  }
+  _jmb_input_changed_attr_listener(event) {
+    event.target.setAttribute('jmb-input-changed','')
   }
 }
 

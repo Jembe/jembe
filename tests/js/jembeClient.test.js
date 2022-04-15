@@ -984,3 +984,40 @@ test('support permanent placeholder and remove component command in x-response',
   )
   expect(Object.keys(window.jembeClient.components).length).toBe(2)
 })
+
+//end upload
+test('update input value with x-response', () => {
+  buildDocument(`
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":{}}'>
+      <head></head>
+      <body>
+        <div jmb-name="/page/form" 
+             jmb-data='{"changesUrl":true,"state":{},"url":"/page/form","actions":{}}'>
+        <input class="form-input " id="-main-tasks-settings-rename--name" jmb-on:change.defer="form.name = $self.value;modified_fields.indexOf('name') === -1 &amp;&amp; modified_fields.push('name');" jmb-on:keydown.enter="$self.blur();$self.focus();submit()" name="name" required="" type="text" value="Value1">
+        </div>
+      </body>
+    </html>
+  `)
+  const xResponse = [
+    {
+      "execName": "/page/form",
+      "state": {},
+      "url": "/page/form",
+      "changesUrl": true,
+      "dom": `<div>
+        <input class="form-input " id="-main-tasks-settings-rename--name" jmb-on:change.defer="form.name = $self.value;modified_fields.indexOf('name') === -1 &amp;&amp; modified_fields.push('name');" jmb-on:keydown.enter="$self.blur();$self.focus();submit()" name="name" required="" type="text" value="Value2">
+        </div>`
+    },
+  ]
+  window.jembeClient.updateDocument(window.jembeClient.getComponentsAndGlobalsFromXResponse(xResponse))
+  expect(document.documentElement.outerHTML).toBe(
+    `<html jmb-name="/page"><head></head>
+      <body>
+        <div jmb-name="/page/form">
+        <input class="form-input " id="-main-tasks-settings-rename--name" jmb-on:change.defer="form.name = $self.value;modified_fields.indexOf('name') === -1 &amp;&amp; modified_fields.push('name');" jmb-on:keydown.enter="$self.blur();$self.focus();submit()" name="name" required="" type="text" value="Value2">
+        </div>
+      
+    
+  </body></html>`
+  )
+})
