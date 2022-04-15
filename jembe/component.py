@@ -442,7 +442,7 @@ class ComponentReference:
     def __html__(self):
         return self.__call__()
 
-    def if_accessible(self):
+    def if_accessible(self) -> str:
         if self.is_accessible:
             return self.__html__()
         return ""
