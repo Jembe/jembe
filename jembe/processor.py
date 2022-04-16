@@ -803,8 +803,14 @@ class InitialiseCommand(Command):
                         raise JembeError(
                             (
                                 "Cant reinitialise component {} with new parametes after "
-                                "action or listener is executed by this component."
-                            ).format(self.component_exec_name)
+                                "action or listener is executed by this component.\n"
+                                "Existing state: {}\n"
+                                "New state: {}"
+                            ).format(
+                                self.component_exec_name,
+                                self.existing_component.state,
+                                self.init_params,
+                            )
                         )
                 else:
                     return False
