@@ -434,7 +434,12 @@ def get_storage(storage_name: str) -> "jembe.Storage":
     Raises:
         JembeError: Storage does not exist
     """
-    return get_processor().jembe.get_storage(storage_name)
+    try:
+        return get_processor().jembe.get_storage(storage_name)
+    except JembeError:
+        # cant get processor becouse we are not in valid requst context
+        # return storage of default jembe app
+        return get_jembe().get_storage(storage_name)
 
 
 def get_storages() -> List["jembe.Storage"]:
