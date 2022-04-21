@@ -644,12 +644,12 @@ class JembeClient {
           }
         ).catch(error => {
           if (error.message != 'errorInJembeResponse') {
-            if (disableInputs) {
-              this.xRequestsInProgress -= 1
-              this.enableInputsAfterResponse()
-            }
             console.info('Error x-jembe request', error)
             this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
+          }
+          if (disableInputs) {
+            this.xRequestsInProgress -= 1
+            this.enableInputsAfterResponse()
           }
         })
       }
@@ -657,6 +657,10 @@ class JembeClient {
       if (error.message != 'errorInJembeResponse') {
         console.info('Error x-jembe request', error)
         this.dispatchUpdatePageErrorEvent(null, error, disableInputs)
+      }
+      if (disableInputs) {
+        this.xRequestsInProgress -= 1
+        this.enableInputsAfterResponse()
       }
     })
   }
