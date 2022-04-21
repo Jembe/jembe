@@ -6,7 +6,7 @@ from io import BufferedIOBase, TextIOBase, RawIOBase, IOBase
 from abc import ABC, abstractmethod
 from uuid import uuid4
 
-from flask import session, current_app, url_for, send_from_directory
+from flask import request, session, current_app, url_for, send_from_directory
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import cached_property, secure_filename
 from .app import get_private_storage, get_public_storage, get_storage, get_temp_storage
@@ -72,6 +72,11 @@ class File(JembeInitParamSupport):
 
     @property
     def url(self) -> str:
+        if self.in_private_storage():
+            if self.is_cache_version():
+                self.get_original().grant_access()
+            else:
+                self.grant_access()
         return url_for(
             "jembe./jembe/file",
             component_key="",
@@ -118,6 +123,7 @@ class File(JembeInitParamSupport):
 
     def move_to_private(self, subdir: str = ""):
         file = self.move_to(get_private_storage(), subdir)
+        file.grant_access()
         self.storage = file.storage
         self.path = file.path
 
@@ -265,23 +271,22 @@ class Storage(ABC):
         try:
             if file_path not in session[JEMBE_FILES_ACCESS_GRANTED][self.name]:
                 session[JEMBE_FILES_ACCESS_GRANTED][self.name].insert(0, file_path)
-                session.modified = True
+                if (
+                    len(session[JEMBE_FILES_ACCESS_GRANTED])
+                    > JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE
+                ):
+                    session[JEMBE_FILES_ACCESS_GRANTED] = session[
+                        JEMBE_FILES_ACCESS_GRANTED
+                    ][:JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE]
 
-            if (
-                len(session[JEMBE_FILES_ACCESS_GRANTED])
-                > JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE
-            ):
-                session[JEMBE_FILES_ACCESS_GRANTED] = session[
-                    JEMBE_FILES_ACCESS_GRANTED
-                ][:JEMBE_FILES_ACCESS_GRANTED_MAX_SIZE]
                 session.modified = True
         except KeyError:
             if JEMBE_FILES_ACCESS_GRANTED not in session:
-                session[JEMBE_FILES_ACCESS_GRANTED] = dict()
-            if self.name not in session[JEMBE_FILES_ACCESS_GRANTED]:
-                session[JEMBE_FILES_ACCESS_GRANTED][self.name] = list()
-            session[JEMBE_FILES_ACCESS_GRANTED][self.name].insert(0, file_path)
+                session[JEMBE_FILES_ACCESS_GRANTED] = {self.name:[file_path]}
+            else:
+                session[JEMBE_FILES_ACCESS_GRANTED][self.name] = [file_path]
             session.modified = True
+
 
     def revoke_access_to_file(self, file_path: str):
         """Reveke access to file from current user"""
@@ -431,7 +436,7 @@ class Storage(ABC):
         return File(storage=self, file_path=full_path)
 
     def get_original_file(self, cache_file_path: str) -> "jembe.File":
-        if cache_file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
+        if not cache_file_path.startswith("{}/".format(DEFAULT_STORAGE_CACHE_FOLDER)):
             raise ValueError(
                 "Invalid cache file name '{}' in storage '{}'".format(
                     cache_file_path, self.name
