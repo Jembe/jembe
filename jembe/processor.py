@@ -27,6 +27,7 @@ from jinja2 import Undefined
 from lxml import etree
 from lxml.html import Element
 from flask import json, jsonify, g
+from werkzeug.exceptions import NotFound
 from werkzeug import Response
 from .common import (
     exec_name_to_full_name,
@@ -38,7 +39,7 @@ from .common import (
     # json_object_hook,
     # json_default,
 )
-from .exceptions import AccessDenied, Forbidden, JembeError, NotFound, Unauthorized
+from .exceptions import AccessDenied, Forbidden, JembeError, Unauthorized
 from .component_config import ComponentConfig, RedisplayFlag as RedisplayFlag
 
 
@@ -1492,8 +1493,10 @@ class Processor:
 
         # if exception is not handled by parent components
         # rerise exception
-        current_app.logger.error("Unhandled exception in {}: {}".format(command, exc))
-        if current_app.debug or current_app.testing:
+        if current_app.debug or current_app.testing or not isinstance(exc, NotFound):
+            current_app.logger.error(
+                "Unhandled exception in {}: {}".format(command, exc)
+            )
             import traceback
 
             traceback.print_exc()
