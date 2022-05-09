@@ -2785,3 +2785,72 @@ def test_reinit_rejected_command(jmb, client):
 
     r = client.get("/main")
     assert r.status_code == 200
+
+
+def test_update_subcomponent_when_using_inject_into(jmb, client):
+    class SubChild(Component):
+        def __init__(self, project_id: int):
+            super().__init__()
+
+        def display(self) -> "jembe.DisplayResponse":
+            return self.render_template_string("<div>{{project_id}}</div>")
+
+    @config(Component.Config(components=dict(b=SubChild)))
+    class Child(Component):
+        def __init__(self, project_id: int):
+            super().__init__()
+
+        def inject_into(self, cconfig: "jembe.ComponentConfig") -> Dict[str, Any]:
+            return {"project_id": self.state.project_id}
+
+        def display(self) -> "jembe.DisplayResponse":
+            self.display_component("b")
+            return self.render_template_string(
+                "<div>{{project_id}} {{placeholder('b')}}</div>"
+            )
+
+    @jmb.page("main", Component.Config(components=dict(a=Child)))
+    class CPage(Component):
+        pass
+
+    r = client.post(
+        "/main",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/main", state=dict()),
+                    dict(execName="/main/a", state=dict(project_id=1)),
+                    dict(execName="/main/a/b", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="init",
+                        componentExecName="/main/a",
+                        initParams=dict(project_id=2),
+                        mergeExistingParams=True,
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/main/a",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    res = json.loads(r.data)
+    assert len(res) == 2
+    assert res[0]["execName"] == "/main/a"
+    assert (
+        res[0]["dom"]
+        == """<div>2 <template jmb-placeholder-permanent="/main/a/b"></template></div>"""
+    )
+    assert res[1]["execName"] == "/main/a/b"
+    assert (
+        res[1]["dom"]
+        == """<div>2</div>"""
+    )

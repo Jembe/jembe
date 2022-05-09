@@ -215,8 +215,8 @@ class Jembe:
         """
         Register Jembe Component as Page to Jembe instance.
 
-        Page Component and all its sub-component will be recursivlly 
-        registred. 
+        Page Component and all its sub-component will be recursivlly
+        registred.
         Page component becomes avaiable under `/<name>` URL.
 
         Args:
@@ -250,7 +250,7 @@ class Jembe:
         It does same thing as add_page but its used as deocrator:
 
         .. code-block:: python
-        
+
             @jmb.page("simple", Component.Config(components={..}))
             class SimplePage(Component):
                 pass
@@ -346,13 +346,13 @@ class Jembe:
         self, storage_type: "jembe.Storage.Type", storage_name: Optional[str] = None
     ) -> "jembe.Storage":
         """
-            Returns first storage of the provided type if it exists.
-            
-            Args:
-                storage_type: Storage type one of `Storage.Type.PRIVATE`, `Storage.Type.PUBLIC` or `Storage.Type.TEMP`
-                storage_name: Optional name of the storage
-            Raises:
-                JembeError: When storage does not exists
+        Returns first storage of the provided type if it exists.
+
+        Args:
+            storage_type: Storage type one of `Storage.Type.PRIVATE`, `Storage.Type.PUBLIC` or `Storage.Type.TEMP`
+            storage_name: Optional name of the storage
+        Raises:
+            JembeError: When storage does not exists
         """
         # returs named storage if exist and it's right type
         if storage_name is not None:
@@ -418,7 +418,7 @@ def get_jembe() -> "Jembe":
     Raises:
         JembeError: When Jembe extension is not initialised
     """
-    
+
     jembe_state = current_app.extensions.get("jembe", None)
     if jembe_state is None:
         raise JembeError("Jembe extension is not initialised")

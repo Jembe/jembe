@@ -1,5 +1,6 @@
 ☐ Handle errors in file upload:
   ☐ 403 should remove file from the form so that form can continue to work
+✘ when state of component change reinjectig parameters should ocure @cancelled(22-05-05 23:50)
 Public Dev Lunch:
     ✔ Move examples into separete project on github (MIT) @done(21-03-06 01:08)
     ✔ Move jembe git on github (LGPLv3??) @done(21-03-06 01:10)

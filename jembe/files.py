@@ -6,7 +6,7 @@ from io import BufferedIOBase, TextIOBase, RawIOBase, IOBase
 from abc import ABC, abstractmethod
 from uuid import uuid4
 
-from flask import request, session, current_app, url_for, send_from_directory
+from flask import session, current_app, url_for, send_from_directory
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import cached_property, secure_filename
 from .app import get_private_storage, get_public_storage, get_storage, get_temp_storage
