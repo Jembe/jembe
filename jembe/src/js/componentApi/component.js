@@ -44,6 +44,7 @@ export default class Component {
         this.unnamedTimers = []
         this.namedTimers = {}
         this.originalComponentNamedTimers = {}
+        this.mutationObserver = undefined
 
         // this.elWithScopes = []
     }
@@ -152,7 +153,7 @@ export default class Component {
             this.nextTickStack.push(callback)
         }
 
-        this.watchers = originalComponent !== undefined ? originalComponent.watchers: {}
+        this.watchers = originalComponent !== undefined ? originalComponent.watchers : {}
         this.unobservedData.$watch = (property, callback) => {
             if (!this.watchers[property]) this.watchers[property] = []
             this.watchers[property].push(callback)
@@ -196,7 +197,7 @@ export default class Component {
 
         // Use mutation observer to detect new elements being added within this component at run-time.
         // Alpine's just so darn flexible amirite?
-        this.listenForNewElementsToInitialize()
+        this.mutationObserver = this.listenForNewElementsToInitialize()
 
         if (typeof initReturnedCallback === 'function') {
             // Run the callback returned from the "jmb-init" hook to allow the user to do stuff after
@@ -215,6 +216,8 @@ export default class Component {
         for (const [timerName, timerInfo] of Object.entries(this.namedTimers)) {
             window.clearTimeout(timerInfo.id)
         }
+        this.mutationObserver.disconnect()
+        this.mutationObserver = undefined
         // // remove scopes
         // for (const scope_el of this.elWithScopes) {
         //     scope_el.__jmb_scope = undefined
@@ -328,7 +331,7 @@ export default class Component {
         })
     }
 
-    initializeElements(rootEl, extraVars = () => { }, mutated=false) {
+    initializeElements(rootEl, extraVars = () => { }, mutated = false) {
         this.walkAndSkipNestedComponents(rootEl, el => {
             // Don't touch spawns from for loop
             if (el.__jmb_for_key !== undefined) return false
@@ -359,7 +362,7 @@ export default class Component {
             }
             el.__jmb_listeners = undefined
         }
-        if (el.__jmb_scope !== undefined && ! el.hasAttribute('jmb-scope')) {
+        if (el.__jmb_scope !== undefined && !el.hasAttribute('jmb-scope')) {
             el.__jmb_scope = undefined
         }
         this.registerListeners(el, extraVars, mutated)
@@ -578,6 +581,7 @@ export default class Component {
         })
 
         observer.observe(targetNode, observerOptions);
+        return observer;
     }
 
     getRefsProxy() {
@@ -640,8 +644,8 @@ export default class Component {
         }
         if (scope_el !== null) {
             if (scope_el.__jmb_scope === undefined) {
-                    scope_el.__jmb_scope = this.evaluateReturnExpression(scope_el, scope_el.getAttribute('jmb-scope'))
-                    // this.elWithScopes.push(scope_el)
+                scope_el.__jmb_scope = this.evaluateReturnExpression(scope_el, scope_el.getAttribute('jmb-scope'))
+                // this.elWithScopes.push(scope_el)
             }
             let { membrane, data } = wrap(scope_el.__jmb_scope, (target, key) => {
                 self.$updateDom()
