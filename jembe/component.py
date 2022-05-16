@@ -383,13 +383,9 @@ class ComponentReference:
     def processor(self) -> "jembe.Processor":
         return get_processor()
 
-    def __call__(self) -> str:
-        """
-        Do render
-
-        Component initialisation must be executed in place in order to know
-        will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
-        so that we can decide how to render template
+    def execute(self):
+        """Calls all necessary init, display and call components to execute this component reference
+        inside current jembe processor.
         """
         if self.exec_name in self.processor.components_marked_for_removal:
             raise JembeError(
@@ -425,6 +421,16 @@ class ComponentReference:
                 ),
                 end=True,
             )
+
+    def __call__(self) -> str:
+        """
+        Do render
+
+        Component initialisation must be executed in place in order to know
+        will it raise exception (like NotFound, Forbidden, Unauthorized etc.)
+        so that we can decide how to render template
+        """
+        self.execute()
         return Markup(
             '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
         )

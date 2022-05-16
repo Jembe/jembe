@@ -1,6 +1,8 @@
 ✔ setting null when updating state does not put state value in observable-membrane @done(22-05-12 13:09)
 ☐ Handle errors in file upload:
   ☐ 403 should remove file from the form so that form can continue to work
+☐ display_component implement with component reference execute
+☐ find better name from componentReference.execute
 ✘ when state of component change reinjectig parameters should ocure @cancelled(22-05-05 23:50)
 Public Dev Lunch:
     ✔ Move examples into separete project on github (MIT) @done(21-03-06 01:08)
