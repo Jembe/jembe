@@ -974,27 +974,10 @@ class Component(metaclass=ComponentMeta):
                     _jmb_component_name, self._config.full_name
                 )
             )
-        processor = get_processor()
-        cexec_name = "{}/{}".format(
-            self.exec_name,
-            _jmb_component_name
-            if _jmb_component_key is None
-            else "{}.{}".format(_jmb_component_name, _jmb_component_key),
-        )
-        processor.add_command(
-            InitialiseCommand(cexec_name, init_params),
-            end=True,
-        )
-        processor.add_command(
-            CallDisplayCommand(
-                cexec_name,
-                displayed_by_exec_name=self.exec_name,
-            ),
-            end=True,
-        )
-        processor.components_marked_for_removal = [
-            en for en in processor.components_marked_for_removal if en != cexec_name
-        ]
+        cr = self.component(_jmb_component_name, **init_params)
+        if _jmb_component_key:
+            cr.key(_jmb_component_key)
+        cr.execute()
 
     def remove_component(
         self, _jmb_component_name: str, _jmb_component_key: Optional[str] = None
