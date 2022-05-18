@@ -211,6 +211,7 @@ class ComponentReference:
 
         self.root_renderer = self
         self.active_renderer = self
+        self.parent_reference = self
         self._aditional_components: List["Component"] = []
         self.base_jrl = "$jmb"
 
@@ -222,6 +223,7 @@ class ComponentReference:
         )
         cr.root_renderer = self.root_renderer
         cr.root_renderer.active_renderer = cr
+        cr.parent_reference = self
         cr._aditional_components = self._aditional_components.copy()
         if (
             self.component_instance is not None
@@ -393,6 +395,9 @@ class ComponentReference:
                     self.exec_name
                 )
             )
+        if self.parent_reference != self:
+            self.parent_reference.execute()
+
         self.processor.add_command(
             InitialiseCommand(self.exec_name, self.kwargs, self.merge_existing_params),
             end=True,
