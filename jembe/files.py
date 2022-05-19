@@ -209,6 +209,9 @@ class File(JembeInitParamSupport):
             return False
         return self.storage == o.storage and self.path == o.path
 
+    def __hash__(self) -> int:
+        return hash((self.storage, self.path))
+
 
 class Storage(ABC):
     class Type(Enum):
@@ -282,11 +285,10 @@ class Storage(ABC):
                 session.modified = True
         except KeyError:
             if JEMBE_FILES_ACCESS_GRANTED not in session:
-                session[JEMBE_FILES_ACCESS_GRANTED] = {self.name:[file_path]}
+                session[JEMBE_FILES_ACCESS_GRANTED] = {self.name: [file_path]}
             else:
                 session[JEMBE_FILES_ACCESS_GRANTED][self.name] = [file_path]
             session.modified = True
-
 
     def revoke_access_to_file(self, file_path: str):
         """Reveke access to file from current user"""
@@ -561,6 +563,9 @@ class Storage(ABC):
         if not isinstance(o, Storage):
             return False
         return self.name == o.name and self.type == o.type
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.type))
 
 
 class DiskStorage(Storage):
