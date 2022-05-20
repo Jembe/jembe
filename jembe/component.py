@@ -188,7 +188,7 @@ class ComponentReference:
         self.action = ComponentConfig.DEFAULT_DISPLAY_ACTION
         self.action_args: Tuple[Any, ...] = ()
         self.action_kwargs: dict = {}
-        # self.kwargs = {k: v for k, v in kwargs.items() if not k.startswith("_")}
+        self.state_kwargs = {k: v for k, v in kwargs.items() if not k.startswith("_")}
         self.kwargs = {k: v for k, v in kwargs.items()}
         self.merge_existing_params = merge_existing_params
 
@@ -325,9 +325,9 @@ class ComponentReference:
                 name=self.name,
                 key=",key='{}'".format(self._key) if self._key else "",
                 kwargs=",{}".format(
-                    re.sub('(?<!\\\\)"', "'", dumps(self.kwargs, separators=(",", ":")))
+                    re.sub('(?<!\\\\)"', "'", dumps(self.state_kwargs, separators=(",", ":")))
                 )
-                if self.kwargs
+                if self.state_kwargs
                 else "",
             )
             if self.name != "."
