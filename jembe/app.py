@@ -24,14 +24,13 @@ class _JembeState:
 
 
 class Jembe:
-    """Keeps track of all application Components and Storages.
+    """Tracks all registred Components and Storages of an application.
 
-    Jembe instance is initilised only once per application and its main purpose
-    is to keep track of all Componets and Storages used by application itself.
+    ``Jembe`` is initilised only once per application and it references to
+    all registred Components and Storages used by the application.
 
-    Usually you create ``Jembe`` instance and register it as Flask extension
-    in ``yourproject/__init__.py``, or in ``yourproject/app.py``
-    when using ``jembe startproject`` template, similar to:
+    ``Jembe`` instance is created and associated with Flask application instance
+    similar to other Flask extensions.
 
     .. code-block:: python
 
@@ -41,32 +40,34 @@ class Jembe:
         app = Flask(__name__)
         jmb = Jembe(app)
 
+    or when creating flask instance dynamicaly:
+
+    .. code-block:: python
+
+        from flask import Flask
+        from jembe import Jembe
+
+        jmb = Jembe()
+
+        def create_app(config):
+            app = Flask(__name__)
+            jmb.init_app(app)
+            return app
 
     Attributes:
         app:
             Optional Flask application instance.
 
             If Flask application instance is not provided than ``Jembe.init_app``
-            method must be executed after Flask instance becomes avaiable like so:
-
-            .. code-block:: python
-
-                from flask import Flask
-                from jembe import Jembe
-
-                jmb = Jembe()
-
-                def create_app(config):
-                    app = Flask()
-                    jmb.init_app(app)
-                    return app
+            method must be executed after Flask instance becomes avaiable.
 
         storages:
             Optional Jembe storages definitions.
 
-            Files created or uploaded by end user are saved in this storages.
+            Files created or uploaded by end user are saved in storages. Jembe instance
+            can save and access files only in storages registred here.
 
-            If storages are not defined than default storages configuration will be used:
+            If storages is not provided than default storages configuration will be used:
 
             - Public storage named `public` in ``data/media/public`` directory;
             - Private storage named `private` in ``data/media/private`` directory;
@@ -83,22 +84,21 @@ class Jembe:
                     DiskStorage("temp", "data/media/temp", type=DiskStorage.Type.TEMP),
                 ])
 
-            If you want to change location of media folder but keep the same
-            configuration of public, private and temporary storage you can
-            alter Flask config variable ``JEMBE_MEDIA_FOLDER`` like so:
+            Paths in DiskStorage definitions are relateve to ``JEMBE_MEDIA_FOLDER`` Flask configuraration variable.  To change location of ``JEMBE_MEDIA_FOLDER`` alter Flask config variable.
+
+            Example of changing ``JEMBE_MEDIA_FOLDER`` when working on project created from jembe startproject template: 
 
             .. code-block:: python
                 :caption: instance/config.py
 
                 JEMBE_MEDIA_FOLDER = "/var/yourproject/media"
 
-            If you manually define one storage, Jembe will not add other default storages,
-            and you must define all storages used by your application including at
-            least one temporary storage.
+            .. warning:: When You manually define storages, you must define all storages used by your application including at least one temporary storage.
 
     Raises:
-        JembeError: When: More then one Jembe extension is initialised for a Flask instance;
-            Storage is initialised before associating Jembe with Flask instance; Temporary Storage is not configured;
+        JembeError: More then one Jembe extension is initialised for a Flask instance;
+        JembeError: Storage is initialised before associating Jembe with Flask instance; 
+        JembeError: Temporary Storage is not configured;
 
     Returns:
         :obj:`Jembe`: Jembe instance
@@ -142,7 +142,8 @@ class Jembe:
         self, app: "Flask", storages: Optional[Sequence["jembe.Storage"]] = None
     ):
         """
-        Use this callback to initialize Jembe with Flask application dynamicaly.
+        Use this callback to initialise Jembe with Flask application when Flask
+        application is created dynamicaly.
         """
         self.__flask = app
 
@@ -213,17 +214,20 @@ class Jembe:
         component_config: Optional["jembe.ComponentConfig"] = None,
     ):
         """
-        Register Jembe Component as Page to Jembe instance.
+        Register Component as "Page Component" to Jembe instance.
+
+        Page Component is root component in hiearchy. 
+        One application can have multiple Page Components.
 
         Page Component and all its sub-component will be recursivlly
         registred.
         Page component becomes avaiable under `/<name>` URL.
 
         Args:
-            name: Unique name of the component.
+            name: Unique name of the component
             component: Component Class
-            component_config: Optional instance of Component.Config to
-                configure Component behavior
+            component_config: Optional instance of Component.Config 
+                configuring Component behavior
         """
         component_ref: ComponentRef = (
             (
@@ -245,11 +249,13 @@ class Jembe:
         component_config: Optional["jembe.ComponentConfig"] = None,
     ):
         """
-        A decorator that registers a Jembe Page Component.
+        Decorator that registers Component as "Page Component" to Jembe instance.
 
-        It does same thing as add_page but its used as deocrator:
+        It does same thing as ``add_page`` but as decorator:
 
         .. code-block:: python
+            from jembe import Component
+            from my_project import jmb
 
             @jmb.page("simple", Component.Config(components={..}))
             class SimplePage(Component):
@@ -413,7 +419,7 @@ def get_processor():
 
 
 def get_jembe() -> "Jembe":
-    """Returns current Jembe instance
+    """Returns Jembe instance processing request for current Flask application   
 
     Raises:
         JembeError: When Jembe extension is not initialised

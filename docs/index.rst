@@ -1,14 +1,14 @@
 Welcome to Jembe Framework
 ==========================
 
-`Jembe <https://jembe.io>`_  is Web Framework written in Python on top of Flask, for rapid development of business oriented datacentric applications.
+`Jembe <https://jembe.io>`_  is Web Framework for rapid development of business applications. Jembe is written in Python on top of Flask.
 
-.. warning:: This documentation is under writing and it is far from completed. All sugestions are Welcome.
+.. warning:: This documentation is far from completed. All sugestions are Welcome.
 
 Design Principes of Jembe
 -------------------------
 
-- Application is build by laying **Components** on top of ech other; 
+- Arange **Components** like Lego bricks to build an application;
 - **Component** is:
    - Python class with, 
    - associated Jinja2 template, 

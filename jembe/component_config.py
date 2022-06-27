@@ -189,10 +189,20 @@ def redisplay(
     else:
         return decorator_action(_method)
 
-
 def config(component_config: "jembe.ComponentConfig"):
-    """
-    Decorates Component to chante its ComponentConfig init parameters
+    """Component decorator for declarativly changing Component Configuration
+
+    This decorator changes Component Configuration by supplaying predefined
+    params to Component.ComponentConfig.__init__ method.
+
+    .. note:: 
+        ComponentConfig instance in argument is used only to collect values of its __init__ params.
+        
+        Collected params are used when component is registred to Jembe instance, 
+        allowing parent component to overide configuration of its subcomponents when needed.
+
+    Args:
+        component_config (jembe.ComponentConfig): Instance of Component.Config class
     """
 
     def decorator_class(component_class):

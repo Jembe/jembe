@@ -1,5 +1,4 @@
 from functools import wraps
-from jembe import component
 from typing import List, Dict, Any, Optional
 from jembe.common import exec_name_to_full_name
 from jembe.exceptions import JembeError
@@ -7,14 +6,14 @@ from flask import url_for
 
 
 def page_url(exec_name: str, url_params: Optional[List[Dict[str, Any]]] = None):
-    """Returns url of the Component with provided exec_name.
+    """Returns url of the Component referenced by exec_name (Component Execution Name).
 
     Url is genarated without initialising components but by bulidin url dynamicaly.
 
-    .. note:: Url params are same as state params if not renamed with `ComponentConfig(url_query_params={})`
+    .. note:: This method uses Url params names instead of state param names.If not renamed with `ComponentConfig(url_query_params={})` names are the same.
 
     Args:
-        exec_name: Execution name of the Jembe component which url we want to obtain
+        exec_name: Component Execution Name which url we want to obtain
         url_params: Optional list of component url params for every component in exec_name.  Defaults to None.
 
     """
@@ -45,7 +44,7 @@ def page_url(exec_name: str, url_params: Optional[List[Dict[str, Any]]] = None):
 
 def run_only_once(_method=None, *, for_state: Optional[str] = None):
     """
-    decorator for class method to execute it only run once even if it is called 
+    decorator for class method to execute it only run once even if it is called
     multiple times with diferrent arguments.
     NOTE: (WARNING) This decorator will cache return value nor will check method arguments
     Usefull form mount() method
