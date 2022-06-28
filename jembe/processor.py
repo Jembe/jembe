@@ -199,9 +199,10 @@ class CallActionCommand(Command):
             # Do nothing
             pass
         elif isinstance(action_result, Response):
-            # TODO If self.component is component directly requested via http request
-            # and it is not x-jembe request return respon
-            # othervise raise JembeError
+            # TODO return response and 
+            # stop fruther processiong of requst with jembe processor
+            # TODO jembe.js should be able to handle direct reponses
+            # TODO make the same for listener
             raise NotImplementedError()
         else:
             raise JembeError(
@@ -408,6 +409,12 @@ class CallListenerCommand(Command):
         elif isinstance(listener_result, bool) or listener_result == False:
             # Do nothing
             pass
+        elif isinstance(listener_result, Response):
+            # TODO return response and 
+            # stop fruther processiong of requst with jembe processor
+            # TODO jembe.js should be able to handle direct reponses
+            # TODO make the same for action
+            raise NotImplementedError()
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
