@@ -414,7 +414,8 @@ class CallListenerCommand(Command):
             # stop fruther processiong of requst with jembe processor
             # TODO jembe.js should be able to handle direct reponses
             # TODO make the same for action
-            raise NotImplementedError()
+            # raise NotImplementedError()
+            return listener_result
         else:
             raise JembeError(
                 "Invalid listener result type: {}.{} {}".format(
