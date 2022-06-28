@@ -88,17 +88,51 @@ def action(
     # deferred_after: Optional[str] = None,
     # deferred_before: Optional[str] = None,
 ):
-    """
-    decorator to mark method as public action inside component
 
-    deferred aciton is executed last after allother actions from parent action template
-    are executed no matter of its postion inside parent action template.
+    # deferred aciton is executed last after allother actions from parent action template
+    # are executed no matter of its postion inside parent action template.
 
-    Usefull if we need to create breadcrumb or other summary report
-    based from already executed actions
+    # Usefull if we need to create breadcrumb or other summary report
+    # based from already executed actions
 
-    deferred_after and deferred_before are used to execute this action after or before
-    other specific deferred action, when multiple actions has deferred execution
+    # deferred_after and deferred_before are used to execute this action after or before
+    # other specific deferred action, when multiple actions has deferred execution
+    """Decorator to mark Component method as public action
+
+    Public actions can be called from browser using javascript, as follows:
+
+    .. code-block:: html
+
+        <button onclick="jembeClient.component(this).call('action',{param1:value1, param2:value2})"> 
+            Action
+        </button>
+
+        Or using Jembe Js ComponentApi: 
+
+        <button jmb-on:click="action(value1)">
+            Action
+        </button>
+
+        or
+
+        <a href="" jmb-on:click.prevent="action()">
+            Action
+        </a>
+
+    If action is defered than it is executed last, after all other actions from parent action template
+    are executed no matter of its postion inside parent action template. This is usefull if we need 
+    to create breadcrumb or other summary report based from already executed actions.
+
+    Args:
+        deferred (bool, optional): If action is deffered. Defaults to False.
+
+    Returns:
+        Optional[bool]: Decorated action should return None, True or False
+            If decorated action returns:
+
+            - True: then component will redisplay itself.
+            - False: then component will NOT redisplay itself.
+            - None: then component will redisplay it self based on values of Config.redisplay and state parameters. Defult if will redisplay itself only if state params are changed.
     """
     # This decorator don't anytthing except allow
     # componentconfig.set_compoenent_class to
@@ -122,24 +156,56 @@ def listener(
     event: Optional[Union[str, Sequence[str]]] = None,
     source: Optional[Union[str, Sequence[str]]] = None,
 ):
-    """
-    decorator to mark method as action listener inside component
-    filter by:
-    source = glob like component exec_name matcher
-    if source is:
+    """Decorator to mark Component method as event listener.
 
-        - None -> process event from any compoenent
-        - /compoent1.key1/compoent2.key2    -> process event from  compoenent with this exec_name
-        - ./component                       -> process event from direct child named "component" without key
-        - ./component.*                     -> process event from direct child named "component" with any key
-        - ./component.key                   -> process event from direct child named "component with key equals "key"
-        - ./**/component[.[*|<key>]]        -> process event from child at any level
-        - ..                                -> process event from parent
-        - ../component[.[*|<key>]]          -> process event from sibling
-        - /**/.                             -> process event from parent at any level
-        - /**/component[.[*|<key>]]/**/.    -> process event from parent at any level named
-        - //                                -> process event from root page
-        - etc.
+    Event listener listens for emited events.
+
+    Event listener must accepet event parameter like:
+
+    .. code-block:: python
+
+        @listener("_display", source="*")
+        def on_display_any_direct_childred(self, event:"jembe.Event"):
+            pass
+
+    Args:
+        event (Optional[Union[str, Sequence[str]]], optional): Event name to listen for. Defaults to None.
+
+            If event name is:
+            
+            - None: it will listen for any event
+            - str: it will listen for only event with the same name
+            - Sequence[str]: it will listen for any event name from the list of names
+
+        source (Optional[Union[str, Sequence[str]]], optional): Listens for events emited by component specified as source. Defaults to None.
+
+            Listen for:
+
+            - None -> events from any component
+            - *                               -> direct children with or without key
+            - \*.\*                             -> direct children with any key
+            - **/*                            -> all children with or without key
+            - **/\*.\*                          -> all children with any key
+            - component                       -> match to direct child named "component" without key
+            - component.*                     -> match to direct child named "component" with any key
+            - component.key                   -> match to direct child named "component with key equals "key"
+            - **/component[.[*|<key>]]        -> match to child at any level with "component" name
+            - ..                                -> match to parent component
+            - ../component[.[*|<key>]]          -> match to sibling
+            - /**/.                             -> match to parent at any level
+            - /\*\*/component[.[*|<key>]]/\*\*/.    -> match to parent at any level named "component"
+            - //                                -> process event from root/page component
+            - .                                 -> self
+
+    Returns:
+        Optional[bool]: Decorated method should return None, True or False
+
+            If decorated listener returns:
+
+            - True: then component will redisplay itself.
+            - False: then component will NOT redisplay itself.
+            - None: then component will redisplay it self based on values of Config.redisplay and state parameters. Defult if will redisplay itself only if state params are changed.
+
     """
     # This decorator don't anytthing except allow
     # componentconfig.set_compoenent_class to
@@ -163,10 +229,15 @@ def redisplay(
     when_executed: Optional[bool] = None,
     when_on_page: Optional[bool] = None,
 ):
-    """
-    Decorates display method in order to set redisplay ComponentConfig param.
+    """Decorator for Component.display method to configure when component will be redisplayed
 
-    Made for easy use when configuring components
+    It's used instead of Component.Config redisplay parameter, when it's more convinient.
+
+
+    Args:
+        when_state_changed (Optional[bool], optional): Redisplay component whent its state is changed. Defaults to None.
+        when_executed (Optional[bool], optional): Redisplay component when ever "display" action is called regradles of the component state. Defaults to None.
+        when_on_page (Optional[bool], optional): Redisplay component whenever it's on the page. Defaults to None.
     """
 
     def decorator_action(method):
@@ -190,13 +261,13 @@ def redisplay(
         return decorator_action(_method)
 
 def config(component_config: "jembe.ComponentConfig"):
-    """Component decorator for declarativly changing Component Configuration
+    """Component decorator to declarativly change Component Configuration
 
-    This decorator changes Component Configuration by supplaying predefined
+    This decorator changes Component Configuration by suplaying predefined
     params to Component.ComponentConfig.__init__ method.
 
     .. note:: 
-        ComponentConfig instance in argument is used only to collect values of its __init__ params.
+        ComponentConfig instance in argument is used only to get values of __init__ params.
         
         Collected params are used when component is registred to Jembe instance, 
         allowing parent component to overide configuration of its subcomponents when needed.
