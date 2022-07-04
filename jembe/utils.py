@@ -43,11 +43,38 @@ def page_url(exec_name: str, url_params: Optional[List[Dict[str, Any]]] = None):
 
 
 def run_only_once(_method=None, *, for_state: Optional[str] = None):
-    """
-    decorator for class method to execute it only run once even if it is called
-    multiple times with diferrent arguments.
-    NOTE: (WARNING) This decorator will cache return value nor will check method arguments
-    Usefull form mount() method
+    """Decorator for component method that executes method only once and caches the result. 
+
+
+    First time method is called result is cachend, on any subsequent calls method is not executed
+    and cached valuted is returned.
+
+    When for_state is provided than cache will be clear when state variable with same
+    name is changed.
+
+    .. warning:: 
+
+        This decorator will cache return value regardles of method arguments values. 
+        
+    This decorator is usefull when we need to perform costly calculation only once
+    and don't want and don't need to do it in __init__.
+
+    .. code-block:: python
+
+        @property
+        @run_only_once(for_state="id")
+        def record(self):
+            return db.session.query(ComplexDBView).filter(ComplexDBView.id==id).first()
+
+
+
+    Args:
+        _method (_type_, optional): _description_. Defaults to None.
+        for_state (Optional[str], optional): name of state variable to monitor for change. Defaults to None.
+
+    Raises:
+        JembeError: when for_state is not valid state name
+
     """
     attrname = "_{}_once_result".format(id(_method))
 

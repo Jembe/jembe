@@ -325,7 +325,11 @@ class ComponentReference:
                 name=self.name,
                 key=",key='{}'".format(self._key) if self._key else "",
                 kwargs=",{}".format(
-                    re.sub('(?<!\\\\)"', "'", dumps(self.state_kwargs, separators=(",", ":")))
+                    re.sub(
+                        '(?<!\\\\)"',
+                        "'",
+                        dumps(self.state_kwargs, separators=(",", ":")),
+                    )
                 )
                 if self.state_kwargs
                 else "",
@@ -552,6 +556,81 @@ class ComponentMeta(ABCMeta):
 
 
 class Component(metaclass=ComponentMeta):
+    """Primary building block for creating Web Applications using Jembe Framework.
+
+    Component is responsible:
+        - for displaying part of the web page, and
+        - handling all user interaction with that part of the page
+
+    Component usually have two main parts:
+        - Python class that holds and executes application logic, and
+        - associated Jinja template that renderes, component in browser;
+
+
+    Component can:
+        - execute "actions" and redisplay itself when end user interacts with component in browser;
+        - be comined with other components in nested hirearchy to form web application;
+        - dispatch events to other components in application;
+        - listen for events dispatched to them;
+
+    .. note:: 
+
+        Component behavior is configurable by Component.Config class that is initialised only once when the application starts. 
+    
+    Component has **State variables**. State variables are variables that defines component state:
+
+    - State variable are provided when component is intialised;
+    - Same component with same values of state variables are considered equal (thay should display exacly same HTML in browser) 
+    - When value of any state variable is changed component will redisplay itself;
+    - State variables are defined as arguments to __init__ method.
+    - State varibales must have type annotation, and type annotation cannot be in double quetes.
+    - State variables are directly accessible to JavaScript in browser;
+    - State variables can be changed by JavaScript in browser cosing component to redisplay itself.
+
+    .. code-block:: python
+
+        class HelloWorld(Component):
+            def __init__(self, name:str = "World"):
+                ''' name is state variable '''
+                pass
+
+    .. code-block:: html
+
+        <html><body>
+            <h1>Hello {{name}}</h1>
+            <input type="text" value="{{name}}" jmb-on:keydown.debounce="name = $self.value">
+
+            <script src="{{ url_for('jembe.static', filename='js/jembe.js') }}"></script>
+        </body></html>
+
+    .. figure:: /img/hello_world.gif
+        :alt: Hello World
+
+
+
+
+
+    Args:
+        metaclass (_type_, optional): _description_. Defaults to ComponentMeta.
+
+    Raises:
+        self._config.DEFAULT_AC_EXCEPTION: _description_
+        ComponentPreviousStateUnavaiableError: _description_
+        JembeError: _description_
+        JembeError: _description_
+        ValueError: _description_
+        JembeError: _description_
+        ValueError: _description_
+        JembeError: _description_
+        JembeError: _description_
+        JembeError: _description_
+        exception.: _description_
+        JembeError: _description_
+        NotFound: _description_
+
+    Returns:
+        _type_: _description_
+    """
     @classmethod
     def _jembe_init_(
         cls,
