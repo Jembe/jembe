@@ -556,39 +556,42 @@ class ComponentMeta(ABCMeta):
 
 
 class Component(metaclass=ComponentMeta):
-    """Primary building block for creating Web Applications using Jembe Framework.
+    """Component is the primary building block for creating Web Applications using Jembe Framework.
 
     Component is responsible:
         - for displaying part of the web page, and
-        - handling all user interaction with that part of the page
+        - handling all user interaction with that part of the page.
 
-    Component usually have two main parts:
+    Component is made from two parts:
         - Python class that holds and executes application logic, and
         - associated Jinja template that renderes, component in browser;
 
 
     Component can:
-        - execute "actions" and redisplay itself when end user interacts with component in browser;
         - be comined with other components in nested hirearchy to form web application;
+        - execute "actions" when end user interacts with component in browser;
         - dispatch events to other components in application;
         - listen for events dispatched to them;
 
     .. note:: 
 
-        Component behavior is configurable by Component.Config class that is initialised only once when the application starts. 
+        Component behavior can be configured with Component.Config class that is initialised only once when the application starts. 
     
-    Component has **State variables**. State variables are variables that defines component state:
+    Component has **State variables**. State variables defines component state. Two instance of same component are 
+    equal if they are having equal state variables.
 
-    - State variable are provided when component is intialised;
+
+    - State variable are passed to component on its initialisation;
     - Same component with same values of state variables are considered equal (thay should display exacly same HTML in browser) 
     - When value of any state variable is changed component will redisplay itself;
     - State variables are defined as arguments to __init__ method.
-    - State varibales must have type annotation, and type annotation cannot be in double quetes.
+    - State varibales must have type annotation, and type annotation cannot be in double quotes.
     - State variables are directly accessible to JavaScript in browser;
     - State variables can be changed by JavaScript in browser cosing component to redisplay itself.
 
     .. code-block:: python
 
+        @jmb.page('hello')
         class HelloWorld(Component):
             def __init__(self, name:str = "World"):
                 ''' name is state variable '''
@@ -606,30 +609,60 @@ class Component(metaclass=ComponentMeta):
     .. figure:: /img/hello_world.gif
         :alt: Hello World
 
+    **Component __init__ arguments**
 
+    Component init argumets are used to define:
+    
+    - **state variables** and,
+    - performance variables.
 
+    **State variables** are __init__ arguments that does not start with '_' (underscore).
+    State variables defines the state of the component. Two instance of the same component in the same state are 
+    considered equal and thay should behaive in the exacly same way.
+
+    **Performance variables** are __init__ arguments whose name starts with underscore '_'.
+    Performance variables are used to avoid unnecesary calculations or call to database, when parent component
+    has already calculated or aquiried value needed by component.
+
+    State variables without default values will become **URL arguments**. Value of Url arguments 
+    must be provided as part of URL (for example: https://your_site/project/project/1).
+    State variables without default values, can be one of following types: int, str, URI.
+
+    .. code-block:: python
+
+        @jmb.page('demo')
+        class CDemo(Component):
+            def __init__(self, id: int, find:Optional[str] = None, _record:Optional[dict] = None):
+                '''
+                    - 'id' is State variable of type int. 
+                    - 'id' is also URL variable because it does not have default value.
+                      When browser access:
+
+                      -  https://your_site/demo/1 id will have value of 1
+                      -  https://your_site/demo/2 id will have value of 2, and so on
+
+                    - 'find' is state variable of type optional str with default value of None.
+                      This variable can't be set via url like 'id'.
+                    - '_record' is performance variable it is not state variable.
+                '''
+                if record['id'] = id:
+                    # if _record is valid use it
+                    self._record = record
+                
+            @property
+            def record(self):
+                try:
+                    return self._record
+                except:
+                    self._record = db.session.query(Record).get(self.state.id)
+                    return self._record
 
 
     Args:
         metaclass (_type_, optional): _description_. Defaults to ComponentMeta.
 
     Raises:
-        self._config.DEFAULT_AC_EXCEPTION: _description_
-        ComponentPreviousStateUnavaiableError: _description_
-        JembeError: _description_
-        JembeError: _description_
-        ValueError: _description_
-        JembeError: _description_
-        ValueError: _description_
-        JembeError: _description_
-        JembeError: _description_
-        JembeError: _description_
-        exception.: _description_
-        JembeError: _description_
-        NotFound: _description_
-
-    Returns:
-        _type_: _description_
+        JembeError: When something goes wrong with component initialisation
     """
     @classmethod
     def _jembe_init_(
@@ -676,6 +709,18 @@ class Component(metaclass=ComponentMeta):
     _jembe_disabled_actions: List[str]
 
     class Config(ComponentConfig):
+        """Compononent config defines behavior of all instances of component, with what is
+        known at build time, like: url_path, subcomponents, name etc.
+
+        Component can access his config instance using ``self._config``.
+
+        Args:
+            template (Optional[Union[str, Iterable[str]]], optional): Path to default template for displaying component. If not provided template name will be same as ``self.full_name`` with '.html' extension added. Defaults to None.
+            components (Optional[Dict[str, jembe.ComponentRef]], optional): Subcomponent definitions. Defaults to None.
+            inject_into_components (Optional[ Callable[[jembe.Component, jembe.ComponentConfig], dict] ], optional): Callable to inject __init__ paramas into subcomponents. Defaults to None.
+            changes_url (bool, optional): Does this componet changes location URL when displayed on page. Defaults to True.
+            url_query_params (Optional[Dict[str, str]], optional): Mapping from GET Query params to state variables allowing state variables to be set with GET Query params (?var1=value&var2=value).dict(<name of get queryparam> = <name of state variable>) . Defaults to None.
+        """
         pass
 
     def __init__(self):
@@ -699,6 +744,10 @@ class Component(metaclass=ComponentMeta):
 
     @property
     def previous_state(self) -> Optional["ComponentState"]:
+        """Returns previous state of the component when component state is changed in browser using javascript.
+
+        Accesible only in ``__init__`` and ``init`` methods.
+        """
         if not self._jembe_component_initialising:
             raise ComponentPreviousStateUnavaiableError(
                 "Component previous state is only avaiable during "
@@ -708,6 +757,20 @@ class Component(metaclass=ComponentMeta):
 
     @property
     def key(self) -> str:
+        """Returns component key.
+
+        ``key`` can be set by parent component, allowing us to have multiple 
+        instance of same component in different state. Parent component
+        must make sure that there is not two component with same key.
+
+        Usefull when displaying list of records with cards. 
+
+        If we try to display multiple components in diferent state without setting key, 
+        only last component will be displayed overwriting all previous ones.
+
+        Returns:
+            str: component key
+        """
         return self.__key
 
     @key.setter
@@ -718,6 +781,14 @@ class Component(metaclass=ComponentMeta):
 
     @property
     def exec_name(self) -> str:
+        """Uniquly identifies instance of the Component in application.
+
+        It is created from component ``full_name`` adding all ``keys`` where necessary
+        (/component1/component2.key2/component3/component4.key4).
+
+        Returns:
+            str: Component Execution Name
+        """
         return self.__exec_name
 
     @exec_name.setter
@@ -764,9 +835,9 @@ class Component(metaclass=ComponentMeta):
 
     @property
     def url(self) -> str:
-        """
-        Returns url of this component build using url_path of parent
-        components and url_path of this component
+        """ Returns url of this component.
+
+        Url is build using url_path of parent components and url_path of this component
         """
         url = self._config.build_url(self.exec_name, self)
         url_get_params = []

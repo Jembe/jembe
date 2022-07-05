@@ -86,7 +86,7 @@ class Jembe:
 
             Paths in DiskStorage definitions are relateve to ``JEMBE_MEDIA_FOLDER`` Flask configuraration variable.  To change location of ``JEMBE_MEDIA_FOLDER`` alter Flask config variable.
 
-            Example of changing ``JEMBE_MEDIA_FOLDER`` when working on project created from jembe startproject template: 
+            Example of changing ``JEMBE_MEDIA_FOLDER`` when working on project created from jembe startproject template:
 
             .. code-block:: python
                 :caption: instance/config.py
@@ -97,7 +97,7 @@ class Jembe:
 
     Raises:
         JembeError: More then one Jembe extension is initialised for a Flask instance;
-        JembeError: Storage is initialised before associating Jembe with Flask instance; 
+        JembeError: Storage is initialised before associating Jembe with Flask instance;
         JembeError: Temporary Storage is not configured;
 
     Returns:
@@ -216,7 +216,7 @@ class Jembe:
         """
         Register Component as "Page Component" to Jembe instance.
 
-        Page Component is root component in hiearchy. 
+        Page Component is root component in hiearchy.
         One application can have multiple Page Components.
 
         Page Component and all its sub-component will be recursivlly
@@ -226,7 +226,7 @@ class Jembe:
         Args:
             name: Unique name of the component
             component: Component Class
-            component_config: Optional instance of Component.Config 
+            component_config: Optional instance of Component.Config
                 configuring Component behavior
         """
         component_ref: ComponentRef = (
@@ -254,6 +254,7 @@ class Jembe:
         It does same thing as ``add_page`` but as decorator:
 
         .. code-block:: python
+
             from jembe import Component
             from my_project import jmb
 
@@ -419,7 +420,7 @@ def get_processor():
 
 
 def get_jembe() -> "Jembe":
-    """Returns Jembe instance processing request for current Flask application   
+    """Returns Jembe instance processing request for current Flask application
 
     Raises:
         JembeError: When Jembe extension is not initialised
