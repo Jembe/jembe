@@ -541,14 +541,22 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         changes_url: bool = True,
         url_query_params: Optional[Dict[str, str]] = None,
     ):
-        """
+        """_summary_
+
         template: path to default template for displaying component
         components: Definition of subcomponents
         inject_into_components: Callable to inject init params into subcomponents
         redisplay: Flag to define when componnet will be redisplayed on client depending of its state
         changes_url: Does this component changes location url and allow back browser navigation to it
         url_query_params: Mapping from GET Query params to state params used when component is called directly via regular http get request dict(<name of get queryparam> = <name of state param>)
+        Args:
+            template (Optional[Union[str, Iterable[str]]], optional): _description_. Defaults to None.
+            components (Optional[Dict[str, &quot;jembe.ComponentRef&quot;]], optional): _description_. Defaults to None.
+            inject_into_components (Optional[ Callable[[&quot;jembe.Component&quot;, &quot;jembe.ComponentConfig&quot;], dict] ], optional): _description_. Defaults to None.
+            changes_url (bool, optional): _description_. Defaults to True.
+            url_query_params (Optional[Dict[str, str]], optional): _description_. Defaults to None.
         """
+
         # use default template if template name is not provided
         if template is None:
             self.template: Tuple[str, ...] = (self.default_template_name,)
