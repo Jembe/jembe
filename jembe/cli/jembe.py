@@ -16,7 +16,8 @@ def jembe():
     "--template",
     help="Project temlate",
     prompt="Choose Project Template",
-    type=click.Choice(["basic", "jembeui"], case_sensitive=False),
+    # type=click.Choice(["basic", "jembeui"], case_sensitive=False),
+    type=click.Choice(["basic"], case_sensitive=False),
     required=True,
     default="basic",
 )

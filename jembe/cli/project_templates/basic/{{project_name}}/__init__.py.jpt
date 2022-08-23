@@ -4,7 +4,7 @@ from . import app as app_services
 
 
 def create_app(config=None) -> "Flask":
-    from . import views, pages, commands
+    from . import pages
 
     instance_path = os.environ.get(
         "FLASK_INSTANCE_PATH", os.path.join(os.getcwd(), "instance")
@@ -24,7 +24,7 @@ def create_app(config=None) -> "Flask":
         pass
 
     app_services.init_app(app)
-    views.init_views(app)
-    commands.init_commands(app)
+    with app.app_context():
+        from . import views, commands
 
     return app

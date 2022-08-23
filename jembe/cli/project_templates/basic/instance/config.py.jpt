@@ -13,4 +13,4 @@ SESSION_FILE_DIR = os.path.join(instance_path, "..", "data", "sessions")
 # SESSION_TYPE = "memcached"
 # SESSION_KEY_PREFIX = "{{project_name}}:session:"
 
-CSRF_COOKIE_TIMEOUT = None
+# CSRF_COOKIE_TIMEOUT = None

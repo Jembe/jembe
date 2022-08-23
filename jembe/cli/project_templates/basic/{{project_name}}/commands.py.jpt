@@ -1,11 +1,7 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from flask import Flask
+from flask import current_app as app
 
 
-def init_commands(app: "Flask"):
-    @app.cli.command("demo")
-    def demo():
-        """Demo flask command"""
-        pass
+@app.cli.command("demo")
+def demo():
+    """Demo flask command"""
+    pass
