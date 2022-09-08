@@ -1,3 +1,4 @@
+☐  TODO add support for permanent placeholedrs with key set to *. Add same support to javascript
 ✔ setting null when updating state does not put state value in observable-membrane @done(22-05-12 13:09)
 ☐ Should passing to super.__init__(page_size=xx) diferent than self.state.page_size, update state.page_size to xx ?
 ☐ Listener  and action should be able to return flask response

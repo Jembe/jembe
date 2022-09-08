@@ -199,7 +199,7 @@ class CallActionCommand(Command):
             # Do nothing
             pass
         elif isinstance(action_result, Response):
-            # TODO return response and 
+            # TODO return response and
             # stop fruther processiong of requst with jembe processor
             # TODO jembe.js should be able to handle direct reponses
             # TODO make the same for listener
@@ -410,7 +410,7 @@ class CallListenerCommand(Command):
             # Do nothing
             pass
         elif isinstance(listener_result, Response):
-            # TODO return response and 
+            # TODO return response and
             # stop fruther processiong of requst with jembe processor
             # TODO jembe.js should be able to handle direct reponses
             # TODO make the same for action
@@ -687,7 +687,6 @@ class EmitCommand(Command):
             if not destination_listener.sources
             else destination_listener.sources
         )
-
         for s_to in sources_to:
             for dl_event in listener_events:
                 for dl_source in listener_sources:
@@ -1222,6 +1221,9 @@ class Processor:
                 )
             exec_names.append(exec_name)
 
+        if exec_name not in self.request.path:
+            # dont allow that /mainaaaa open /main.aaaa
+            raise NotFound()
         return exec_names
 
     def process_request(self) -> "Processor":
@@ -1430,7 +1432,9 @@ class Processor:
         exception is already handled by its children.
 
         Parent component can use regular listener to catch event do whatever thay want. @listener('_exception')
-        If any of parrent compoennt mark event as handled event.params["handled"] = True exception will not be raised again.
+        If any of parrent component mark event as handled event.params["handled"] = True exception will not be raised again.
+        IMPORTANT: When parent component mark exception as handled all its subcomponents and events will be removed from processor
+        so that parent component can rerender itself and/or its subcomponents from the blank state
 
         If there is not listener for _exception event in parent compoent or exception event is not handled. Processor
         will rerise exception and it will be handled like regular flask exception.
@@ -1477,13 +1481,13 @@ class Processor:
                     self._raised_exception_on_initialise[
                         command.component_exec_name
                     ] = deepcopy(command.init_params)
-                    # remove all child compoennt of command.component_exec_name
+                    # remove all child components of command.component_exec_name
                     self.components = {
                         exec_name: comp
                         for exec_name, comp in self.components.items()
                         if not is_child_name(cmd.component_exec_name, exec_name)
                     }
-                    # remove all commands to and from  removed components
+                    # remove all commands to and from removed components
                     self._commands = deque(
                         (
                             c

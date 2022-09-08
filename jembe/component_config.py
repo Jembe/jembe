@@ -1,3 +1,4 @@
+from re import T
 from typing import (
     Callable,
     Iterable,
@@ -5,6 +6,7 @@ from typing import (
     Optional,
     Type,
     Dict,
+    List,
     Tuple,
     Union,
     Sequence,
@@ -103,11 +105,11 @@ def action(
 
     .. code-block:: html
 
-        <button onclick="jembeClient.component(this).call('action',{param1:value1, param2:value2})"> 
+        <button onclick="jembeClient.component(this).call('action',{param1:value1, param2:value2})">
             Action
         </button>
 
-        Or using Jembe Js ComponentApi: 
+        Or using Jembe Js ComponentApi:
 
         <button jmb-on:click="action(value1)">
             Action
@@ -120,7 +122,7 @@ def action(
         </a>
 
     If action is defered than it is executed last, after all other actions from parent action template
-    are executed no matter of its postion inside parent action template. This is usefull if we need 
+    are executed no matter of its postion inside parent action template. This is usefull if we need
     to create breadcrumb or other summary report based from already executed actions.
 
     Args:
@@ -172,7 +174,7 @@ def listener(
         event (Optional[Union[str, Sequence[str]]], optional): Event name to listen for. Defaults to None.
 
             If event name is:
-            
+
             - None: it will listen for any event
             - str: it will listen for only event with the same name
             - Sequence[str]: it will listen for any event name from the list of names
@@ -260,16 +262,17 @@ def redisplay(
     else:
         return decorator_action(_method)
 
+
 def config(component_config: "jembe.ComponentConfig"):
     """Component decorator to declarativly change Component Configuration
 
     This decorator changes Component Configuration by suplaying predefined
     params to Component.ComponentConfig.__init__ method.
 
-    .. note:: 
+    .. note::
         ComponentConfig instance in argument is used only to get values of __init__ params.
-        
-        Collected params are used when component is registred to Jembe instance, 
+
+        Collected params are used when component is registred to Jembe instance,
         allowing parent component to overide configuration of its subcomponents when needed.
 
     Args:
@@ -458,7 +461,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         cconfig._component_class = _component_class
         cconfig._parent = _parent
         cconfig._jembe_prepare_component_init()
-        cconfig.__init__(**init_params)
+        cconfig.__init__(**init_params)  # type:ignore
         return cconfig
 
     def _jembe_prepare_component_init(self):
@@ -559,13 +562,17 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
         # use default template if template name is not provided
         if template is None:
-            self.template: Tuple[str, ...] = (self.default_template_name,)
+            self.template: Tuple[str, ...] = self.default_template_names
         elif isinstance(template, str):
             self.template = (template,)
         else:
-            self.template = tuple(
-                t if t != "" else self.default_template_name for t in template
-            )
+            templates: List[str] = []
+            for t in template:
+                if t == "":
+                    templates.extend(self.default_template_names)
+                else:
+                    templates.append(t)
+            self.template = tuple(templates)
 
         self.components: Dict[str, "jembe.ComponentRef"] = (
             components if components else dict()
@@ -685,8 +692,9 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         return url_for(self.endpoint, **url_params)
 
     @property
-    def default_template_name(self) -> str:
-        return "{}.html".format(self.full_name.strip("/"))
+    def default_template_names(self) -> Tuple[str, ...]:
+        tname = "{}.html".format(self.full_name.strip("/"))
+        return (tname, "pages/{}".format(tname))
 
     def update_components_config(
         self,

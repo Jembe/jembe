@@ -573,16 +573,16 @@ class Component(metaclass=ComponentMeta):
         - dispatch events to other components in application;
         - listen for events dispatched to them;
 
-    .. note:: 
+    .. note::
 
-        Component behavior can be configured with Component.Config class that is initialised only once when the application starts. 
-    
-    Component has **State variables**. State variables defines component state. Two instance of same component are 
+        Component behavior can be configured with Component.Config class that is initialised only once when the application starts.
+
+    Component has **State variables**. State variables defines component state. Two instance of same component are
     equal if they are having equal state variables.
 
 
     - State variable are passed to component on its initialisation;
-    - Same component with same values of state variables are considered equal (thay should display exacly same HTML in browser) 
+    - Same component with same values of state variables are considered equal (thay should display exacly same HTML in browser)
     - When value of any state variable is changed component will redisplay itself;
     - State variables are defined as arguments to __init__ method.
     - State varibales must have type annotation, and type annotation cannot be in double quotes.
@@ -612,19 +612,19 @@ class Component(metaclass=ComponentMeta):
     **Component __init__ arguments**
 
     Component init argumets are used to define:
-    
+
     - **state variables** and,
     - performance variables.
 
     **State variables** are __init__ arguments that does not start with '_' (underscore).
-    State variables defines the state of the component. Two instance of the same component in the same state are 
+    State variables defines the state of the component. Two instance of the same component in the same state are
     considered equal and thay should behaive in the exacly same way.
 
     **Performance variables** are __init__ arguments whose name starts with underscore '_'.
     Performance variables are used to avoid unnecesary calculations or call to database, when parent component
     has already calculated or aquiried value needed by component.
 
-    State variables without default values will become **URL arguments**. Value of Url arguments 
+    State variables without default values will become **URL arguments**. Value of Url arguments
     must be provided as part of URL (for example: https://your_site/project/project/1).
     State variables without default values, can be one of following types: int, str, URI.
 
@@ -634,7 +634,7 @@ class Component(metaclass=ComponentMeta):
         class CDemo(Component):
             def __init__(self, id: int, find:Optional[str] = None, _record:Optional[dict] = None):
                 '''
-                    - 'id' is State variable of type int. 
+                    - 'id' is State variable of type int.
                     - 'id' is also URL variable because it does not have default value.
                       When browser access:
 
@@ -648,7 +648,7 @@ class Component(metaclass=ComponentMeta):
                 if record['id'] = id:
                     # if _record is valid use it
                     self._record = record
-                
+
             @property
             def record(self):
                 try:
@@ -664,6 +664,7 @@ class Component(metaclass=ComponentMeta):
     Raises:
         JembeError: When something goes wrong with component initialisation
     """
+
     @classmethod
     def _jembe_init_(
         cls,
@@ -721,6 +722,7 @@ class Component(metaclass=ComponentMeta):
             changes_url (bool, optional): Does this componet changes location URL when displayed on page. Defaults to True.
             url_query_params (Optional[Dict[str, str]], optional): Mapping from GET Query params to state variables allowing state variables to be set with GET Query params (?var1=value&var2=value).dict(<name of get queryparam> = <name of state variable>) . Defaults to None.
         """
+
         pass
 
     def __init__(self):
@@ -734,6 +736,9 @@ class Component(metaclass=ComponentMeta):
     def init(self):
         """
         Normalised __init__ without params definition.
+
+        init is called after __init__ so it can access all state variables 
+        regardles if __init__ is overwriten.
 
         Executed after __init__, usefull for adding logic that should be
         executed on init but without need to rewrite/list init params.
@@ -759,13 +764,13 @@ class Component(metaclass=ComponentMeta):
     def key(self) -> str:
         """Returns component key.
 
-        ``key`` can be set by parent component, allowing us to have multiple 
+        ``key`` can be set by parent component, allowing us to have multiple
         instance of same component in different state. Parent component
         must make sure that there is not two component with same key.
 
-        Usefull when displaying list of records with cards. 
+        Usefull when displaying list of records with cards.
 
-        If we try to display multiple components in diferent state without setting key, 
+        If we try to display multiple components in diferent state without setting key,
         only last component will be displayed overwriting all previous ones.
 
         Returns:
@@ -776,6 +781,7 @@ class Component(metaclass=ComponentMeta):
     @key.setter
     def key(self, key: str):
         self.__key = key
+        # self.__dict__.pop("key", None) # delete cached property
         # TODO update __exec_name
         # self.__update_exec_name()
 
@@ -835,7 +841,7 @@ class Component(metaclass=ComponentMeta):
 
     @property
     def url(self) -> str:
-        """ Returns url of this component.
+        """Returns url of this component.
 
         Url is build using url_path of parent components and url_path of this component
         """
@@ -997,7 +1003,7 @@ class Component(metaclass=ComponentMeta):
             template = list(template)
         # add reference to itself in context (usefull for passing parameters in macros)
         context["_context"] = context
-        return render_template(template, **context)
+        return render_template(template, **context)  # type:ignore
 
     def render_template_string(self, source, **context):
         """

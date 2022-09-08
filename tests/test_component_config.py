@@ -74,7 +74,10 @@ def test_config_init_params(jmb: Jembe, client):
             super().__init__()
 
     @jmb.page(
-        "page", Component.Config(components=dict(a=AA),),
+        "page",
+        Component.Config(
+            components=dict(a=AA),
+        ),
     )
     class Page(Component):
         def display(self) -> "DisplayResponse":
@@ -103,6 +106,10 @@ def test_template_config_param(jmb: Jembe):
     class Page(Component):
         pass
 
-    assert jmb.components_configs["/p/a"].template == ("p/a.html",)
-    assert jmb.components_configs["/p/b"].template == ("p/b.html", "test.html")
+    assert jmb.components_configs["/p/a"].template == ("p/a.html", "pages/p/a.html")
+    assert jmb.components_configs["/p/b"].template == (
+        "p/b.html",
+        "pages/p/b.html",
+        "test.html",
+    )
     assert jmb.components_configs["/p"].template == ("p.html",)

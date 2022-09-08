@@ -1,3 +1,4 @@
-recursive-include {{project_name}} *.py *.html *.css *.js *.jpt
+recursive-include {{project_name}} *.py *.html *.css *.js *.jpt *.png *.gif *.jpg alembic.ini README *.py.mako *.txt
+prune {{ project_name }}/src
 prune .venv
 prune node_modules
