@@ -40,7 +40,7 @@ class UrlConvertor(Enum):
 
 
 def calc_url_param_identifier(name: str, level: int):
-    return name if level == 0 else "{}__{}".format(name, level)
+    return name if level == 0 else f"{name}__{level}"
 
 
 class UrlParamDef:
@@ -75,9 +75,7 @@ class UrlParamDef:
 
     @property
     def url_pattern(self) -> str:
-        return "<{convertor}:{identifier}>".format(
-            convertor=self.convertor.value, identifier=self.identifier
-        )
+        return f"<{self.convertor.value}:{self.identifier}>"
 
     def __repr__(self):
         return self.url_pattern
@@ -401,7 +399,7 @@ def componentConfigInitDecorator(init_method):
                         },
                     )
             except Exception as e:
-                print("Error in {} __init__: {}".format(kwargs, e))
+                print("Error in {kwargs} __init__: {e}")
                 raise e
         else:
             # Component config is used inside @config or @page decorator
@@ -597,7 +595,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         try:
             return self.__endpoint
         except AttributeError:
-            raise JembeError("Endpoint not set by jembe app: {}".format(self.full_name))
+            raise JembeError(f"Endpoint not set by jembe app: {self.full_name}")
 
     @endpoint.setter
     def endpoint(self, endpoint: str):
@@ -609,9 +607,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             return getattr(self, "_component_class")
         except AttributeError:
             raise JembeError(
-                "Component Config {} is not initialised properly, 'component_class' is missing.".format(
-                    self.full_name
-                )
+                f"Component Config {self.full_name} is not initialised properly, 'component_class' is missing."
             )
 
     @property
@@ -620,9 +616,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             return getattr(self, "_name")
         except AttributeError:
             raise JembeError(
-                "Component Config {} is not initialised properly, 'name' is missing.".format(
-                    self.full_name
-                )
+                f"Component Config {self.full_name} is not initialised properly, 'name' is missing."
             )
 
     @property
@@ -631,31 +625,23 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
             return getattr(self, "_parent")
         except AttributeError:
             raise JembeError(
-                "Component Config {} is not initialised properly, 'parent' is missing.".format(
-                    self.full_name
-                )
+                f"Component Config {self.full_name} is not initialised properly, 'parent' is missing."
             )
 
     @property
     def full_name(self) -> str:
         if self.parent:
-            return "{}/{}".format(self.parent.full_name, self.name)
-        return "/{}".format(self.name)
+            return f"{self.parent.full_name}/{self.name}"
+        return f"/{self.name}"
 
     @property
     def url_path(self) -> str:
         if not self._url_params:
-            url_path = "/{}{}".format(self.name, self._key_url_param.url_pattern)
+            url_path = f"/{self.name}{self._key_url_param.url_pattern}"
         else:
             url_params = "/".join(up.url_pattern for up in self._url_params)
-            url_path = "/{name}{key}/{url_params}".format(
-                name=self.name,
-                key=self._key_url_param.url_pattern,
-                url_params=url_params,
-            )
-        url_path = (
-            "{}{}".format(self.parent.url_path, url_path) if self.parent else url_path
-        )
+            url_path = f"/{self.name}{self._key_url_param.url_pattern}/{url_params}"
+        url_path = f"{self.parent.url_path}{url_path}" if self.parent else url_path
         return url_path
 
     @property
@@ -668,7 +654,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
     def get_raw_url_params(self, state: "ComponentState", key: str) -> dict:
         url_params = {up.identifier: state[up.name] for up in self._url_params}
         url_params[self._key_url_param.identifier] = (
-            "{}{}".format(self.KEY_URL_PARAM_SEPARATOR, key) if key else ""
+            f"{self.KEY_URL_PARAM_SEPARATOR}{key}" if key else ""
         )
         return url_params
 
@@ -693,8 +679,8 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
 
     @property
     def default_template_names(self) -> Tuple[str, ...]:
-        tname = "{}.html".format(self.full_name.strip("/"))
-        return (tname, "pages/{}".format(tname))
+        tname = f"{self.full_name.strip('/')}.html"
+        return (tname, f"pages/{tname}")
 
     def update_components_config(
         self,
@@ -732,9 +718,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         else:
             if name not in self.components:
                 raise ValueError(
-                    "Component with name {} is not defined inside {}".format(
-                        name, self.name
-                    )
+                    f"Component with name {name} is not defined inside {self.name}"
                 )
             _update_cref(name, params)
 
@@ -746,7 +730,7 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         configs: Dict[str, "jembe.ComponentConfig"] = dict()
         for component_name in self.components.keys():
             configs[component_name] = processor.jembe.components_configs[
-                "{}/{}".format(self.full_name, component_name)
+                f"{self.full_name}/{component_name}"
             ]
         return configs
 

@@ -319,7 +319,7 @@ class Jembe:
                     component_class.__module__,
                     template_folder="templates",
                     static_folder="static",
-                    static_url_path="/{}/static".format(component_name),
+                    static_url_path=f"/{component_name}/static",
                 )
 
             bp.add_url_rule(
@@ -328,9 +328,7 @@ class Jembe:
                 jembe_master_view,
                 methods=["GET", "POST"],
             )
-            component_config.endpoint = "{}.{}".format(
-                bp.name, component_config.full_name
-            )
+            component_config.endpoint = f"{bp.name}.{component_config.full_name}"
 
             if component_config.components:
                 component_refs.extend(
@@ -346,7 +344,7 @@ class Jembe:
             return self.components_configs[exec_name_to_full_name(exec_name)]
         except KeyError:
             raise JembeError(
-                "Component {} does not exist".format(exec_name_to_full_name(exec_name))
+                f"Component {exec_name_to_full_name(exec_name)} does not exist"
             )
 
     def get_storage_by_type(
@@ -368,19 +366,17 @@ class Jembe:
                     return self._storages[storage_name]
                 else:
                     raise JembeError(
-                        "Storage '{}' is not '{}'".format(
-                            storage_name, storage_type.value
-                        )
+                        f"Storage '{storage_name}' is not '{storage_type.value}'"
                     )
             except KeyError:
-                raise JembeError("Storage '{}' does not exist".format(storage_name))
+                raise JembeError("Storage '{storage_name}' does not exist")
 
         # returns first storage of adequate type
         try:
             return next(s for s in self._storages.values() if s.type == storage_type)
         except StopIteration:
             raise JembeError(
-                "Storage of type '{}' does not exist".format(storage_type.value)
+                f"Storage of type '{storage_type.value}' does not exist"
             )
 
     def get_storages(self) -> List["jembe.Storage"]:
@@ -399,7 +395,7 @@ class Jembe:
         try:
             return self._storages[storage_name]
         except KeyError:
-            raise JembeError("Storage '{}' does not exist".format(storage_name))
+            raise JembeError(f"Storage '{storage_name}' does not exist")
 
 
 def get_processor():

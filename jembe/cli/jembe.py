@@ -13,15 +13,6 @@ def jembe():
 
 @jembe.command()
 @click.option(
-    "--template",
-    help="Project temlate",
-    prompt="Choose Project Template",
-    # type=click.Choice(["basic", "jembeui"], case_sensitive=False),
-    type=click.Choice(["basic"], case_sensitive=False),
-    required=True,
-    default="basic",
-)
-@click.option(
     "--name",
     help="Name",
     prompt="Project Name",
@@ -31,7 +22,7 @@ def jembe():
 @click.option(
     "--description", help="Description", prompt=True, required=False, default=""
 )
-def startproject(template, name, description):
+def startproject( name, description):
     """Starts new Jembe project in current directory"""
     name = make_python_identifier(name)
     ctx = dict(
@@ -41,14 +32,11 @@ def startproject(template, name, description):
         jembe_version=importlib.metadata.version("jembe"),
         secret_key=str(os.urandom(24).__repr__()),
     )
-    extract_project_template(template, ctx=ctx)
+    extract_project_template("basic", ctx=ctx)
 
     echo()
     echo("New project is suceessfully created in current directory!", color=True)
     echo()
-    if template == "jembeui":
-        echo("TODO: Add instructin to install jembeui package", color=True)
-        echo()
     echo("To install required development dependencies execute:")
     secho("\t$ pip install -e .[dev]", bold=True)
     echo()

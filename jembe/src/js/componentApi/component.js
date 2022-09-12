@@ -245,7 +245,7 @@ export default class Component {
     }
     wrapDataInObservable(data) {
         var self = this
-
+        
         let updateDom = debounce(function () {
             self.updateElements(self.$el)
         }, 0)

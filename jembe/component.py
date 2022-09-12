@@ -56,9 +56,7 @@ class ComponentState(dict):
 
     def __setitem__(self, key, value):
         if not key in self.keys():
-            raise JembeError(
-                "Can't add new param '{}' to component state {}".format(key, self)
-            )
+            raise JembeError(f"Can't add new param '{key}' to component state {self}")
         return super().__setitem__(key, value)
 
     def __delitem__(self, key):
@@ -133,7 +131,7 @@ class ComponentReference:
         ):  # a/b ../b
             if name_split[0] == "":
                 name_split = name_split[1:]
-                name_split[0] = "/{}".format(name_split[0])
+                name_split[0] = f"/{name_split[0]}"
             for pname in name_split[:-1]:
                 if cr is None:
                     cr = cls(
@@ -237,9 +235,7 @@ class ComponentReference:
     def component(self, jmb_exec_name: str, **kwargs) -> "jembe.ComponentReference":
         if self.action != ComponentConfig.DEFAULT_DISPLAY_ACTION:
             raise JembeError(
-                "<{}> Cant reference child component when action '{}' is called".format(
-                    str(self), self.action
-                )
+                f"<{str(self)}> Cant reference child component when action '{self.action}' is called"
             )
         return self._component(True, jmb_exec_name, **kwargs)
 
@@ -281,9 +277,7 @@ class ComponentReference:
             ci = self.component_instance
             if ci is None:
                 current_app.logger.warning(
-                    "Component '{}' can't acuire referenced component '{}' to check if action '{}' is accessible".format(
-                        self.root_renderer.caller_exec_name, self.exec_name, self.action
-                    )
+                    f"Component '{self.root_renderer.caller_exec_name}' can't acuire referenced component '{self.exec_name}' to check if action '{self.action}' is accessible"
                 )
                 return True
 
@@ -323,7 +317,7 @@ class ComponentReference:
             "component{reset}('{name}'{kwargs}{key})".format(
                 reset="_reset" if not self.merge_existing_params else "",
                 name=self.name,
-                key=",key='{}'".format(self._key) if self._key else "",
+                key=f",key='{self.key}'" if self._key else "",
                 kwargs=",{}".format(
                     re.sub(
                         '(?<!\\\\)"',
@@ -362,7 +356,7 @@ class ComponentReference:
             if self.base_jrl.endswith(".display()")
             else self.base_jrl
         )
-        return Markup("{}.{}".format(base_jrl, jrl))
+        return Markup(f"{base_jrl}.{jrl}")
 
     @cached_property
     def exec_name(self) -> str:
@@ -396,9 +390,7 @@ class ComponentReference:
         """
         if self.exec_name in self.processor.components_marked_for_removal:
             raise JembeError(
-                "Cant display component '{}' marked for removal in parent component template!".format(
-                    self.exec_name
-                )
+                f"Cant display component '{self.exec_name}' marked for removal in parent component template!"
             )
         if self.parent_reference != self:
             self.parent_reference.execute()
@@ -441,9 +433,7 @@ class ComponentReference:
         so that we can decide how to render template
         """
         self.execute()
-        return Markup(
-            '<template jmb-placeholder="{}"></template>'.format(self.exec_name)
-        )
+        return Markup(f'<template jmb-placeholder="{self.exec_name}"></template>')
 
     def key(self, key: str) -> "jembe.ComponentReference":
         self._key = key
@@ -486,9 +476,7 @@ def componentInitDecorator(init_method):
             for name, value in params_to_inject.items():
                 if current_app.debug and name in kwargs:
                     current_app.logger.warning(
-                        "Injecting already set param {} in component {}".format(
-                            name, self._config.full_name
-                        )
+                        f"Injecting already set param {name} in component {self._config.full_name}"
                     )
                 kwargs[name] = value
 
@@ -506,9 +494,7 @@ def componentInitDecorator(init_method):
             init_method(self, *args, **kwargs)
         except Exception as e:
             current_app.logger.warning(
-                "{}: {};  args={}; kwargs={};".format(
-                    self.__class__.__name__, e, args, kwargs
-                )
+                f"{self.__class__.__name__}: {e};  args={args}; kwargs={kwargs};"
             )
             raise e
 
@@ -673,7 +659,7 @@ class Component(metaclass=ComponentMeta):
         _jembe_injected_params_names: List[str],
         _jembe_merged_existing_params: bool,
         _jembe_existing_component_state: Optional["ComponentState"],
-        **init_params
+        **init_params,
     ):
         """
         Instance creation by explicitly calling __new__ and __init__
@@ -737,7 +723,7 @@ class Component(metaclass=ComponentMeta):
         """
         Normalised __init__ without params definition.
 
-        init is called after __init__ so it can access all state variables 
+        init is called after __init__ so it can access all state variables
         regardles if __init__ is overwriten.
 
         Executed after __init__, usefull for adding logic that should be
@@ -802,7 +788,7 @@ class Component(metaclass=ComponentMeta):
         # verify exec_name with _config.full_name
         if exec_name_to_full_name(exec_name) != self._config.full_name:
             raise JembeError(
-                "Invalid exec_name {} for {}".format(exec_name, self._config.full_name)
+                f"Invalid exec_name {exec_name} for {self._config.full_name}"
             )
 
         self.__exec_name = exec_name
@@ -825,9 +811,7 @@ class Component(metaclass=ComponentMeta):
         self.__has_action_or_listener_executed = True
 
     def set_parent_exec_name(self, parent_exec_name: str):
-        self.__exec_name = "{}/{}.{}".format(
-            parent_exec_name, self._config.name, self.key
-        )
+        self.__exec_name = f"{parent_exec_name}/{self._config.name}.{self.key}"
         # TODO verify parent_exec_name with _config.full_name
         # TODO set __exec_name
 
@@ -836,7 +820,7 @@ class Component(metaclass=ComponentMeta):
         cls, name: str, key: str = "", parent_exec_name: str = ""
     ) -> str:
         """Build component exec name"""
-        local_exec_name = name if not key else "{}.{}".format(name, key)
+        local_exec_name = name if not key else f"{name}.{key}"
         return "/".join((parent_exec_name, local_exec_name))
 
     @property
@@ -850,12 +834,10 @@ class Component(metaclass=ComponentMeta):
         for url_param_name, state_param_name in self._config.url_query_params.items():
             if self.state.get(state_param_name, None) is not None:
                 url_get_params.append(
-                    "{}={}".format(
-                        url_param_name, quote_plus(str(self.state[state_param_name]))
-                    )
+                    f"{url_param_name}={quote_plus(str(self.state[state_param_name]))}"
                 )
         if url_get_params:
-            url = "{}?{}".format(url, "&".join(url_get_params))
+            url = f"{url}?{'&'.join(url_get_params)}"
         return url
 
     @classmethod
@@ -878,15 +860,8 @@ class Component(metaclass=ComponentMeta):
             except Exception as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
-                        "State param {} of {}.{} with hint {} is not supported for json dump/load "
-                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param.\n ({})\n\n "
-                        "Please double check that you are using actuall class in annotation and not string with class name.".format(
-                            name,
-                            cls.__module__,
-                            cls.__name__,
-                            cls._jembe_init_signature.parameters[name],
-                            e,
-                        )
+                        f"State param {name} of {cls.__module__}.{cls.__name__} with hint {cls._jembe_init_signature.parameters[name]} is not supported for json dump/load "
+                        f"nor custom encoding/decoding logic is defined in dump_init_param/load_init_param.\n ({e})\n\n "
                     )
         return value
 
@@ -912,14 +887,8 @@ class Component(metaclass=ComponentMeta):
             except ValueError as e:
                 if current_app.debug or current_app.testing:
                     raise JembeError(
-                        "State param {} of {}.{} with hint {} is not supported for json dump/load "
-                        "nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. \n\n({}) ".format(
-                            name,
-                            cls.__module__,
-                            cls.__name__,
-                            cls._jembe_init_signature.parameters[name],
-                            e,
-                        )
+                        f"State param {name} of {cls.__module__}.{cls.__name__} with hint {cls._jembe_init_signature.parameters[name]} is not supported for json dump/load "
+                        f"nor custom encoding/decoding logic is defined in dump_init_param/load_init_param. \n\n({e}) "
                     )
         return value
 
@@ -1107,11 +1076,7 @@ class Component(metaclass=ComponentMeta):
 
     def _jinja2_placeholder(self, _jmb_copmonent_name: str):
         return Markup(
-            '<{dtag} jmb-placeholder-permanent="{exec_name}/{component_name}"></{dtag}>'.format(
-                exec_name=self.exec_name,
-                component_name=_jmb_copmonent_name,
-                dtag="template",
-            )
+            f'<template jmb-placeholder-permanent="{self.exec_name}/{_jmb_copmonent_name}"></template>'
         )
 
     def emit(self, _jmb_event_name: str, **params) -> "EmitCommand":
@@ -1124,7 +1089,7 @@ class Component(metaclass=ComponentMeta):
         self,
         _jmb_component_name: str,
         _jmb_component_key: Optional[str] = None,
-        **init_params
+        **init_params,
     ):
         """
         Calls initCommand and displayComand of subcomponent without need to
@@ -1132,9 +1097,7 @@ class Component(metaclass=ComponentMeta):
         """
         if _jmb_component_name not in self._config.components.keys():
             raise JembeError(
-                "Component '{}' is not valid sub component of '{}'!".format(
-                    _jmb_component_name, self._config.full_name
-                )
+                f"Component '{_jmb_component_name,}' is not valid sub component of '{self._config.full_name}'!"
             )
         cr = self.component(_jmb_component_name, **init_params)
         if _jmb_component_key:
@@ -1153,9 +1116,7 @@ class Component(metaclass=ComponentMeta):
         """
         if _jmb_component_name not in self._config.components.keys():
             raise JembeError(
-                "Component '{}' is not valid sub component of '{}'!".format(
-                    _jmb_component_name, self._config.full_name
-                )
+                f"Component '{_jmb_component_name}' is not valid sub component of '{self._config.full_name}'!"
             )
         processor = get_processor()
         cexec_name = "{}/{}".format(
@@ -1186,7 +1147,7 @@ class Component(metaclass=ComponentMeta):
         root_cr = component_ref.root_renderer
         processor.remove_component(
             root_cr.exec_name,
-            self.exec_name.startswith("{}/".format(root_cr.exec_name)),
+            self.exec_name.startswith("{root_cr.exec_name}/"),
         )
 
         # Creates new commands to init and display for redirect components

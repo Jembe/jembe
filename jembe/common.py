@@ -48,9 +48,7 @@ def direct_child_name(
     child_names = subcompoenent_full_name.split("/")
     if parent_names != child_names[: len(parent_names)]:
         raise ValueError(
-            "Component {} is not subcomponent of {}".format(
-                subcompoenent_full_name, component._config.full_name
-            )
+            f"Component {subcompoenent_full_name} is not subcomponent of {component._config.full_name}"
         )
     return child_names[len(parent_names)]
 
@@ -65,6 +63,7 @@ def is_direct_child_name(exec_name: str, sub_exec_name: str) -> bool:
     if len(relative_name.split("/")) > 2:
         return False
     return True
+
 
 def is_child_name(exec_name: str, sub_exec_name: str) -> bool:
     """Returns True if sub_exec_name is under exec_name"""
@@ -88,7 +87,7 @@ def import_by_name(object_name: str) -> Any:
         modul = import_module(modul_name)
         object_type = getattr(modul, object_name)
     except:
-        raise ValueError("Import with name {} doesn't exist".format(object_name))
+        raise ValueError(f"Import with name {object_name} doesn't exist")
     return object_type
 
 
@@ -152,9 +151,7 @@ def dump_param(annotation, value: Any) -> Any:
     elif source_type == Any:
         _dump_load_unspecified_warning(source_type)
         return value
-    raise JembeError(
-        "Unsupported state/init param type {}:{}".format(source_type, value)
-    )
+    raise JembeError(f"Unsupported state/init param type {source_type}:{value}")
 
 
 def load_param(annotation, value: Any) -> Any:
@@ -233,9 +230,7 @@ def load_param(annotation, value: Any) -> Any:
     elif target_type == Any:
         _dump_load_unspecified_warning(Any)
         return value
-    raise JembeError(
-        "Unsupported state/init param type {}:{}".format(target_type, value)
-    )
+    raise JembeError(f"Unsupported state/init param type {target_type}:{value}")
 
 
 def _eq_type(checked_type: Type[Any], *compare_with: Type[Any]) -> bool:
@@ -282,7 +277,7 @@ def _decode_str_to_type(ttype, value: str):
 
 def _dump_load_unspecified_warning(ttype):
     current_app.logger.warning(
-        "Do not use '{}' annotation for component state params "
+        "Do not use '{ttype}' annotation for component state params "
         "you should be more specific in other to enable proper transformation"
-        "into and out json".format(ttype)
+        "into and out json"
     )

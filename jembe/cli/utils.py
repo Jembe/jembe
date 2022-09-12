@@ -1,6 +1,8 @@
 import re
 import os
 import keyword
+import shutil
+from typing import Optional
 from jinja2 import Environment, FileSystemLoader, Template
 
 __all__ = (
@@ -132,13 +134,16 @@ def make_python_identifier(
     return s
 
 
-def extract_project_template(name: str, ctx: dict):
-    import jembe
+def extract_project_template(name: str, ctx: dict, root_dir:Optional[str]=None):
+
+    if root_dir is None:
+        import jembe
+        root_dir = jembe.__path__[0]
 
     # obtain destination dir and template_dir
     dest = os.getcwd()
     template_dir = os.path.join(
-        jembe.__path__[0], "cli", "project_templates", name  # type:ignore
+        root_dir, "cli", "project_templates", name  # type:ignore
     )
     env = Environment(autoescape=False, loader=FileSystemLoader(template_dir))
     # recursivly copy all files and directories from temple_dir to current_dir
@@ -160,8 +165,12 @@ def extract_project_template(name: str, ctx: dict):
 
             if dname:
                 # run files thought jinja2 template with ctx
-                st = env.get_template(
-                    os.path.relpath(os.path.join(root, name), template_dir)
-                )
-                with open(os.path.join(dest, rel_root, dname), "w") as df:
-                    df.write(st.render(ctx))
+                if dname[-4:] in (".png"):
+                    print(os.path.join(root,name), os.path.join(dest,dname))
+                    shutil.copyfile(os.path.join(root,name), os.path.join(dest,dname))
+                else:
+                    st = env.get_template(
+                        os.path.relpath(os.path.join(root, name), template_dir)
+                    )
+                    with open(os.path.join(dest, rel_root, dname), "w") as df:
+                        df.write(st.render(ctx))
