@@ -165,9 +165,8 @@ def extract_project_template(name: str, ctx: dict, root_dir:Optional[str]=None):
 
             if dname:
                 # run files thought jinja2 template with ctx
-                if dname[-4:] in (".png"):
-                    print(os.path.join(root,name), os.path.join(dest,dname))
-                    shutil.copyfile(os.path.join(root,name), os.path.join(dest,dname))
+                if dname[-4:] in (".png", ".svg"):
+                    shutil.copyfile(os.path.join(root,name), os.path.join(dest,rel_root,dname))
                 else:
                     st = env.get_template(
                         os.path.relpath(os.path.join(root, name), template_dir)

@@ -866,7 +866,7 @@ class Component(metaclass=ComponentMeta):
         return value
 
     @classmethod
-    def load_init_param(cls, config: "ComponentConfig", name: str, value: Any) -> Any:
+    def load_init_param(cls, config: "jembe.ComponentConfig", name: str, value: Any) -> Any:
         """
         load and Decode init/state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
