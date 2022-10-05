@@ -1,8 +1,8 @@
+from typing import Optional, Sequence
 import re
 import os
 import keyword
 import shutil
-from typing import Optional
 from jinja2 import Environment, FileSystemLoader, Template
 
 __all__ = (
@@ -134,10 +134,24 @@ def make_python_identifier(
     return s
 
 
-def extract_project_template(name: str, ctx: dict, root_dir:Optional[str]=None):
+def extract_project_template(
+    name: str,
+    ctx: dict,
+    root_dir: Optional[str] = None,
+    copy_file_types: Sequence[str] = ("png", "svg", "mo"),
+):
+    """Extrace Jembe Project template
+
+    Args:
+        name (str): Project template name from cli/project_templates dir
+        ctx (dict): contex for rendering templates
+        root_dir (Optional[str], optional): Root dir of the package, where to search for project_templates dir. Defaults to None.
+        copy_file_types (Sequence[str], optional): File type extensions to just copy without passing throug rendering engine. Defaults to ("png", "svg", "mo").
+    """
 
     if root_dir is None:
         import jembe
+
         root_dir = jembe.__path__[0]
 
     # obtain destination dir and template_dir
@@ -165,8 +179,11 @@ def extract_project_template(name: str, ctx: dict, root_dir:Optional[str]=None):
 
             if dname:
                 # run files thought jinja2 template with ctx
-                if dname[-4:] in (".png", ".svg") or dname[-3:] in (".mo",):
-                    shutil.copyfile(os.path.join(root,name), os.path.join(dest,rel_root,dname))
+                # if dname[-4:] in (".png", ".svg") or dname[-3:] in (".mo",):
+                if dname.split(".")[-1] in copy_file_types:
+                    shutil.copyfile(
+                        os.path.join(root, name), os.path.join(dest, rel_root, dname)
+                    )
                 else:
                     st = env.get_template(
                         os.path.relpath(os.path.join(root, name), template_dir)
