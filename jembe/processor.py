@@ -387,7 +387,7 @@ class CallListenerCommand(Command):
     def execute(self):
         if self.component_exec_name in self.processor.components_marked_for_removal:
             # Listener should not be executed on components marked for removal
-            return None
+            return False
 
         component = self.processor.components[self.component_exec_name]
         cconfig = component._config
@@ -884,9 +884,11 @@ class InitialiseCommand(Command):
 
     def __repr__(self):
         try:
-            return "Init({}, {})".format(self.component_exec_name, self.init_params)
+            # return "Init({}, {})".format(self.component_exec_name, self.init_params)
+            return "Init({})".format(self.component_exec_name)
         except:
-            return "Init({}, {})".format(self.component_exec_name, self._init_params)
+            # return "Init({}, {})".format(self.component_exec_name, self._init_params)
+            return "Init({})".format(self.component_exec_name)
 
 
 class ComponentRender(NamedTuple):
@@ -1317,6 +1319,7 @@ class Processor:
     def _execute_commands(self) -> Optional["Response"]:
         """executes all commands from self._commands que"""
         while self._commands:
+            print("\tCOMMANDS: ", self._commands)
             response = self._execute_command(self._commands.pop())
             if response is not None:
                 return response
@@ -1338,6 +1341,7 @@ class Processor:
             ):
                 return None
 
+        print("\nEXEC: ", command)
         try:
             self._processing_command = command
             response = command.execute()
