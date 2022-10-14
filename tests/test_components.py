@@ -1507,18 +1507,12 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
     class Page(Component):
-        def __init__(self) -> None:
-            super().__init__()
-            self.events: List[str] = []
 
-        @listener(source="a")
-        def on_a_events(self, event):
-            self.events.append(event.name)
 
         @redisplay(when_executed=True)
         def display(self) -> "DisplayResponse":
             return self.render_template_string(
-                "<html><body>{{component('a')}}<div>{{events|safe}}</div></body></html>"
+                "<html><body>{{component('a')}}<div></div></body></html>"
             )
 
     r = client.get("/page")
@@ -1527,7 +1521,7 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
         """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">\n"""
         """<html jmb-name="/page" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/page"}\'><body>"""
         """<div jmb-name="/page/a" jmb-data=\'{"actions":{},"changesUrl":true,"state":{},"url":"/page/a"}\'></div>"""
-        """<div>[]</div>"""
+        """<div></div>"""
         """</body></html>"""
     ).encode("utf-8")
 
@@ -1541,11 +1535,18 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
                 ],
                 commands=[
                     dict(
-                        type="emit",
+                        type="call",
                         componentExecName="/page/a",
-                        eventName="cancel",
-                        params=dict(),
-                        to=None,
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                    dict(
+                        type="call",
+                        componentExecName="/page",
+                        actionName="display",
+                        args=list(),
+                        kwargs=dict(),
                     ),
                 ],
             )
@@ -1559,7 +1560,7 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
     assert json_response[0]["dom"] == (
         """<html><body>"""
         """<template jmb-placeholder="/page/a"></template>"""
-        """<div>['cancel']</div>"""
+        """<div></div>"""
         """</body></html>"""
     )
 

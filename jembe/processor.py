@@ -274,6 +274,8 @@ class CallDisplayCommand(CallActionCommand):
 
     @cached_property
     def _redisplay_needed(self):
+        if self.component_exec_name in self.processor.components_marked_for_removal:
+            return False
         if self.component_exec_name in self.processor.renderers and not (
             self.force
             or (
@@ -399,15 +401,18 @@ class CallListenerCommand(Command):
             )
 
         # execute listener
+        component_begining_state = component.state.tojsondict(component, True)
         listener_result = getattr(component, self.listener_name)(self.event)
         component._jembe_has_action_or_listener_executed = True
-        if listener_result is None or (
-            isinstance(listener_result, bool) and listener_result == True
-        ):
-            # after executing listener that returns True or None
-            # component should be rendered by executing display
+        # after executing listener that returns:
+        if listener_result is None:
+            # - None: component should be redisplayed only if state is changed in listener
+            if component_begining_state != component.state.tojsondict(component, True):
+                self.processor.add_command( CallDisplayCommand(component.exec_name), end=True)
+        elif (isinstance(listener_result, bool) and listener_result == True):
+            # - True: component should be forced to redisplayed itself
             self.processor.add_command(
-                CallDisplayCommand(component.exec_name, force=listener_result == True),
+                CallDisplayCommand(component.exec_name, force=True),
                 end=True,
             )
         elif isinstance(listener_result, bool) or listener_result == False:
@@ -467,6 +472,7 @@ class EmitCommand(Command):
             - ./component.*                     -> emit to direct child named "component" with any key
             - ./component.key                   -> emit to direct child named "component with key equals "key"
             - ./**/component[.[*|<key>]]        -> emit to child at any level
+            - *                                 -> match to any direct child
             - ..                                -> emit to parent
             - ../component[.[*|<key>]]          -> emit to sibling
             - /**/.                             -> emit to parent at any level
@@ -497,6 +503,9 @@ class EmitCommand(Command):
         )
         execute_over: List[Tuple["jembe.Component", str]] = []
         for exec_name, component in self.processor.components.items():
+            # no components marked for removal
+            if exec_name in self.processor.components_marked_for_removal:
+                continue
             for (
                 listener_method_name,
                 listener,
@@ -623,6 +632,9 @@ class EmitCommand(Command):
     def reemit_over(
         self, reemit_component_exec_name: str
     ) -> List["CallListenerCommand"]:
+        if reemit_component_exec_name in self.processor.components_marked_for_removal:
+            return list()
+
         reemit_component = self.processor.components[reemit_component_exec_name]
         commands = list()
         for (
@@ -1319,7 +1331,7 @@ class Processor:
     def _execute_commands(self) -> Optional["Response"]:
         """executes all commands from self._commands que"""
         while self._commands:
-            print("\tCOMMANDS: ", self._commands)
+            # print("\tCOMMANDS: ", self._commands)
             response = self._execute_command(self._commands.pop())
             if response is not None:
                 return response
@@ -1341,7 +1353,7 @@ class Processor:
             ):
                 return None
 
-        print("\nEXEC: ", command)
+        # print("\nEXEC: ", command)
         try:
             self._processing_command = command
             response = command.execute()
