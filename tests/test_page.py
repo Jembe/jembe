@@ -1,5 +1,5 @@
-from typing import TYPE_CHECKING, Optional
-from jembe import Component
+from typing import TYPE_CHECKING
+from jembe import Component, config
 from flask import json
 from jembe import action
 
@@ -196,3 +196,23 @@ def test_counter_on_page(jmb, client):
     assert ajax_response_data[0]["url"] == "/cop"
     assert ajax_response_data[0]["execName"] == "/cop"
 
+
+# def test_wiled_paths(jmb, client):
+#     # Ignore this test
+#     # accept situationa as it is
+#     # we can't limit key for copoment 
+#     # and there is no differenc if we go wild with
+#     # /simple_pagewilld or /simple_page.wild
+#     class CA(Component):
+#         def display(self):
+#             return self.render_template_string("<div>CA</div>")
+
+#     @config(Component.Config(components={"test": CA}))
+#     class SimplePage(Component):
+#         pass
+
+#     jmb.add_page("simple_page", SimplePage)
+#     r = client.get("/simple_pageeeeee/testaaaa")
+#     assert r.status_code == 404
+#     r = client.get("/simple_pageeeeee")
+#     assert r.status_code == 404

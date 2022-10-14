@@ -1,4 +1,3 @@
-from jembe.component import component
 from typing import TYPE_CHECKING, Any, Dict, Tuple
 from inspect import cleandoc
 from jembe import Component, action, listener, config

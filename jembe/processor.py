@@ -1221,9 +1221,10 @@ class Processor:
                 )
             exec_names.append(exec_name)
 
-        if exec_name not in self.request.path:
-            # dont allow that /mainaaaa open /main.aaaa
-            raise NotFound()
+        # if exec_name not in self.request.path:
+        #     # dont allow that /mainaaaa open /main.aaaa
+        #     import pdb; pdb.set_trace()
+        #     raise NotFound()
         return exec_names
 
     def process_request(self) -> "Processor":

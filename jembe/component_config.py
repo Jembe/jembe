@@ -183,9 +183,9 @@ def listener(
 
             - None -> events from any component
             - *                               -> direct children with or without key
-            - \*.\*                             -> direct children with any key
+            - *.*                             -> direct children with any key
             - **/*                            -> all children with or without key
-            - **/\*.\*                          -> all children with any key
+            - **/*.*                          -> all children with any key
             - component                       -> match to direct child named "component" without key
             - component.*                     -> match to direct child named "component" with any key
             - component.key                   -> match to direct child named "component with key equals "key"
@@ -193,7 +193,7 @@ def listener(
             - ..                                -> match to parent component
             - ../component[.[*|<key>]]          -> match to sibling
             - /**/.                             -> match to parent at any level
-            - /\*\*/component[.[*|<key>]]/\*\*/.    -> match to parent at any level named "component"
+            - /**/component[.[*|<key>]]/**/.    -> match to parent at any level named "component"
             - //                                -> process event from root/page component
             - .                                 -> self
 
@@ -399,7 +399,7 @@ def componentConfigInitDecorator(init_method):
                         },
                     )
             except Exception as e:
-                print("Error in {kwargs} __init__: {e}")
+                print(f"Error in {kwargs} __init__: {e}\n\n")
                 raise e
         else:
             # Component config is used inside @config or @page decorator
@@ -454,12 +454,17 @@ class ComponentConfig(metaclass=ComponentConfigMeta):
         Instance creation by explicitly calling __new__ and __init__
         becouse _parent should be avaible in __init__
         """
-        cconfig = object.__new__(cls)
-        cconfig._name = _name
-        cconfig._component_class = _component_class
-        cconfig._parent = _parent
-        cconfig._jembe_prepare_component_init()
-        cconfig.__init__(**init_params)  # type:ignore
+        try:
+            cconfig = object.__new__(cls)
+            cconfig._name = _name
+            cconfig._component_class = _component_class
+            cconfig._parent = _parent
+            cconfig._jembe_prepare_component_init()
+            cconfig.__init__(**init_params)  # type:ignore
+        except Exception as err:
+            # Add place of the error for debuging purpuse
+            err.args = (f"Error in: {_component_class}", ) + err.args
+            raise err
         return cconfig
 
     def _jembe_prepare_component_init(self):

@@ -387,42 +387,55 @@ class ComponentReference:
     def execute(self):
         """Calls all necessary init, display and call components to execute this component reference
         inside current jembe processor.
+
+        When executing chained component references first call all initialise and then all action
+        commands in reverse order to avoid unecessary component renderes/displays.
         """
         if self.exec_name in self.processor.components_marked_for_removal:
             raise JembeError(
                 f"Cant display component '{self.exec_name}' marked for removal in parent component template!"
             )
-        if self.parent_reference != self:
-            self.parent_reference.execute()
+        current_reference = self
+        reference_chain = [current_reference]
+        while current_reference.parent_reference != current_reference:
+            current_reference = current_reference.parent_reference
+            reference_chain.append(current_reference)
+        reference_chain.reverse()
 
-        self.processor.add_command(
-            InitialiseCommand(self.exec_name, self.kwargs, self.merge_existing_params),
-            end=True,
-        )
-        # self._component_instance = None  # stop using component from is_accessible check
-
-        # call action command is put in que to be executed latter
-        # if this command raises exception parent should chach it and call display
-        # with appropriate template
-        if self.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
-            self.processor.add_command(
-                CallDisplayCommand(
-                    self.exec_name,
-                    not self.merge_existing_params,
-                    displayed_by_exec_name=self.caller_exec_name,
-                ),
-                end=True,
+        init_commands = []
+        action_commands = []
+        for creference in reference_chain:
+            init_commands.append(
+                InitialiseCommand(
+                    creference.exec_name,
+                    creference.kwargs,
+                    creference.merge_existing_params,
+                )
             )
-        else:
-            self.processor.add_command(
-                CallActionCommand(
-                    self.exec_name,
-                    self.action,
-                    self.action_args,
-                    self.action_kwargs,
-                ),
-                end=True,
-            )
+            # call action command is put in que to be executed latter
+            # if this command raises exception parent should chach it and call display
+            # with appropriate template
+            if creference.action == ComponentConfig.DEFAULT_DISPLAY_ACTION:
+                action_commands.append(
+                    CallDisplayCommand(
+                        creference.exec_name,
+                        not creference.merge_existing_params,
+                        displayed_by_exec_name=creference.caller_exec_name,
+                    )
+                )
+            else:
+                action_commands.append(
+                    CallActionCommand(
+                        creference.exec_name,
+                        creference.action,
+                        creference.action_args,
+                        creference.action_kwargs,
+                    )
+                )
+        for init_cmd in init_commands:
+            self.processor.add_command(init_cmd, end=True)
+        for act_cmd in reversed(action_commands):
+            self.processor.add_command(act_cmd, end=True)
 
     def __call__(self) -> str:
         """
@@ -866,7 +879,9 @@ class Component(metaclass=ComponentMeta):
         return value
 
     @classmethod
-    def load_init_param(cls, config: "jembe.ComponentConfig", name: str, value: Any) -> Any:
+    def load_init_param(
+        cls, config: "jembe.ComponentConfig", name: str, value: Any
+    ) -> Any:
         """
         load and Decode init/state param received via json call to be uset to initialise in __init__.
         param_value is decoded from json received from client.
@@ -1152,7 +1167,7 @@ class Component(metaclass=ComponentMeta):
 
         # Creates new commands to init and display for redirect components
         # and puts in processenig que
-        component_ref()
+        component_ref.execute()
 
     def ac_allow(self, *action_names):
         """

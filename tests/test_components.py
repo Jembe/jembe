@@ -2298,9 +2298,9 @@ def test_redirect_to(jmb, client):
     json_response = json.loads(r.data)
     assert r.status_code == 200
     assert len(json_response) == 3
-    assert json_response[0]["execName"] == "/page"
-    assert json_response[0]["state"] == dict(display_mode="a2")
-    assert json_response[1]["execName"] == "/page/a2"
+    assert json_response[1]["execName"] == "/page"
+    assert json_response[1]["state"] == dict(display_mode="a2")
+    assert json_response[0]["execName"] == "/page/a2"
     assert json_response[2]["execName"] == "/page/a2/b"
     r = client.post(
         "/page/a1",
@@ -2327,9 +2327,10 @@ def test_redirect_to(jmb, client):
     json_response = json.loads(r.data)
     assert r.status_code == 200
     assert len(json_response) == 3
-    assert json_response[0]["execName"] == "/page"
-    assert json_response[0]["state"] == dict(display_mode="a2")
-    assert json_response[1]["execName"] == "/page/a2"
+    print(json_response)
+    assert json_response[1]["execName"] == "/page"
+    assert json_response[1]["state"] == dict(display_mode="a2")
+    assert json_response[0]["execName"] == "/page/a2"
     assert json_response[2]["execName"] == "/page/a2/b"
 
 
