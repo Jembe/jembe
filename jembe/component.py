@@ -311,12 +311,40 @@ class ComponentReference:
 
     @cached_property
     def jrl(self) -> str:
+        """JRL of this component reference"""
         if not self.is_accessible:
             raise NotFound()
+        return self._calculate_jrl()
+
+    @cached_property
+    def jrl_absolute(self) -> str:
+        """JRL of this component reference including full component exec_name
+
+        Usefull for generating links that can be passed and displayed by
+        other components.
+        """
+        if not self.is_accessible:
+            raise NotFound()
+        return self._calculate_jrl(True)
+
+    def _calculate_jrl(self, is_absolute: bool = False) -> str:
+        """Returns jrl of the component reference
+
+        Absolute jrl are in form $jmb.component(exec_name).call(action) even
+        if action is on current component. Thay are usefull when link is
+        created by one and passed to other component to be rendered in HTML.
+
+        - is_absolute(bool): Should JRL include exec_path of the component.
+          Default False.
+        """
+        name = self.name
+        if is_absolute and name == ".":
+            name = self.exec_name
+
         jrl = (
             "component{reset}('{name}'{kwargs}{key})".format(
                 reset="_reset" if not self.merge_existing_params else "",
-                name=self.name,
+                name=name,
                 key=f",key='{self.key}'" if self._key else "",
                 kwargs=",{}".format(
                     re.sub(
@@ -328,7 +356,7 @@ class ComponentReference:
                 if self.state_kwargs
                 else "",
             )
-            if self.name != "."
+            if name != "."
             else ""
         )
         jrl += (
