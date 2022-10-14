@@ -385,6 +385,10 @@ class CallListenerCommand(Command):
         self.event = event
 
     def execute(self):
+        if self.component_exec_name in self.processor.components_marked_for_removal:
+            # Listener should not be executed on components marked for removal
+            return None
+
         component = self.processor.components[self.component_exec_name]
         cconfig = component._config
         if self.listener_name not in cconfig.component_listeners:
