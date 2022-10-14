@@ -114,6 +114,11 @@ class Command(ABC):
         self.processor: "Processor"
         self.is_mounted = False
 
+        # Flag to defer execution.
+        # Deferred command are executed after all other commad in processor que
+        # this flag is check only when command is added to quey
+        self.is_deferred = False
+
     def mount(self: TCommand, processor: "Processor") -> TCommand:
         if self.is_mounted:
             raise JembeError("Command {} is already mounted".format(self.__repr__()))
@@ -408,8 +413,10 @@ class CallListenerCommand(Command):
         if listener_result is None:
             # - None: component should be redisplayed only if state is changed in listener
             if component_begining_state != component.state.tojsondict(component, True):
-                self.processor.add_command( CallDisplayCommand(component.exec_name), end=True)
-        elif (isinstance(listener_result, bool) and listener_result == True):
+                self.processor.add_command(
+                    CallDisplayCommand(component.exec_name), end=True
+                )
+        elif isinstance(listener_result, bool) and listener_result == True:
             # - True: component should be forced to redisplayed itself
             self.processor.add_command(
                 CallDisplayCommand(component.exec_name, force=True),
@@ -973,6 +980,8 @@ class CommandsQue:
                     )
                 )
             is_deferred_command = caction.deferred
+        elif isinstance(command, EmitCommand) and command.is_deferred:
+            is_deferred_command = True
 
         if is_deferred_command:
             _do_add_command(self.deferred_commands, command, end)
@@ -982,7 +991,7 @@ class CommandsQue:
     def move_commands_to(self, que: Deque["Command"]) -> None:
         """Moves commands from staging que to execution que"""
         while self.deferred_commands:
-            que.append(self.deferred_commands.popleft())
+            que.appendleft(self.deferred_commands.popleft())
         while self.commands:
             que.append(self.commands.popleft())
 

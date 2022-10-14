@@ -1122,9 +1122,22 @@ class Component(metaclass=ComponentMeta):
             f'<template jmb-placeholder-permanent="{self.exec_name}/{_jmb_copmonent_name}"></template>'
         )
 
-    def emit(self, _jmb_event_name: str, **params) -> "EmitCommand":
+    def emit(
+        self, _jmb_event_name: str, _deferred: bool = False, **params
+    ) -> "EmitCommand":
+        """Emits event with message to other components
+
+        Args:
+            _jmb_event_name (str): event name
+            _as_last (bool, optional): Emit event las when all other commands are executed. Defaults to False.
+            params: message parametes passed to reciving components
+
+        Returns:
+            EmitCommand: _description_
+        """
         processor = get_processor()
         emmit_command = EmitCommand(self.exec_name, _jmb_event_name, params)
+        emmit_command.is_deferred = _deferred
         processor.add_command(emmit_command)
         return emmit_command
 
