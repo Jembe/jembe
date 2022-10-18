@@ -1156,11 +1156,7 @@ class Processor:
                 component_full_name, list()
             )
 
-            self.add_command(
-                CallDisplayCommand(exec_names[-1]),
-                end=True,
-            )
-            for exec_name in exec_names[:-1]:
+            for exec_name in reversed(exec_names):
                 self.add_command(
                     CallDisplayCommand(exec_name),
                     end=True,
