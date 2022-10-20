@@ -477,7 +477,7 @@ class ComponentReference:
         return Markup(f'<template jmb-placeholder="{self.exec_name}"></template>')
 
     def key(self, key: str) -> "jembe.ComponentReference":
-        self._key = key
+        self._key = str(key)
         return self
 
     def call(self, action: str, *args, **kwargs) -> "jembe.ComponentReference":
