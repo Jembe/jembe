@@ -277,7 +277,7 @@ def _decode_str_to_type(ttype, value: str):
 
 def _dump_load_unspecified_warning(ttype):
     current_app.logger.warning(
-        "Do not use '{ttype}' annotation for component state params "
+        f"Do not use '{ttype}' annotation for component state params "
         "you should be more specific in other to enable proper transformation"
         "into and out json"
     )
