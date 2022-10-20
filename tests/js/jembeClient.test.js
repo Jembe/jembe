@@ -1021,3 +1021,50 @@ test('update input value with x-response', () => {
   </body></html>`
   )
 })
+test('call same action multiple times with defered execution', () => {
+  buildDocument(`
+    <html jmb-name="/page" jmb-data='{"changesUrl":true,"state":{},"url":"/page","actions":{"submit":true}}'>
+      <head>
+      </head>
+      <body>
+        <div jmb-name="/page/tasks" 
+             jmb-data='{"changesUrl":true,"state":{"page":0,"page_size":10,"filter":null},"url":"/page/tasks","actions":{}}'>
+             Tasks
+        </div>
+      </body>
+    </html>
+  `)
+  window.jembeClient.addInitialiseCommand(
+    "/page/tasks",
+    { "page": 1, }
+  )
+  window.jembeClient.addCallCommand("/page/tasks", "submit", [], {})
+  window.jembeClient.addInitialiseCommand(
+    "/page/tasks",
+    { "page_size": 5 }
+  )
+  window.jembeClient.addCallCommand("/page/tasks", "submit", [], {})
+  expect(window.jembeClient.getXRequestJson()).toBe(JSON.stringify(
+    {
+      "components": [
+        { "execName": "/page", "state": {} },
+        { "execName": "/page/tasks", "state": { "page": 0, "page_size": 10, "filter": null } },
+      ],
+      "commands": [
+        {
+          "type": "init",
+          "componentExecName": "/page/tasks",
+          "initParams": { "page": 1, "page_size": 5, "filter": null },
+          "mergeExistingParams": true
+        },
+        {
+          "type": "call",
+          "componentExecName": "/page/tasks",
+          "actionName": "submit",
+          "args": [],
+          "kwargs": {}
+        }
+      ]
+    }
+  ))
+})
