@@ -1137,13 +1137,20 @@ class Processor:
             # init commands
             updated_init_commands_execnames: List[str] = []
             call_commands_execnames: List[str] = []
+            non_init_commands = []
             for command_data in data["commands"]:
                 command = self._x_jembe_command_factory(command_data)
-                self.add_command(command, end=True)
+                if isinstance(command, InitialiseCommand):
+                    self.add_command(command, end=True)
+                else:
+                    non_init_commands.append(command)
                 if isinstance(command, InitialiseCommand):
                     updated_init_commands_execnames.append(command.component_exec_name)
                 elif isinstance(command, CallActionCommand):
                     call_commands_execnames.append(command.component_exec_name)
+
+            for command in non_init_commands:
+                self.add_command(command, end=True)
             # find all init commands without coresponding call or display command
             self._hanging_init_commands_execnames = [
                 c
