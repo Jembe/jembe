@@ -1,4 +1,14 @@
-from typing import TYPE_CHECKING, Union, Tuple, Type, Dict, Any, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Union,
+    Tuple,
+    Type,
+    Dict,
+    Any,
+    get_args,
+    get_origin,
+    Protocol,
+)
 import re
 import collections
 import inspect
@@ -11,6 +21,13 @@ from jembe.exceptions import JembeError
 
 if TYPE_CHECKING:  # pragma: no cover
     import jembe
+
+
+class IsDataclass(Protocol):
+    """Protocol for mypy to check if type is dataclass"""
+
+    __dataclas_fields__: Dict
+
 
 ComponentRef = Union[
     Union[Type["jembe.Component"], str],
@@ -146,11 +163,13 @@ def dump_param(annotation, value: Any) -> Any:
         return value
     elif _eq_type(source_type, date, datetime):
         return value.isoformat()
-    elif is_dataclass(source_type):
+    elif is_dataclass(source_type) or source_type == IsDataclass:
         return asdict(value)
     elif source_type == Any:
         _dump_load_unspecified_warning(source_type)
         return value
+    print(source_type)
+    import pdb; pdb.set_trace()
     raise JembeError(f"Unsupported state/init param type {source_type}:{value}")
 
 

@@ -9,7 +9,7 @@ from .app import (
     get_temp_storage,
 )
 from .component import Component, ComponentReference
-from .common import JembeInitParamSupport, ComponentRef, DisplayResponse
+from .common import JembeInitParamSupport, ComponentRef, DisplayResponse, IsDataclass
 from .component_config import config, action, listener, redisplay, UrlPath, ComponentConfig, RedisplayFlag
 from .processor import Event
 from .exceptions import (
@@ -66,4 +66,5 @@ __all__ = (
     "DiskStorage",
     "page_url",
     "run_only_once",
+    "IsDataclass",
 )
