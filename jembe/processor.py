@@ -1039,6 +1039,9 @@ class Processor:
         # direct response if component display returns it
         self._response: Optional["Response"] = None
 
+        # globals
+        self.call_window_open: List[str] = []
+
         # List of init commands without coresponding call command that
         # need to be checked for redisplay depending of other redisplayed compoents
         # on page (when processing x-jembe request)
@@ -1587,13 +1590,15 @@ class Processor:
                             },
                         )
                     )
-            if self.components_marked_for_removal:
-                ajax_responses.append(
-                    dict(
-                        globals=True,
-                        removeComponents=self.components_marked_for_removal,
-                    )
+            if self.components_marked_for_removal or self.call_window_open:
+                globals = dict(
+                    globals=True,
                 )
+                if self.components_marked_for_removal:
+                    globals["removeComponents"] = self.components_marked_for_removal
+                if self.call_window_open:
+                    globals["callWindowOpen"] = self.call_window_open
+                ajax_responses.append(globals)
             return jsonify(ajax_responses)
         else:
             # for page with components build united response

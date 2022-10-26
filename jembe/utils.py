@@ -2,6 +2,7 @@ from functools import wraps
 from typing import List, Dict, Any, Optional
 from jembe.common import exec_name_to_full_name
 from jembe.exceptions import JembeError
+from jembe.app import get_processor
 from flask import url_for
 
 
@@ -108,3 +109,7 @@ def run_only_once(_method=None, *, for_state: Optional[str] = None):
         return decorator
     else:
         return decorator(_method)
+
+def call_window_open(url:str):
+    processor = get_processor()
+    processor.call_window_open.append(url)

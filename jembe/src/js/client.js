@@ -303,6 +303,7 @@ class JembeClient {
     let components = {};
     let globals = {
       removeComponents: [],
+      callWindowOpen:[],
     };
     for (const xComp of xJembeResponse) {
       if (Object.keys(xComp).includes("globals")) {
@@ -311,6 +312,8 @@ class JembeClient {
         globals = {
           removeComponents:
             xComp.removeComponents !== undefined ? xComp.removeComponents : [],
+          callWindowOpen:
+            xComp.callWindowOpen !== undefined ? xComp.callWindowOpen : [],
         };
       } else {
         const dom = xComp.dom;
@@ -435,6 +438,10 @@ class JembeClient {
     }
     for (const rmExecName of removedComponents) {
       delete newComponents[rmExecName];
+    }
+    // call window open from globals.callWindowOpen
+    for (const  url of globals.callWindowOpen) {
+      window.open(url,"_blank");
     }
 
     this.components = newComponents;

@@ -26,7 +26,7 @@ from .exceptions import (
     JembeError
 )
 from .files import File, Storage, DiskStorage
-from .utils import page_url, run_only_once
+from .utils import page_url, run_only_once, call_window_open
 
 __all__ = (
     "Jembe",
@@ -66,5 +66,6 @@ __all__ = (
     "DiskStorage",
     "page_url",
     "run_only_once",
+    "call_window_open",
     "IsDataclass",
 )
