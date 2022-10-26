@@ -633,13 +633,13 @@ class DiskStorage(Storage):
         elif isinstance(file, IOBase):
             if filename is None:
                 raise ValueError(
-                    "Storge '{}': Filename is required when storing BufferedIOBase".format(
+                    "Storage '{}': Filename is required when storing BufferedIOBase".format(
                         self.name
                     )
                 )
             sfn = self._get_unique_filename(filename, subdir)
             os.makedirs(os.path.join(self.folder, subdir), exist_ok=True)
-            new_file = File(self, os.path.join(self.folder, subdir, sfn))
+            new_file = File(self, os.path.join(subdir, sfn))
             if isinstance(file, (BufferedIOBase, RawIOBase)):
                 fio = new_file.open(mode="wb")
                 file.seek(0)

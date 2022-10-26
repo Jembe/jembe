@@ -169,7 +169,9 @@ def dump_param(annotation, value: Any) -> Any:
         _dump_load_unspecified_warning(source_type)
         return value
     print(source_type)
-    import pdb; pdb.set_trace()
+    import pdb
+
+    pdb.set_trace()
     raise JembeError(f"Unsupported state/init param type {source_type}:{value}")
 
 
@@ -248,6 +250,8 @@ def load_param(annotation, value: Any) -> Any:
         return dataclass_from_dict(target_type, value)
     elif target_type == Any:
         _dump_load_unspecified_warning(Any)
+        return value
+    elif isinstance(value, str):
         return value
     raise JembeError(f"Unsupported state/init param type {target_type}:{value}")
 
