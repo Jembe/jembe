@@ -375,9 +375,7 @@ class Jembe:
         try:
             return next(s for s in self._storages.values() if s.type == storage_type)
         except StopIteration:
-            raise JembeError(
-                f"Storage of type '{storage_type.value}' does not exist"
-            )
+            raise JembeError(f"Storage of type '{storage_type.value}' does not exist")
 
     def get_storages(self) -> List["jembe.Storage"]:
         """Returns list of all configured Jembe storages"""
@@ -439,7 +437,7 @@ def get_storage(storage_name: str) -> "jembe.Storage":
     """
     try:
         return get_processor().jembe.get_storage(storage_name)
-    except JembeError:
+    except (JembeError, RuntimeError):
         # cant get processor becouse we are not in valid requst context
         # return storage of default jembe app
         return get_jembe().get_storage(storage_name)
@@ -447,7 +445,10 @@ def get_storage(storage_name: str) -> "jembe.Storage":
 
 def get_storages() -> List["jembe.Storage"]:
     """Returns list of all registred Storages in current Jembe instance"""
-    return get_processor().jembe.get_storages()
+    try:
+        return get_processor().jembe.get_storages()
+    except (JembeError, RuntimeError):
+        return get_jembe().get_storages()
 
 
 def get_temp_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
@@ -461,7 +462,12 @@ def get_temp_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     """
     from .files import Storage
 
-    return get_processor().jembe.get_storage_by_type(Storage.Type.TEMP, storage_name)
+    try:
+        return get_processor().jembe.get_storage_by_type(
+            Storage.Type.TEMP, storage_name
+        )
+    except (JembeError, RuntimeError):
+        return get_jembe().get_storage_by_type(Storage.Type.TEMP, storage_name)
 
 
 def get_public_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
@@ -475,7 +481,12 @@ def get_public_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     """
     from .files import Storage
 
-    return get_processor().jembe.get_storage_by_type(Storage.Type.PUBLIC, storage_name)
+    try:
+        return get_processor().jembe.get_storage_by_type(
+            Storage.Type.PUBLIC, storage_name
+        )
+    except (JembeError, RuntimeError):
+        return get_jembe().get_storage_by_type(Storage.Type.PUBLIC, storage_name)
 
 
 def get_private_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
@@ -489,7 +500,12 @@ def get_private_storage(storage_name: Optional[str] = None) -> "jembe.Storage":
     """
     from .files import Storage
 
-    return get_processor().jembe.get_storage_by_type(Storage.Type.PRIVATE, storage_name)
+    try:
+        return get_processor().jembe.get_storage_by_type(
+            Storage.Type.PRIVATE, storage_name
+        )
+    except (JembeError, RuntimeError):
+        return get_jembe().get_storage_by_type(Storage.Type.PRIVATE, storage_name)
 
 
 def jembe_master_view(**kwargs) -> "Response":

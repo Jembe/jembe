@@ -116,25 +116,22 @@ class File(JembeInitParamSupport):
             "/".join((temp_subdir, subdir)) if subdir is not None else temp_subdir,
         )
 
-    def move_to_public(self, subdir: str = ""):
+    def move_to_public(self, subdir: str = "") -> "jembe.File":
         file = self.move_to(get_public_storage(), subdir)
-        self.storage = file.storage
-        self.path = file.path
+        return file
 
-    def move_to_private(self, subdir: str = ""):
+    def move_to_private(self, subdir: str = "") -> "jembe.File":
         file = self.move_to(get_private_storage(), subdir)
         file.grant_access()
-        self.storage = file.storage
-        self.path = file.path
+        return file
 
-    def move_to_temp(self, subdir: Optional[str] = None):
+    def move_to_temp(self, subdir: Optional[str] = None) -> "jembe.File":
         temp_subdir = self.storage._get_default_temp_subdir()
         file = self.move_to(
             get_temp_storage(),
             "/".join((temp_subdir, subdir)) if subdir is not None else temp_subdir,
         )
-        self.storage = file.storage
-        self.path = file.path
+        return file
 
     def remove(self):
         self.storage.remove(self.path)
@@ -211,6 +208,9 @@ class File(JembeInitParamSupport):
 
     def __hash__(self) -> int:
         return hash((self.storage, self.path))
+
+    def __copy__(self) -> "jembe.File":
+        return File(self.storage, self.path)
 
 
 class Storage(ABC):
