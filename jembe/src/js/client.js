@@ -1,7 +1,7 @@
 import ComponentAPI from "./componentApi/index.js";
 import { deepCopy, walkComponentDom, getCookie } from "./utils.js";
 import morphdom from "./morphdom/index.js";
-import { walk } from "./componentApi/utils.js";
+import { walk, saferEvalNoReturn } from "./componentApi/utils.js";
 import JMB from "./componentApi/magic/jmb.js";
 
 /**
@@ -143,7 +143,23 @@ class ComponentRef {
         if (fromEl.hasAttribute("jmb-ignore")) {
           return false;
         }
-
+        return true;
+      },
+      onBeforeNodeDiscarded: (node) => {
+        // consolo leog in jmb-on-remove:
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          let removes = node.querySelectorAll("[jmb-on-remove]");
+          for (const rnode of removes) {
+            saferEvalNoReturn(
+              rnode,
+              rnode.getAttribute("jmb-on-remove"),
+              {},
+              {
+                $self: rnode,
+              }
+            );
+          }
+        }
         return true;
       },
       childrenOnly: this.isPageComponent,
@@ -303,7 +319,7 @@ class JembeClient {
     let components = {};
     let globals = {
       removeComponents: [],
-      callWindowOpen:[],
+      callWindowOpen: [],
     };
     for (const xComp of xJembeResponse) {
       if (Object.keys(xComp).includes("globals")) {
@@ -440,8 +456,8 @@ class JembeClient {
       delete newComponents[rmExecName];
     }
     // call window open from globals.callWindowOpen
-    for (const  url of globals.callWindowOpen) {
-      window.open(url,"_blank");
+    for (const url of globals.callWindowOpen) {
+      window.open(url, "_blank");
     }
 
     this.components = newComponents;
@@ -530,7 +546,7 @@ class JembeClient {
         JSON.stringify(x.kwargs) === JSON.stringify(kwargs)
     );
     if (exisitingCallIndex >= 0) {
-      this.commands.splice(exisitingCallIndex,1)
+      this.commands.splice(exisitingCallIndex, 1);
     }
     this.commands.push({
       type: "call",
