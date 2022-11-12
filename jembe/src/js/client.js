@@ -785,8 +785,10 @@ class JembeClient {
       for (const comp of event.state) {
         this.jembeClient.addInitialiseCommand(comp.execName, comp.state);
       }
-      for (const comp of event.state) {
-        this.jembeClient.addCallCommand(comp.execName, "display");
+      let execNames = event.state.map(x => x.execName)
+      execNames = execNames.sort((a,b) => b.split("/").length - a.split("/").length)
+      for (const en of execNames) {
+        this.jembeClient.addCallCommand(en, "display");
       }
       this.jembeClient.executeCommands(true, false);
     }
