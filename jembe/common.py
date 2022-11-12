@@ -135,7 +135,10 @@ def dump_param(annotation, value: Any) -> Any:
         if len(targs) == 0:
             _dump_load_unspecified_warning(source_type)
             return value
-        return list(dump_param(targs[0], item) for item in value)
+        if len(targs) == len(value):
+            return list(dump_param(targs[idx], item) for idx, item in enumerate(value))
+        else:
+            return list(dump_param(targs[0], item) for item in value)
     elif _eq_type(source_type, dict):
         targs = get_args(source_type)
         if len(targs) < 2:
@@ -164,14 +167,11 @@ def dump_param(annotation, value: Any) -> Any:
     elif _eq_type(source_type, date, datetime):
         return value.isoformat()
     elif is_dataclass(source_type) or source_type == IsDataclass:
-        return asdict(value)
+        fieldtypes = value.__class__.__annotations__
+        return  {k:dump_param(fieldtypes[k], v) for k,v in asdict(value).items()}
     elif source_type == Any:
         _dump_load_unspecified_warning(source_type)
         return value
-    print(source_type)
-    import pdb
-
-    pdb.set_trace()
     raise JembeError(f"Unsupported state/init param type {source_type}:{value}")
 
 
@@ -288,7 +288,7 @@ def dataclass_from_dict(klass, dikt):
     except AttributeError:
         if isinstance(dikt, (tuple, list)):
             return [dataclass_from_dict(klass.__args__[0], f) for f in dikt]
-        return dikt
+        return load_param(klass, dikt)
 
 
 def _decode_str_to_type(ttype, value: str):
