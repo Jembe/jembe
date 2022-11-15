@@ -32,7 +32,7 @@ class UploadFilesComponent(Component):
 
     This component is only component that directly interecat with
     http post request in order to obtain files from it.
-    It does not uses state parama.
+    It does not uses state params.
 
     Basicaly this component create state params of file instances for other
     components so that thay can use file as init/state param.

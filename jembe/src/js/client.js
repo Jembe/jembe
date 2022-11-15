@@ -625,9 +625,9 @@ class JembeClient {
     }
     return fd;
   }
-  getXRequestJson() {
+  getXRequestJson(addComponents = true) {
     return JSON.stringify({
-      components: Object.values(this.components).map((x) => x.toJsonRequest()),
+      components: addComponents? Object.values(this.components).map((x) => x.toJsonRequest()) : [],
       commands: this.commands,
     });
   }
@@ -681,13 +681,13 @@ class JembeClient {
         return json.fileUploadResponseId;
       });
   }
-  executeCommands(disableInputs = true, updateLocation = true) {
+  executeCommands(disableInputs = true, updateLocation = true, addComponents = true) {
     const url =
       this.xRequestUrl !== null ? this.xRequestUrl : window.location.href;
     this.dispatchStartUpdatePageEvent(true, disableInputs);
     this.executeUpload()
       .then((fileUploadResponseId) => {
-        const requestBody = this.getXRequestJson();
+        const requestBody = this.getXRequestJson(addComponents);
         // reset commads since we create request body from it
         this.commands = [];
         const headers =
@@ -765,10 +765,11 @@ class JembeClient {
         topComponent = component;
         level = component.hierarchyLevel;
       }
-      historyState.push({
-        execName: component.execName,
-        state: component.state,
-      });
+      // historyState.push({
+      //   execName: component.execName,
+      //   state: component.state,
+      // });
+      historyState.push(component.toJsonRequest());
     }
     if (topComponent !== null) {
       if (replace) {
@@ -783,14 +784,16 @@ class JembeClient {
       window.location = document.location;
     } else {
       for (const comp of event.state) {
-        this.jembeClient.addInitialiseCommand(comp.execName, comp.state);
+        this.jembeClient.addInitialiseCommand(comp.execName, comp.state, false);
       }
-      let execNames = event.state.map(x => x.execName)
-      execNames = execNames.sort((a,b) => b.split("/").length - a.split("/").length)
+      let execNames = event.state.map((x) => x.execName);
+      execNames = execNames.sort(
+        (a, b) => b.split("/").length - a.split("/").length
+      );
       for (const en of execNames) {
         this.jembeClient.addCallCommand(en, "display");
       }
-      this.jembeClient.executeCommands(true, false);
+      this.jembeClient.executeCommands(true, false, false);
     }
   }
   /**
