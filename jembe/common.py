@@ -135,7 +135,7 @@ def dump_param(annotation, value: Any) -> Any:
         if len(targs) == 0:
             _dump_load_unspecified_warning(source_type)
             return value
-        if len(targs) == len(value):
+        if len(targs) == len(value) and not (len(targs) == 2 and targs[1] == Ellipsis):
             return list(dump_param(targs[idx], item) for idx, item in enumerate(value))
         else:
             return list(dump_param(targs[0], item) for item in value)
