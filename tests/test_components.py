@@ -1507,8 +1507,6 @@ def test_dont_fire_listener_for_system_events_if_not_set_explicitly(jmb, client)
 
     @jmb.page("page", Component.Config(components=dict(a=A)))
     class Page(Component):
-
-
         @redisplay(when_executed=True)
         def display(self) -> "DisplayResponse":
             return self.render_template_string(
@@ -2852,7 +2850,72 @@ def test_update_subcomponent_when_using_inject_into(jmb, client):
         == """<div>2 <template jmb-placeholder-permanent="/main/a/b"></template></div>"""
     )
     assert res[1]["execName"] == "/main/a/b"
+    assert res[1]["dom"] == """<div>2</div>"""
+
+
+def test_listen_for_event(jmb, client):
+    class Child(Component):
+        @action
+        def emit_ok(self):
+            print("emiting ok")
+            self.emit("ok")
+
+    @jmb.page("main")
+    class CPage(Component):
+        class Config(Component.Config):
+            def __init__(
+                self,
+            ):
+                super().__init__(
+                    template=None,
+                    components={"info": Child, "upload":Component},
+                    inject_into_components=None,
+                    redisplay=(),
+                    changes_url=False,
+                    url_query_params=None,
+                )
+
+        def init(self):
+            self.ok = False
+            return super().init()
+
+        @listener(event="ok", source="info")
+        def on_ok(self, event: "jembe.Event"):
+            self.ok = True
+            return True
+
+        def display(self) -> "jembe.DisplayResponse":
+            return self.render_template_string(
+                "<div>{% if ok %}OK{% endif %}{{ component('info') }}</div>"
+            )
+
+    r = client.post(
+        "/main",
+        data=json.dumps(
+            dict(
+                components=[
+                    dict(execName="/main", state=dict()),
+                    dict(execName="/main/info", state=dict()),
+                ],
+                commands=[
+                    dict(
+                        type="call",
+                        componentExecName="/main/info",
+                        actionName="emit_ok",
+                        args=list(),
+                        kwargs=dict(),
+                    ),
+                ],
+            )
+        ),
+        headers={"x-jembe": True},
+    )
+    assert r.status_code == 200
+    res = json.loads(r.data)
+    print(res)
+    assert len(res) == 1
+    assert res[0]["execName"] == "/main"
     assert (
-        res[1]["dom"]
-        == """<div>2</div>"""
+        res[0]["dom"]
+        == """<div>OK<template jmb-placeholder="/main/info"></template></div>"""
     )

@@ -281,6 +281,7 @@ class JembeClient {
 
     this.xRequestsInProgress = 0;
     this.xRequestActiveElement = null;
+    this.xRequestActiveElementId = null;
     this.xRequestDisabledElements = [];
     this.disableInputBeforeRequestTimeoutId = null;
 
@@ -627,7 +628,9 @@ class JembeClient {
   }
   getXRequestJson(addComponents = true) {
     return JSON.stringify({
-      components: addComponents? Object.values(this.components).map((x) => x.toJsonRequest()) : [],
+      components: addComponents
+        ? Object.values(this.components).map((x) => x.toJsonRequest())
+        : [],
       commands: this.commands,
     });
   }
@@ -681,7 +684,11 @@ class JembeClient {
         return json.fileUploadResponseId;
       });
   }
-  executeCommands(disableInputs = true, updateLocation = true, addComponents = true) {
+  executeCommands(
+    disableInputs = true,
+    updateLocation = true,
+    addComponents = true
+  ) {
     const url =
       this.xRequestUrl !== null ? this.xRequestUrl : window.location.href;
     this.dispatchStartUpdatePageEvent(true, disableInputs);
@@ -862,6 +869,7 @@ class JembeClient {
     // save currently focused element
     if (this.document.activeElement !== null) {
       this.xRequestActiveElement = this.document.activeElement;
+      this.xRequestActiveElementId = this.document.activeElement.id;
     }
     // walk over whole document and disable inputs
     walk(this.document.documentElement, (node) => {
@@ -929,7 +937,15 @@ class JembeClient {
       this.document.contains(this.xRequestActiveElement)
     ) {
       this.xRequestActiveElement.focus();
+    } else if (this.xRequestActiveElementId !== null) {
+      const focusedById = this.document.getElementById(
+        this.xRequestActiveElementId
+      );
+      if (focusedById !== null) {
+        focusedById.focus();
+      }
     }
+
     this.xRequestActiveElement = null;
   }
   addXRequestHeaderGenerator(callback) {
