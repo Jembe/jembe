@@ -1442,7 +1442,7 @@ class Processor:
             self.components = backup_current_components
             if current_app.debug or current_app.testing:
                 current_app.logger.warning(
-                    "Exception when initialising component out of proccessing que {}: {}".format(
+                    "DEBUG: Exception when initialising component out of proccessing que {}: {}".format(
                         command, exc.__repr__()
                     )
                 )
