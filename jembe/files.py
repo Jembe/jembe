@@ -89,6 +89,10 @@ class File(JembeInitParamSupport):
     def basename(self) -> str:
         return self.storage.basename(self.path)
 
+    @property
+    def dirname(self) -> str:
+        return self.storage.dirname(self.path)
+
     def copy_to(
         self, storage: Union["jembe.Storage", str], subdir: str = ""
     ) -> "jembe.File":
@@ -559,6 +563,10 @@ class Storage(ABC):
     def basename(self, path: str) -> str:
         raise NotImplementedError()
 
+    @abstractmethod
+    def dirname(self, path: str) -> str:
+        raise NotImplementedError()
+
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, Storage):
             return False
@@ -679,6 +687,9 @@ class DiskStorage(Storage):
 
     def basename(self, path: str) -> str:
         return os.path.basename(path)
+
+    def dirname(self, path: str) -> str:
+        return os.path.dirname(path)
 
     def open_raw(
         self,
